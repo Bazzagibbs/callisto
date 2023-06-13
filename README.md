@@ -16,16 +16,16 @@ package main
 include "callisto"
 
 main :: proc() {
-  callisto.init()
-  defer callisto.shutdown()
+    callisto.init()
+    defer callisto.shutdown()
 
-  for callisto.should_loop() {
-    loop()
-  }  
+    for callisto.should_loop() {
+        loop()
+    }  
 }
 
 loop :: proc() {
-  // gameplay code here
+    // gameplay code here
 }
 ```
 
@@ -39,13 +39,13 @@ include "callisto"
 include "core:log"
 
 main :: proc() {
-  // ...
+    // ...
 
-  // context.logger only needs to be set once at the outermost scope of your application, 
-  // e.g. the entry point
-  context.logger = callisto.logger
+    // context.logger only needs to be set once at the outermost scope of your application, 
+    // e.g. the entry point
+    context.logger = callisto.logger
 
-  log.debug("Hellope!")
+    log.debug("Hellope!")
 }
 ```
 
@@ -53,12 +53,12 @@ main :: proc() {
 ## Project Plan
 
 - Window (abstraction)
-  - GLFW for desktop platforms
+    - GLFW for desktop platforms
 - Basic input forwarding
 - Logical layers
 - Game loop
 - Renderer abstraction
-  - Vulkan
-  - WebGL or WebGPU later maybe?
+    - Vulkan
+    - WebGL or WebGPU later maybe?
 - Input abstraction / dev console
 - Audio
