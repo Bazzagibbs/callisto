@@ -1,6 +1,6 @@
 # Callisto Engine
 
-A game engine written in Odin.
+Cross-platform (Desktop + mobile) game engine written in [Odin](https://odin-lang.org).
 
 ## Creating an application
 
@@ -13,25 +13,52 @@ Add the engine somewhere to your project and include it in your app. This exampl
 ```odin
 package main
 
-include "callisto/engine"
+include "callisto"
 
 main :: proc() {
-  engine.init()
-  defer engine.shutdown()
+  callisto.init()
+  defer callisto.shutdown()
 
-  
+  for callisto.should_loop() {
+    loop()
+  }  
+}
+
+loop :: proc() {
   // gameplay code here
 }
 ```
 
+## Using Callisto logger
+
+After Callisto has been initialized, a logger is available to be used by your application.
+
+```odin
+package main
+include "callisto"
+include "core:log"
+
+main :: proc() {
+  // ...
+
+  // context.logger only needs to be set once at the outermost scope of your application, 
+  // e.g. the entry point
+  context.logger = callisto.logger
+
+  log.debug("Hellope!")
+}
+```
+
+
 ## Project Plan
 
 - Window (abstraction)
+  - GLFW for desktop platforms
 - Basic input forwarding
 - Logical layers
 - Game loop
 - Renderer abstraction
-  - OpenGL/WebGL
-  - Vulkan or DX12 later
+  - Vulkan
+  - WebGL or WebGPU later maybe?
 - Input abstraction / dev console
 - Audio
