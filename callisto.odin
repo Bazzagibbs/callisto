@@ -3,10 +3,10 @@ package callisto
 import "core:log"
 import "engine/window"
 import "engine/log_util"
+import "input"
 
 logger: log.Logger
 logger_internal: log.Logger
-
 
 // Initialize Callisto engine. Call `engine.shutdown()` before exiting the program.
 init :: proc() -> (ok: bool) {
@@ -16,38 +16,48 @@ init :: proc() -> (ok: bool) {
     context.logger = logger_internal
     log.info("Initializing Callisto engine")
     
-    if ok1 := window.init(); !ok1 {
-        ok = false
+    if ok = window.init(); ok == false {
+        log.error("Window could not be initialized")
         return
     }
     defer if !ok do window.shutdown()   // Clean up if any future setup fails
 
     // TODO: Init input manager
+    if ok = input.init(); ok == false {
+        log.error("Input could not be initialized")
+        return
+    }
+    defer if !ok do input.shutdown()
+
     // TODO: Init renderer
+    // if ok = renderer.init(); ok == false {
+    //     log.error("Renderer could not be initialized")
+    //     return
+    // }
+    // defer if !ok do renderer.shutdown()
 
     return
-}
-
-should_loop :: proc() -> bool {
-    if window.should_close() {        
-        return false
-    }
-
-    window.poll_events()
-    return true
 }
 
 
 // Shut down Callisto engine, cleaning up managed internal allocations.
 shutdown :: proc() {
-    context.logger = logger_internal
-
     // The following cleanup methods are in the order in which they were initialized.
     // Deferring them executes in reverse order at the end of the procedure scope.
+    
+    context.logger = logger_internal
+    
     defer log_util.destroy(logger, logger_internal)
     defer window.shutdown()
+    defer input.shutdown()
+    // defer renderer.shutdown()
     
 }
 
 
+
+should_loop :: proc() -> bool {
+    window.poll_events()
+    return window.should_close() == false
+}
 

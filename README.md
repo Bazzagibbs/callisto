@@ -1,6 +1,6 @@
 # Callisto Engine
 
-Cross-platform (Desktop + mobile) game engine written in [Odin](https://odin-lang.org).
+Desktop game engine written in [Odin](https://odin-lang.org).
 
 ## Creating an application
 
@@ -16,7 +16,8 @@ package main
 include "callisto"
 
 main :: proc() {
-    callisto.init()
+    if callisto.init() == false do return
+
     defer callisto.shutdown()
 
     for callisto.should_loop() {
@@ -55,10 +56,10 @@ main :: proc() {
 - Window (abstraction)
     - GLFW for desktop platforms
 - Basic input forwarding
-- Logical layers
 - Game loop
 - Renderer abstraction
     - Vulkan
     - WebGL or WebGPU later maybe?
+- Profiling (Spall)
 - Input abstraction / dev console
 - Audio

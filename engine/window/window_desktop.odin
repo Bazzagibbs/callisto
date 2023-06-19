@@ -1,8 +1,9 @@
-package callisto_window_windows
+package callisto_window
 import "core:log"
+import "core:c"
 import "vendor:glfw"
 
-window: glfw.WindowHandle
+handle: glfw.WindowHandle
 
 // TODO: load these values from a config file at compile time
 title :: "Callisto"
@@ -15,21 +16,27 @@ init :: proc() -> (success: bool) {
     glfw.Init()
    
     glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API) // Disable OpenGL
-    glfw.WindowHint(glfw.RESIZABLE, 0 /* glfw.FALSE */)
-    window = glfw.CreateWindow(width, height, "Callisto", nil, nil)
+    glfw.WindowHint(glfw.RESIZABLE, 0) /* glfw.FALSE */
+    handle = glfw.CreateWindow(width, height, title, nil, nil)
 
-    if(window == nil) {
+    if(handle == nil) {
         glfw.Terminate()
         return false
     }
     
-
     return true
 }
 
+shutdown :: proc() {
+    log.info("Shutting down window")
+    glfw.DestroyWindow(handle)
+    glfw.Terminate()
+}
+
+
 
 should_close :: proc() -> bool {
-    return bool(glfw.WindowShouldClose(window))
+    return bool(glfw.WindowShouldClose(handle))
 }
 
 
@@ -37,9 +44,3 @@ poll_events :: proc() {
     glfw.PollEvents()
 }
 
-
-shutdown :: proc() {
-    log.info("Shutting down window")
-    glfw.DestroyWindow(window)
-    glfw.Terminate()
-}
