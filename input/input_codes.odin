@@ -1,10 +1,14 @@
-// Most values align with GLFW constants.
-package callisto_input_raw
+package callisto_input
 
+/*
+Normal: Desktop-like cursor behaviour.
+Hidden: Desktop-like cursor behaviour, but cursor graphic is invisible.
+Disabled: Cursor is invisible and is not restricted by the window's bounds. Useful for camera controls.
+*/
 Cursor_Lock_Mode :: enum {
-    Normal          = 0x00034001, // Desktop-like cursor behaviour.
-    Hidden          = 0x00034002, // Desktop-like cursor behaviour, but cursor graphic is invisible.
-    Disabled        = 0x00034003, // Cursor is invisible and is not restricted by the window's bounds. Useful for camera controls.
+    Normal          = 0x00034001, 
+    Hidden          = 0x00034002, 
+    Disabled        = 0x00034003, 
 }
 
 Button_Press_Action :: enum {

@@ -1,7 +1,6 @@
-package callisto_input_raw
+package callisto_input
 
-input_accumulator: Input_Accumulator
-
+input_accumulator := Input_Accumulator{}
 Scroll_Wheel_Step_Threshold :: 0.1
 
 KBM_State :: struct {
@@ -19,12 +18,30 @@ Input_Accumulator :: struct {
 }
 
 
+init :: proc() -> (ok: bool) {
+    return _init()
+}
+
+shutdown:: proc() {
+    _shutdown()
+}
+
 // Set up/down state buffers and axis accumulators to zero.
 flush :: proc() {
     input_accumulator.kbm_down_buffer = {}
     input_accumulator.kbm_up_buffer = {}
     input_accumulator.scroll_delta = {}
     input_accumulator.mouse_pos_last = input_accumulator.mouse_pos
+}
+
+// Set the cursor lock mode and visibility. See `Cursor_Lock_Mode` for more details.
+set_cursor_lock :: proc(mode: Cursor_Lock_Mode) {
+    _set_cursor_lock(mode)
+}
+
+// Set whether mouse input data should skip acceleration curve processing or not.
+set_mouse_input_raw :: proc(use_raw: bool) {
+    _set_mouse_input_raw(use_raw)
 }
 
 // Returns true if the specified key is pressed this frame, and was not pressed last frame.

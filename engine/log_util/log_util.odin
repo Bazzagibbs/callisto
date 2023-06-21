@@ -1,4 +1,4 @@
-package callisto_engine_logger
+package callisto_engine_log_util
 
 import "core:log"
 
@@ -20,7 +20,7 @@ create :: proc() -> (logger, logger_internal: log.Logger) {
 
 
 destroy :: proc(logger, logger_internal: log.Logger) {
-    log.info("Shutting down logger")
+    log.debug("Shutting down logger")
     log.destroy_console_logger(logger)
     log.destroy_console_logger(logger_internal)
 }

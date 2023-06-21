@@ -1,16 +1,16 @@
+//+private
 package callisto_engine_renderer
 
 import "core:log"
-import "vendor:vulkan"
+// import "vulkan"
 import "../window"
-// Init platform-specific renderer
-// Set up render command vtable
 
-init :: proc () -> (ok: bool) {
-    return false
+_init :: proc() -> (ok: bool) {
+    log.debug("Initializing renderer: Vulkan")
+    return true
 }
 
-
-shutdown :: proc() {
-
+_shutdown :: proc() {
+    log.debug("Shutting down renderer")
 }
+

@@ -46,7 +46,7 @@ main :: proc() {
     // e.g. the entry point
     context.logger = callisto.logger
 
-    log.debug("Hellope!")
+    log.info("Hellope!")
 }
 ```
 
