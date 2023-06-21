@@ -1,51 +1,54 @@
+// Most values align with GLFW constants.
 package callisto_input_raw
 
-import "vendor:glfw"
-
-
 Cursor_Lock_Mode :: enum {
-    Normal,
-    Hidden,
-    Disabled,
+    Normal          = 0x00034001, // Desktop-like cursor behaviour.
+    Hidden          = 0x00034002, // Desktop-like cursor behaviour, but cursor graphic is invisible.
+    Disabled        = 0x00034003, // Cursor is invisible and is not restricted by the window's bounds. Useful for camera controls.
+}
+
+Button_Press_Action :: enum {
+    Release     = 0,
+    Press       = 1,
+    Repeat      = 2,
 }
 
 Gamepad_Button :: enum {
     // Face
-    South,      // A
-    East,       // B
-    West,       // X
-    North,      // Y
+    South           = 0, // A
+    East            = 1, // B
+    West            = 2, // X
+    North           = 3, // Y
     // Shoulder
-    Left_Bumper,
-    Right_Bumper,
+    Left_Bumper     = 4,
+    Right_Bumper    = 5,
     // Menu 
-    Back,       // Select
-    Start,
-    Guide,
+    Back            = 6,  // Select
+    Start           = 7,
+    Guide           = 8,
     // Sticks
-    Left_Thumb,
-    Right_Thumb,
+    Left_Thumb      = 9,
+    Right_Thumb     = 10,
     // D-Pad
-    Dpad_Up,
-    Dpad_Right,
-    Dpad_Down,
-    Dpad_Left,
+    Dpad_Up         = 11,
+    Dpad_Right      = 12,
+    Dpad_Down       = 13,
+    Dpad_Left       = 14,
 }
 
 Gamepad_Axis :: enum {
-    Left_X,
-    Left_Y,
-    Right_X,
-    Right_Y,
-    Left_Trigger,
-    Right_Trigger,
+    Left_X          = 0,
+    Left_Y          = 1,
+    Right_X         = 2,
+    Right_Y         = 3,
+    Left_Trigger    = 4,
+    Right_Trigger   = 5,
 }
 
 
 Key_Code :: enum {
-    // From GLFW constants
     /* The unknown key */
-    Unknown = -1,
+    Unknown = 0,
 
     /** Printable keys **/
 
@@ -186,4 +189,18 @@ Key_Code :: enum {
     Right_Alt     = 346,
     Right_Super   = 347,
     Menu          = 348,
+}
+
+Mouse_Button :: enum {
+    Left = 0,
+    Right = 1,
+    Middle = 2,
+    M_4 = 3,
+    M_5 = 4,
+    M_6 = 5,
+    M_7 = 6,
+    M_8 = 7,
+
+    Wheel_Up = 8,
+    Wheel_Down = 9,
 }

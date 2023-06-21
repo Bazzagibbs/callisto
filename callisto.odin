@@ -57,6 +57,7 @@ shutdown :: proc() {
 
 
 should_loop :: proc() -> bool {
+    input.flush()
     window.poll_events()
     return window.should_close() == false
 }

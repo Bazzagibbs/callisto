@@ -60,6 +60,7 @@ main :: proc() {
 - Renderer abstraction
     - Vulkan
     - WebGL or WebGPU later maybe?
+- glTF/glb model support
 - Profiling (Spall)
 - Input abstraction / dev console
 - Audio
