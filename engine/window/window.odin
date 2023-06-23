@@ -1,5 +1,7 @@
 package callisto_window
 
+Window_Handle :: #type rawptr
+
 handle: Window_Handle = {}
 
 init :: proc() -> (ok: bool) {
@@ -16,4 +18,8 @@ should_close :: proc() -> bool {
 
 poll_events :: proc() {
     _poll_events()
+}
+
+set_window_size :: proc(width, height: int) {
+    _set_window_size(width, height)
 }

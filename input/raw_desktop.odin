@@ -17,13 +17,13 @@ _init :: proc() -> (ok: bool) {
 
     // Set up callbacks to glfw window
     // Keyboard
-    glfw.SetKeyCallback(window.handle, glfw.KeyProc(_key_callback))
-    glfw.SetCharCallback(window.handle, glfw.CharProc(_char_callback))
+    glfw.SetKeyCallback(_handle(), glfw.KeyProc(_key_callback))
+    glfw.SetCharCallback(_handle(), glfw.CharProc(_char_callback))
     // Mouse
-    glfw.SetCursorPosCallback(window.handle, glfw.CursorPosProc(_cursor_position_callback))
-    glfw.SetCursorEnterCallback(window.handle, glfw.CursorEnterProc(_cursor_enter_callback))
-    glfw.SetMouseButtonCallback(window.handle, glfw.MouseButtonProc(_mouse_button_callback))
-    glfw.SetScrollCallback(window.handle, glfw.ScrollProc(_scroll_callback))
+    glfw.SetCursorPosCallback(_handle(), glfw.CursorPosProc(_cursor_position_callback))
+    glfw.SetCursorEnterCallback(_handle(), glfw.CursorEnterProc(_cursor_enter_callback))
+    glfw.SetMouseButtonCallback(_handle(), glfw.MouseButtonProc(_mouse_button_callback))
+    glfw.SetScrollCallback(_handle(), glfw.ScrollProc(_scroll_callback))
     // Joystick
 
     return true
@@ -34,12 +34,16 @@ _shutdown :: proc() {
     
 }
 
+_handle :: #force_inline proc() -> glfw.WindowHandle {
+    return glfw.WindowHandle(window.handle)
+}
+
 _set_cursor_lock :: proc(mode: Cursor_Lock_Mode) {
-    glfw.SetInputMode(window.handle, glfw.CURSOR, c.int(mode))
+    glfw.SetInputMode(_handle(), glfw.CURSOR, c.int(mode))
 }
 
 _set_mouse_input_raw :: proc(use_raw: bool = true) {
-    glfw.SetInputMode(window.handle, glfw.RAW_MOUSE_MOTION, c.int(use_raw))
+    glfw.SetInputMode(_handle(), glfw.RAW_MOUSE_MOTION, c.int(use_raw))
 }
 
 
