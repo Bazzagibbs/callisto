@@ -23,3 +23,7 @@ poll_events :: proc() {
 set_window_size :: proc(width, height: int) {
     _set_window_size(width, height)
 }
+
+get_required_vk_extensions :: proc() -> []cstring {
+    return _get_required_vk_extensions()
+}

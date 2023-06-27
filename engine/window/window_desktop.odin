@@ -52,3 +52,7 @@ _poll_events :: proc() {
 _set_window_size :: proc(width, height: int) {
     glfw.SetWindowSize(_handle(), c.int(width), c.int(height))
 }
+
+_get_required_vk_extensions :: proc() -> []cstring {
+    return glfw.GetRequiredInstanceExtensions()
+}

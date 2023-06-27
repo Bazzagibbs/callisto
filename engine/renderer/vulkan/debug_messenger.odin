@@ -1,31 +1,7 @@
 package callisto_engine_renderer_vulkan
 
-import vk "vendor:vulkan"
 import "core:log"
-import "../../../../config"
-
-
-application_info :: proc() -> (vk.ApplicationInfo) {    
-    app_info: vk.ApplicationInfo = {
-        sType = .APPLICATION_INFO,
-        pApplicationName = cstring(config.App_Name),
-        applicationVersion = vk.MAKE_VERSION(config.App_Version[0], config.App_Version[1], config.App_Version[2]),
-        pEngineName = "Callisto",
-        engineVersion = vk.MAKE_VERSION(config.Engine_Version[0], config.Engine_Version[1], config.Engine_Version[2]),
-        apiVersion = vk.MAKE_VERSION(1, 1, 0),
-    }
-    return app_info
-}
-
-// Default information for the Vulkan instance.
-instance_create_info :: proc() -> (vk.InstanceCreateInfo) {
-    instance_info: vk.InstanceCreateInfo = {
-        sType = .INSTANCE_CREATE_INFO,
-    }
-    
-    return instance_info
-}
-
+import vk "vendor:vulkan"
 
 _logger: log.Logger = {}
 
@@ -62,4 +38,40 @@ create_debug_messenger :: proc(instance: vk.Instance, create_info: ^vk.DebugUtil
 
 destroy_debug_messenger :: proc(messenger: vk.DebugUtilsMessengerEXT) {
 
+}
+
+log_level_to_vk_severity :: proc(log_level: log.Level) -> (vk_severity: vk.DebugUtilsMessageSeverityFlagsEXT) {
+    switch log_level {
+        case .Debug:
+            vk_severity += {.VERBOSE}
+            fallthrough
+        case .Info:
+            vk_severity += {.INFO}
+            fallthrough
+        case .Warning:
+            vk_severity += {.WARNING}
+            fallthrough
+        case .Error:
+            vk_severity += {.ERROR}
+        case .Fatal:
+            // Only use fatal in production builds, no validation layer anyway
+    }
+    return
+}
+
+vk_severity_to_log_level :: proc(vk_severity: vk.DebugUtilsMessageSeverityFlagsEXT) -> (log_level: log.Level) {
+    if .ERROR in vk_severity {
+        return log.Level.Error
+    }
+
+    if .WARNING in vk_severity {
+        return log.Level.Warning
+    }
+
+    if .INFO in vk_severity {
+        return log.Level.Info
+    }
+
+    return log.Level.Debug
+    
 }
