@@ -13,7 +13,7 @@ import "vendor:glfw"
 import "../engine/window"
 
 _init :: proc() -> (ok: bool) {
-    log.debug("Initializing input: GLFW")
+    log.info("Initializing input: GLFW")
 
     // Set up callbacks to glfw window
     // Keyboard
@@ -30,7 +30,7 @@ _init :: proc() -> (ok: bool) {
 }
 
 _shutdown :: proc() {
-    log.debug("Shutting down input")
+    log.info("Shutting down input")
     
 }
 

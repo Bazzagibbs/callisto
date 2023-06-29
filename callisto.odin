@@ -15,7 +15,7 @@ init :: proc() -> (ok: bool) {
 
     logger, logger_internal = log_util.create()
     context.logger = logger_internal
-    log.debug("Initializing Callisto engine")
+    log.info("Initializing Callisto engine")
     
     if ok = window.init(); ok == false {
         log.error("Window could not be initialized")

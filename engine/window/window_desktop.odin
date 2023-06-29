@@ -17,7 +17,7 @@ _handle :: #force_inline proc() -> glfw.WindowHandle {
 }
 
 _init :: proc() -> (success: bool) {
-    log.debug("Initializing window: GLFW Windows")
+    log.info("Initializing window: GLFW Windows")
 
     glfw.Init()
    
@@ -34,7 +34,7 @@ _init :: proc() -> (success: bool) {
 }
 
 _shutdown :: proc() {
-    log.debug("Shutting down window")
+    log.info("Shutting down window")
     glfw.DestroyWindow(_handle())
     glfw.Terminate()
 }

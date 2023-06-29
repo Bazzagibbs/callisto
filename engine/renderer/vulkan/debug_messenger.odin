@@ -1,9 +1,21 @@
 package callisto_engine_renderer_vulkan
 
 import "core:log"
+import "core:runtime"
+import "core:fmt"
+import "../../../config"
 import vk "vendor:vulkan"
 
-_logger: log.Logger = {}
+logger: log.Logger = {}
+
+init_logger :: proc() {
+    renderer_logger_opts: log.Options = {
+        .Level,
+        .Terminal_Color,
+    }
+
+    logger = log.create_console_logger(lowest=config.Engine_Debug_Level, opt=renderer_logger_opts, ident="VK")
+}
 
 // Debug messenger that forwards validation layer messages to the engine's internal logger
 debug_messenger_create_info :: proc() -> (messenger_info: vk.DebugUtilsMessengerCreateInfoEXT) {    
@@ -16,29 +28,19 @@ debug_messenger_create_info :: proc() -> (messenger_info: vk.DebugUtilsMessenger
     return
 }
 
-default_log_callback :: proc(   messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT,
-                                messageType: vk.DebugUtilsMessageTypeFlagsEXT,
-                                pCallbackData: vk.DebugUtilsMessengerCallbackDataEXT,
-                                pUserData: rawptr,
-                            ) -> b32 {
-    context.logger = _logger
+default_log_callback :: proc "contextless" (   messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT,
+                                        messageType: vk.DebugUtilsMessageTypeFlagsEXT,
+                                        pCallbackData: vk.DebugUtilsMessengerCallbackDataEXT,
+                                    ) -> b32 {
+
+    context = runtime.default_context()
+    context.logger = logger
     level := vk_severity_to_log_level(messageSeverity)
     log.log(level, pCallbackData.pMessage)
     return false
 }
 
-create_debug_messenger :: proc(instance: vk.Instance, create_info: ^vk.DebugUtilsMessengerCreateInfoEXT) -> (debug_messenger: vk.DebugUtilsMessengerEXT, ok: bool) {
-    _logger = context.logger // Store engine logger for the callback, as it won't be provided in the callback's context
-    create_impl :=  vk.ProcCreateDebugUtilsMessengerEXT(vk.GetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"))
-    if create_impl == nil do return {}, false
 
-    ok = create_impl(instance, create_info, nil, &debug_messenger) == .SUCCESS
-    return
-}
-
-destroy_debug_messenger :: proc(messenger: vk.DebugUtilsMessengerEXT) {
-
-}
 
 log_level_to_vk_severity :: proc(log_level: log.Level) -> (vk_severity: vk.DebugUtilsMessageSeverityFlagsEXT) {
     switch log_level {

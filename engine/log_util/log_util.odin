@@ -1,10 +1,11 @@
 package callisto_engine_log_util
 
 import "core:log"
+import "../../config"
 
 
 create :: proc() -> (logger, logger_internal: log.Logger) {
-    console_logger_opts: bit_set[log.Option]: log.Options {
+    console_logger_opts: log.Options :{
         .Level, 
         .Terminal_Color, 
         .Short_File_Path,
@@ -13,14 +14,14 @@ create :: proc() -> (logger, logger_internal: log.Logger) {
         .Time,
     }
 
-    logger = log.create_console_logger(opt=console_logger_opts)
-    logger_internal = log.create_console_logger(opt=console_logger_opts, ident="CAL")
+    logger = log.create_console_logger(lowest=config.Engine_Debug_Level, opt=console_logger_opts)
+    logger_internal = log.create_console_logger(lowest=config.Engine_Debug_Level, opt=console_logger_opts, ident="CAL")
     return
 }
 
 
 destroy :: proc(logger, logger_internal: log.Logger) {
-    log.debug("Shutting down logger")
+    log.info("Shutting down logger")
     log.destroy_console_logger(logger)
     log.destroy_console_logger(logger_internal)
 }
