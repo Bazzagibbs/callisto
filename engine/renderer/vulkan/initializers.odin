@@ -8,7 +8,21 @@ when config.Build_Target == .Desktop do import "vendor:glfw"
 import "../../window"
 
 Queue_Family_Indices :: struct {
-    graphics: Maybe(int),
+    graphics: Maybe(u32),
+}
+
+Queue_Handles :: struct {
+    graphics: vk.Queue,
+}
+
+validation_layers := [?]cstring {
+    "VK_LAYER_KHRONOS_validation",
+}
+
+get_global_proc_address :: proc(p: rawptr, name: cstring) {
+    when config.Build_Target == .Desktop {
+        (^rawptr)(p)^ = glfw.GetInstanceProcAddress(nil, name)
+    }
 }
 
 create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
@@ -44,9 +58,6 @@ create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
 
     when config.Engine_Debug {
         init_logger()
-        validation_layers := [?]cstring {
-            "VK_LAYER_KHRONOS_validation",
-        }
         if check_validation_layer_support(validation_layers[:]) == false {
             log.fatal("Requested Vulkan validation layer not available")
             return {}, false
@@ -138,6 +149,7 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice) -> (score: int)
         log.info(cstring(raw_data(props.deviceName[:])), "Score:", score)
     }
 
+    if is_physical_device_suitable(physical_device) == false do return -1
     if features.geometryShader == false do return -1
     if props.deviceType == .DISCRETE_GPU do score += 1000
     score += int(props.limits.maxImageDimension2D)
@@ -147,13 +159,13 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice) -> (score: int)
 }
 
 is_physical_device_suitable :: proc(physical_device: vk.PhysicalDevice) -> bool {
-    families := find_queue_families(physical_device)
+    families := find_queue_family_indices(physical_device)
     ok := is_queue_families_complete(&families)
 
     return ok
 }
 
-find_queue_families :: proc(physical_device: vk.PhysicalDevice) -> (indices: Queue_Family_Indices) {
+find_queue_family_indices :: proc(physical_device: vk.PhysicalDevice) -> (indices: Queue_Family_Indices) {
     family_count: u32
     vk.GetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count, nil)
     families := make([]vk.QueueFamilyProperties, family_count)
@@ -162,7 +174,7 @@ find_queue_families :: proc(physical_device: vk.PhysicalDevice) -> (indices: Que
 
     for family, i in families {
         if .GRAPHICS in family.queueFlags {
-            indices.graphics = i
+            indices.graphics = u32(i)
         }
         
         if is_queue_families_complete(&indices) do break
@@ -176,10 +188,38 @@ is_queue_families_complete :: proc(indices: ^Queue_Family_Indices) -> bool {
     return ok
 }
 
-create_logical_device :: proc() -> (logical_device: vk.Device, ok: bool) {
-    return {}, false
+create_logical_device :: proc(physical_device: vk.PhysicalDevice) -> (logical_device: vk.Device, queues: Queue_Handles, ok: bool) {
+    indices := find_queue_family_indices(physical_device)
+    queue_priority := [?]f32 {1.0,}
+
+    queue_create_info: vk.DeviceQueueCreateInfo = {
+        sType = .DEVICE_QUEUE_CREATE_INFO,
+        queueCount = 1,
+        queueFamilyIndex = indices.graphics.?,
+        pQueuePriorities = raw_data(queue_priority[:])
+    }
+
+    features: vk.PhysicalDeviceFeatures = {}
+
+    device_create_info: vk.DeviceCreateInfo = {
+        sType = .DEVICE_CREATE_INFO,
+        queueCreateInfoCount = 1,
+        pQueueCreateInfos = &queue_create_info,
+        pEnabledFeatures = &features,
+    } 
+
+    when config.Engine_Debug {
+        device_create_info.enabledLayerCount = len(validation_layers)
+        device_create_info.ppEnabledLayerNames = raw_data(validation_layers[:])
+    }
+
+    res := vk.CreateDevice(physical_device, &device_create_info, nil, &logical_device); if res != .SUCCESS {
+        log.fatal("Failed to create logical device:", res)
+        return {}, {}, false
+    }
+
+    vk.GetDeviceQueue(logical_device, indices.graphics.?, 0, &queues.graphics)
+    ok = true
+    return 
 }
 
-get_global_proc_address :: proc(p: rawptr, name: cstring) {
-    (^rawptr)(p)^ = glfw.GetInstanceProcAddress(nil, name)
-}
