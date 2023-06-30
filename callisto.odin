@@ -18,21 +18,21 @@ init :: proc() -> (ok: bool) {
     log.info("Initializing Callisto engine")
     
     if ok = window.init(); ok == false {
-        log.error("Window could not be initialized")
+        log.fatal("Window could not be initialized")
         return
     }
     defer if !ok do window.shutdown()   // Clean up if any future setup fails
 
     // TODO: Init input manager
     if ok = input.init(); ok == false {
-        log.error("Input could not be initialized")
+        log.fatal("Input could not be initialized")
         return
     }
     defer if !ok do input.shutdown()
 
     // TODO: Init renderer
     if ok = renderer.init(); ok == false {
-        log.error("Renderer could not be initialized")
+        log.fatal("Renderer could not be initialized")
         return
     }
     defer if !ok do renderer.shutdown()

@@ -7,6 +7,9 @@ import "../../../config"
 when config.Build_Target == .Desktop do import "vendor:glfw"
 import "../../window"
 
+Queue_Family_Indices :: struct {
+    graphics: Maybe(int),
+}
 
 create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
     required_extensions : [dynamic]cstring = {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
@@ -81,18 +84,6 @@ create_debug_messenger :: proc(instance: vk.Instance) -> (messenger: vk.DebugUti
     return messenger, true
 }
 
-create_physical_device :: proc() -> (physical_device: vk.PhysicalDevice, ok: bool) {
-    return {}, false
-}
-
-create_logical_device :: proc() -> (logical_device: vk.Device, ok: bool) {
-    return {}, false
-}
-
-get_global_proc_address :: proc(p: rawptr, name: cstring) {
-    (^rawptr)(p)^ = glfw.GetInstanceProcAddress(nil, name)
-}
-
 check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
     layer_count: u32
     vk.EnumerateInstanceLayerProperties(&layer_count, nil)
@@ -108,4 +99,87 @@ check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
         return false
     }
     return true
+}
+
+select_physical_device :: proc(instance: vk.Instance) -> (physical_device: vk.PhysicalDevice, ok: bool) {
+    // TODO: Also allow user to specify desired GPU in graphics settings
+    device_count: u32
+    vk.EnumeratePhysicalDevices(instance, &device_count, nil)
+    devices := make([]vk.PhysicalDevice, device_count)
+    defer delete(devices)
+    vk.EnumeratePhysicalDevices(instance, &device_count, raw_data(devices))
+
+    highest_device: vk.PhysicalDevice = {}
+    highest_score := -1
+    for device in devices[:device_count] {
+        score := rank_physical_device(device)
+        if score > highest_score {
+            highest_score = score
+            highest_device = device
+        }
+    }
+
+    if highest_score < 0 {
+        log.fatal("No suitable physical devices available")
+        return {}, false
+    }
+    
+
+    return highest_device, true
+}
+
+rank_physical_device :: proc(physical_device: vk.PhysicalDevice) -> (score: int) {    
+    props: vk.PhysicalDeviceProperties
+    features: vk.PhysicalDeviceFeatures
+    vk.GetPhysicalDeviceProperties(physical_device, &props)
+    vk.GetPhysicalDeviceFeatures(physical_device, &features)
+    
+    defer when config.Engine_Debug {
+        log.info(cstring(raw_data(props.deviceName[:])), "Score:", score)
+    }
+
+    if features.geometryShader == false do return -1
+    if props.deviceType == .DISCRETE_GPU do score += 1000
+    score += int(props.limits.maxImageDimension2D)
+    
+
+    return
+}
+
+is_physical_device_suitable :: proc(physical_device: vk.PhysicalDevice) -> bool {
+    families := find_queue_families(physical_device)
+    ok := is_queue_families_complete(&families)
+
+    return ok
+}
+
+find_queue_families :: proc(physical_device: vk.PhysicalDevice) -> (indices: Queue_Family_Indices) {
+    family_count: u32
+    vk.GetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count, nil)
+    families := make([]vk.QueueFamilyProperties, family_count)
+    defer delete(families)
+    vk.GetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count, raw_data(families))
+
+    for family, i in families {
+        if .GRAPHICS in family.queueFlags {
+            indices.graphics = i
+        }
+        
+        if is_queue_families_complete(&indices) do break
+    }
+
+    return
+}
+
+is_queue_families_complete :: proc(indices: ^Queue_Family_Indices) -> bool {
+    _, ok := indices.graphics.?
+    return ok
+}
+
+create_logical_device :: proc() -> (logical_device: vk.Device, ok: bool) {
+    return {}, false
+}
+
+get_global_proc_address :: proc(p: rawptr, name: cstring) {
+    (^rawptr)(p)^ = glfw.GetInstanceProcAddress(nil, name)
 }

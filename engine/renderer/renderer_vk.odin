@@ -16,6 +16,7 @@ physical_device: vk.PhysicalDevice = {}
 device: vk.Device = {}
 surface: vk.SurfaceKHR = {}
 
+
 _init :: proc() -> (ok: bool) {
     log.info("Initializing renderer: Vulkan")
     instance = vk_impl.create_instance() or_return
@@ -24,7 +25,7 @@ _init :: proc() -> (ok: bool) {
     debug_messenger = vk_impl.create_debug_messenger(instance) or_return
     defer if !ok do vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
 
-    // Physical device
+    physical_device = vk_impl.select_physical_device(instance) or_return
     
     // Logical device
     
