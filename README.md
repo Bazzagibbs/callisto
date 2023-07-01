@@ -4,6 +4,8 @@ Desktop game engine written in [Odin](https://odin-lang.org).
 
 ## Creating an application
 
+An example application can be found at [Bazzas-Personal-Stuff/callisto-sandbox](https://github.com/bazzas-personal-stuff/callisto-sandbox).
+
 Add the engine somewhere to your project and include it in your app. This example will assume the package is a direct child of your root directory, `project-root-dir/callisto/`
 
 1. Initialize the engine
@@ -16,8 +18,7 @@ package main
 include "callisto"
 
 main :: proc() {
-    if callisto.init() == false do return
-
+    ok := callisto.init(); if !ok do return
     defer callisto.shutdown()
 
     for callisto.should_loop() {
@@ -51,16 +52,25 @@ main :: proc() {
 ```
 
 
-## Project Plan
+## Implemented features
 
-- Window (abstraction)
-    - GLFW for desktop platforms
+- Window abstraction
+  - GLFW for desktop platforms
 - Basic input forwarding
 - Game loop
+- Logger
+
+## In progress
+
 - Renderer abstraction
-    - Vulkan
-    - WebGL or WebGPU later maybe?
+  - Vulkan implementation
+
+## Project Plan
+
 - glTF/glb model support
+- HDRI skybox lighting
 - Profiling (Spall)
-- Input abstraction / dev console
 - Audio
+- SHIP A GAME
+- Input abstraction / developer console
+- WebGPU renderer implementation?
