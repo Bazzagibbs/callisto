@@ -1,3 +1,3 @@
 package callisto_config
     
-Build_Target: Platform: .Desktop
+BUILD_TARGET: Platform: .Desktop

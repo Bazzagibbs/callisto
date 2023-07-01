@@ -3,9 +3,10 @@ package callisto_engine_renderer_vulkan
 import "core:log"
 import "core:strings"
 import "core:math"
+import "core:os"
+when config.BUILD_TARGET == .Desktop do import "vendor:glfw"
 import vk "vendor:vulkan"
 import "../../../config"
-when config.Build_Target == .Desktop do import "vendor:glfw"
 import "../../window"
 
 Queue_Family_Indices :: struct {
@@ -37,31 +38,36 @@ required_device_extensions : [dynamic]cstring = {
     vk.KHR_SWAPCHAIN_EXTENSION_NAME,
 }
 
+dynamic_states: [dynamic]vk.DynamicState = {
+    .VIEWPORT,
+    .SCISSOR,
+}
+
 get_global_proc_address :: proc(p: rawptr, name: cstring) {
-    when config.Build_Target == .Desktop {
+    when config.BUILD_TARGET == .Desktop {
         (^rawptr)(p)^ = glfw.GetInstanceProcAddress(nil, name)
     }
 }
 
 create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
     res: vk.Result
-    when config.Build_Target == .Desktop { 
+    when config.BUILD_TARGET == .Desktop { 
         // Add extensions required by glfw
         vk.load_proc_addresses_custom(get_global_proc_address)
         
         window_exts := window.get_required_vk_extensions()
         append(&required_instance_extensions, ..window_exts)
     }
-    when config.Engine_Debug {
+    when config.ENGINE_DEBUG {
         append(&required_instance_extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
     }
     
     app_info : vk.ApplicationInfo = {
         sType = vk.StructureType.APPLICATION_INFO,
-        pApplicationName = cstring(config.App_Name),
-        applicationVersion = vk.MAKE_VERSION(config.App_Version[0], config.App_Version[1], config.App_Version[2]),
+        pApplicationName = cstring(config.APP_NAME),
+        applicationVersion = vk.MAKE_VERSION(config.APP_VERSION[0], config.APP_VERSION[1], config.APP_VERSION[2]),
         pEngineName = "Callisto",
-        engineVersion = vk.MAKE_VERSION(config.Engine_Version[0], config.Engine_Version[1], config.Engine_Version[2]),
+        engineVersion = vk.MAKE_VERSION(config.ENGINE_VERSION[0], config.ENGINE_VERSION[1], config.ENGINE_VERSION[2]),
         apiVersion = vk.MAKE_VERSION(1, 1, 0),
     }
     
@@ -73,7 +79,7 @@ create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
         ppEnabledExtensionNames = raw_data(required_instance_extensions),
     }
 
-    when config.Engine_Debug {
+    when config.ENGINE_DEBUG {
         init_logger()
         if check_validation_layer_support(validation_layers[:]) == false {
             log.fatal("Requested Vulkan validation layer not available")
@@ -100,7 +106,7 @@ create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
 }
 
 create_debug_messenger :: proc(instance: vk.Instance) -> (messenger: vk.DebugUtilsMessengerEXT, ok: bool) {
-    when config.Engine_Debug {
+    when config.ENGINE_DEBUG {
         // create debug messenger
         debug_create_info := debug_messenger_create_info() 
         res := vk.CreateDebugUtilsMessengerEXT(instance, &debug_create_info, nil, &messenger); if res != .SUCCESS {
@@ -130,7 +136,7 @@ check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
 }
 
 create_surface :: proc(instance: vk.Instance) -> (surface: vk.SurfaceKHR, ok: bool) {
-    when config.Build_Target == .Desktop {
+    when config.BUILD_TARGET == .Desktop {
         res := glfw.CreateWindowSurface(instance, glfw.WindowHandle(window.handle), nil, &surface); if res != .SUCCESS {
             log.fatal("Failed to create window surface:", res)
             return {}, false
@@ -139,7 +145,7 @@ create_surface :: proc(instance: vk.Instance) -> (surface: vk.SurfaceKHR, ok: bo
         return
     }
 
-    log.fatal("Platform not supported:", config.Build_Target)
+    log.fatal("Platform not supported:", config.BUILD_TARGET)
     return {}, false
 }
 
@@ -176,7 +182,7 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Sur
     vk.GetPhysicalDeviceProperties(physical_device, &props)
     vk.GetPhysicalDeviceFeatures(physical_device, &features)
     
-    defer when config.Engine_Debug {
+    defer when config.ENGINE_DEBUG {
         log.info(cstring(raw_data(props.deviceName[:])), "Score:", score)
     }
 
@@ -260,7 +266,7 @@ create_logical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Su
         ppEnabledExtensionNames = raw_data(required_device_extensions),
     } 
 
-    when config.Engine_Debug {
+    when config.ENGINE_DEBUG {
         device_create_info.enabledLayerCount = len(validation_layers)
         device_create_info.ppEnabledLayerNames = raw_data(validation_layers[:])
     }
@@ -401,7 +407,7 @@ select_swapchain_extent :: proc(surface_capabilities: ^vk.SurfaceCapabilitiesKHR
         return surface_capabilities.currentExtent
     }
 
-    when config.Build_Target == .Desktop {
+    when config.BUILD_TARGET == .Desktop {
         s_width, s_height:= glfw.GetFramebufferSize(glfw.WindowHandle(window.handle))
         width := u32(s_width)
         height := u32(s_height)
@@ -419,4 +425,164 @@ get_swapchain_images :: proc(device: vk.Device, swapchain: vk.SwapchainKHR, imag
     vk.GetSwapchainImagesKHR(device, swapchain, &image_count, nil)
     resize(images, int(image_count))
     vk.GetSwapchainImagesKHR(device, swapchain, &image_count, raw_data(images^))
+}
+
+create_swapchain_image_views :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details, images: ^[dynamic]vk.Image, image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
+    // Create image view for every image we have acquired
+    resize(image_views, len(images^))
+    for image, i in images {
+        image_view_create_info: vk.ImageViewCreateInfo = {
+            sType = .IMAGE_VIEW_CREATE_INFO,
+            image = image,
+            viewType = .D2,
+            format = swapchain_details.format.format,
+            components = {.IDENTITY, .IDENTITY, .IDENTITY, .IDENTITY},
+            subresourceRange = {
+                aspectMask = {.COLOR},
+                baseMipLevel = 0,
+                levelCount = 1,
+                baseArrayLayer = 0,
+                layerCount = 1,
+            },
+        }
+
+        res := vk.CreateImageView(device, &image_view_create_info, nil, &image_views[i]); if res != .SUCCESS {
+            log.fatal("Failed to create image views:", res)
+            // Destroy any successfully created image views
+            for j in 0..<i {
+                vk.DestroyImageView(device, image_views[j], nil)
+            }
+            return false
+        }
+    }
+    return true
+}
+
+destroy_swapchain_image_views :: proc(device: vk.Device, image_views: ^[dynamic]vk.ImageView) {
+    for image_view in image_views {
+        vk.DestroyImageView(device, image_view, nil)
+        }
+}
+
+create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details) -> (pipeline: vk.Pipeline, pipeline_layout: vk.PipelineLayout, ok: bool) {
+    vert_file, err1 := os.open("callisto/assets/shaders/vert.spv");
+    defer os.close(vert_file)
+    frag_file, err2 := os.open("callisto/assets/shaders/frag.spv");
+    defer os.close(frag_file)
+    if err1 != os.ERROR_NONE || err2 != os.ERROR_NONE { 
+        log.error("Failed to open file")
+        return {}, {}, false
+    }
+
+    vert_module := create_shader_module(device, vert_file) or_return
+    defer vk.DestroyShaderModule(device, vert_module, nil)
+    frag_module := create_shader_module(device, frag_file) or_return
+    defer vk.DestroyShaderModule(device, frag_module, nil)
+
+    vert_stage_info: vk.PipelineShaderStageCreateInfo = {
+        sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+        stage = {.VERTEX},
+        module = vert_module,
+        pName = "main",
+    }
+
+    frag_stage_info: vk.PipelineShaderStageCreateInfo = {
+        sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+        stage = {.FRAGMENT},
+        module = frag_module,
+        pName = "main",
+    }
+
+    dynamic_state_info: vk.PipelineDynamicStateCreateInfo = {
+        sType = .PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        dynamicStateCount = u32(len(dynamic_states)),
+        pDynamicStates = raw_data(dynamic_states),
+    }
+
+    vertex_input_create_info: vk.PipelineVertexInputStateCreateInfo = {
+        sType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        vertexBindingDescriptionCount = 0,
+        vertexAttributeDescriptionCount = 0,
+    }
+
+    viewport: vk.Viewport = {
+        x = 0,
+        y = 0,
+        width = f32(swapchain_details.swap_extent.width),
+        height = f32(swapchain_details.swap_extent.height),
+        minDepth = 0,
+        maxDepth = 1,
+    }
+
+    scissor: vk.Rect2D = {
+        offset = {0, 0},
+        extent = swapchain_details.swap_extent,
+    }
+
+    viewport_state_create_info: vk.PipelineViewportStateCreateInfo = {
+        sType = .PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        viewportCount = 1,
+        pViewports = &viewport,
+        scissorCount = 1,
+        pScissors = &scissor,
+    }
+
+    rasterizer_state_create_info: vk.PipelineRasterizationStateCreateInfo = {
+        sType = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        depthClampEnable = false,
+        rasterizerDiscardEnable = false,
+        lineWidth = 1,
+        cullMode = {.BACK},
+        frontFace = .CLOCKWISE,
+        depthBiasEnable = false,
+    }
+
+    color_blend_attachment_state: vk.PipelineColorBlendAttachmentState = {
+        blendEnable = false,
+        colorWriteMask = {.R, .G, .B, .A},
+    }
+    
+    color_blend_state_create_info: vk.PipelineColorBlendStateCreateInfo = {
+        sType = .PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        logicOpEnable = false,
+        logicOp = .COPY,
+        attachmentCount = 1,
+        pAttachments = &color_blend_attachment_state,
+    }
+
+    pipeline_layout_create_info: vk.PipelineLayoutCreateInfo = {
+        sType = .PIPELINE_LAYOUT_CREATE_INFO,
+    }
+
+    res := vk.CreatePipelineLayout(device, &pipeline_layout_create_info, nil, &pipeline_layout); if res != .SUCCESS {
+        log.fatal("Error creating pipeline:", res)
+        return {}, {}, false
+    }
+    defer if !ok do vk.DestroyPipelineLayout(device, pipeline_layout, nil)
+
+
+    ok = true
+    return
+}
+
+create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.ShaderModule, ok: bool) {
+    module_source, ok1 := os.read_entire_file(file); if !ok1 {
+        log.error("Failed to create shader module: Could not read file")
+        return {}, false
+    }
+    defer delete(module_source)
+
+    module_info: vk.ShaderModuleCreateInfo = {
+        sType = .SHADER_MODULE_CREATE_INFO,
+        codeSize = len(module_source),
+        pCode = transmute(^u32)raw_data(module_source), // yuck
+    }
+
+    res := vk.CreateShaderModule(device, &module_info, nil, &module); if res != .SUCCESS {
+        log.error("Failed to create shader module")
+        return {}, false
+    }
+
+    ok = true
+    return
 }

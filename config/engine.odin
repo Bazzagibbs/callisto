@@ -1,7 +1,7 @@
 package callisto_config
 import "core:log"
 
-Engine_Debug: bool: true
-Engine_Debug_Level: log.Level: .Debug
-Engine_Name: string: "Callisto"
-Engine_Version: [3]u32: {0, 0, 1}
+ENGINE_DEBUG: bool: true
+ENGINE_DEBUG_LEVEL: log.Level: .Debug
+ENGINE_NAME: string: "Callisto"
+ENGINE_VERSION: [3]u32: {0, 0, 1}

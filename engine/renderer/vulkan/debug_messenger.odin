@@ -14,7 +14,7 @@ init_logger :: proc() {
         .Terminal_Color,
     }
 
-    logger = log.create_console_logger(lowest=config.Engine_Debug_Level, opt=renderer_logger_opts, ident="VK")
+    logger = log.create_console_logger(lowest=config.ENGINE_DEBUG_LEVEL, opt=renderer_logger_opts, ident="VK")
 }
 
 // Debug messenger that forwards validation layer messages to the engine's internal logger

@@ -14,8 +14,8 @@ create :: proc() -> (logger, logger_internal: log.Logger) {
         .Time,
     }
 
-    logger = log.create_console_logger(lowest=config.Engine_Debug_Level, opt=console_logger_opts)
-    logger_internal = log.create_console_logger(lowest=config.Engine_Debug_Level, opt=console_logger_opts, ident="CAL")
+    logger = log.create_console_logger(lowest=config.ENGINE_DEBUG_LEVEL, opt=console_logger_opts)
+    logger_internal = log.create_console_logger(lowest=config.ENGINE_DEBUG_LEVEL, opt=console_logger_opts, ident="CAL")
     return
 }
 

@@ -14,8 +14,11 @@ physical_device: vk.PhysicalDevice = {}
 device: vk.Device = {}
 queues: vk_impl.Queue_Handles = {}
 swapchain: vk.SwapchainKHR = {}
-swapchain_images: [dynamic]vk.Image = {}
 swapchain_details: vk_impl.Swapchain_Details = {}
+swapchain_images: [dynamic]vk.Image = {}
+swapchain_image_views: [dynamic]vk.ImageView = {}
+pipeline: vk.Pipeline = {}
+pipeline_layout: vk.PipelineLayout = {}
 
 _init :: proc() -> (ok: bool) {
     log.info("Initializing renderer: Vulkan")
@@ -36,11 +39,14 @@ _init :: proc() -> (ok: bool) {
     swapchain, swapchain_details = vk_impl.create_swapchain(physical_device, device, surface) or_return
     defer if !ok do vk.DestroySwapchainKHR(device, swapchain, nil)
 
-    // Images
     vk_impl.get_swapchain_images(device, swapchain, &swapchain_images)
 
-    // Image views
+    vk_impl.create_swapchain_image_views(device, &swapchain_details, &swapchain_images, &swapchain_image_views) or_return
+    defer if !ok do vk_impl.destroy_swapchain_image_views(device, &swapchain_image_views)
 
+    pipeline, pipeline_layout = vk_impl.create_graphics_pipeline(device, &swapchain_details) or_return
+    defer if !ok do vk.DestroyPipelineLayout(device, pipeline_layout, nil)
+    defer if !ok do vk.DestroyPipeline(device, pipeline, nil)
     return true
 }
 
@@ -51,4 +57,7 @@ _shutdown :: proc() {
     defer vk.DestroySurfaceKHR(instance, surface, nil)
     defer vk.DestroyDevice(device, nil)
     defer vk.DestroySwapchainKHR(device, swapchain, nil)
+    defer vk_impl.destroy_swapchain_image_views(device, &swapchain_image_views)
+    defer vk.DestroyPipelineLayout(device, pipeline_layout, nil)
+    defer vk.DestroyPipeline(device, pipeline, nil)
 }
