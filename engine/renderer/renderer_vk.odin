@@ -17,6 +17,7 @@ swapchain: vk.SwapchainKHR = {}
 swapchain_details: vk_impl.Swapchain_Details = {}
 swapchain_images: [dynamic]vk.Image = {}
 swapchain_image_views: [dynamic]vk.ImageView = {}
+render_pass: vk.RenderPass = {}
 pipeline: vk.Pipeline = {}
 pipeline_layout: vk.PipelineLayout = {}
 
@@ -44,9 +45,13 @@ _init :: proc() -> (ok: bool) {
     vk_impl.create_swapchain_image_views(device, &swapchain_details, &swapchain_images, &swapchain_image_views) or_return
     defer if !ok do vk_impl.destroy_swapchain_image_views(device, &swapchain_image_views)
 
-    pipeline, pipeline_layout = vk_impl.create_graphics_pipeline(device, &swapchain_details) or_return
+    render_pass = vk_impl.create_render_pass(device, &swapchain_details) or_return
+    defer if !ok do vk.DestroyRenderPass(device, render_pass, nil)
+
+    pipeline, pipeline_layout = vk_impl.create_graphics_pipeline(device, &swapchain_details, render_pass) or_return
     defer if !ok do vk.DestroyPipelineLayout(device, pipeline_layout, nil)
     defer if !ok do vk.DestroyPipeline(device, pipeline, nil)
+
     return true
 }
 
@@ -58,6 +63,7 @@ _shutdown :: proc() {
     defer vk.DestroyDevice(device, nil)
     defer vk.DestroySwapchainKHR(device, swapchain, nil)
     defer vk_impl.destroy_swapchain_image_views(device, &swapchain_image_views)
+    defer vk.DestroyRenderPass(device, render_pass, nil)
     defer vk.DestroyPipelineLayout(device, pipeline_layout, nil)
     defer vk.DestroyPipeline(device, pipeline, nil)
 }

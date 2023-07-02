@@ -464,7 +464,48 @@ destroy_swapchain_image_views :: proc(device: vk.Device, image_views: ^[dynamic]
         }
 }
 
-create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details) -> (pipeline: vk.Pipeline, pipeline_layout: vk.PipelineLayout, ok: bool) {
+create_render_pass :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details) -> (render_pass: vk.RenderPass, ok: bool) {
+
+    color_attachment_desc: vk.AttachmentDescription = {
+        format = swapchain_details.format.format,
+        samples = {._1},
+        loadOp = .CLEAR,
+        storeOp = .STORE,
+        stencilLoadOp = .DONT_CARE,
+        stencilStoreOp = .DONT_CARE,
+        initialLayout = .UNDEFINED,
+        finalLayout = .PRESENT_SRC_KHR,
+    }
+
+    color_attachment_ref: vk.AttachmentReference = {
+        attachment = 0,
+        layout = .COLOR_ATTACHMENT_OPTIMAL,
+    }
+
+    subpass_desc: vk.SubpassDescription = {
+        pipelineBindPoint = .GRAPHICS,
+        colorAttachmentCount = 1,
+        pColorAttachments = &color_attachment_ref,
+    }
+
+    render_pass_create_info: vk.RenderPassCreateInfo = {
+        sType = .RENDER_PASS_CREATE_INFO,
+        attachmentCount = 1,
+        pAttachments = &color_attachment_desc,
+        subpassCount = 1,
+        pSubpasses = &subpass_desc,
+    }
+
+    res := vk.CreateRenderPass(device, &render_pass_create_info, nil, &render_pass); if res != .SUCCESS {
+        log.fatal("Failed to create render pass:", res)
+        return {}, false
+    }
+
+    ok = true
+    return
+}
+
+create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details, render_pass: vk.RenderPass) -> (pipeline: vk.Pipeline, pipeline_layout: vk.PipelineLayout, ok: bool) {
     vert_file, err1 := os.open("callisto/assets/shaders/vert.spv");
     defer os.close(vert_file)
     frag_file, err2 := os.open("callisto/assets/shaders/frag.spv");
@@ -479,30 +520,39 @@ create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchai
     frag_module := create_shader_module(device, frag_file) or_return
     defer vk.DestroyShaderModule(device, frag_module, nil)
 
-    vert_stage_info: vk.PipelineShaderStageCreateInfo = {
-        sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
-        stage = {.VERTEX},
-        module = vert_module,
-        pName = "main",
+    shader_stages := [?]vk.PipelineShaderStageCreateInfo {
+        // Vertex
+        {
+            sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+            stage = {.VERTEX},
+            module = vert_module,
+            pName = "main",
+        },
+        // Fragment
+        {
+            sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+            stage = {.FRAGMENT},
+            module = frag_module,
+            pName = "main",
+        },
     }
 
-    frag_stage_info: vk.PipelineShaderStageCreateInfo = {
-        sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
-        stage = {.FRAGMENT},
-        module = frag_module,
-        pName = "main",
-    }
-
-    dynamic_state_info: vk.PipelineDynamicStateCreateInfo = {
+    dynamic_state_create_info: vk.PipelineDynamicStateCreateInfo = {
         sType = .PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         dynamicStateCount = u32(len(dynamic_states)),
         pDynamicStates = raw_data(dynamic_states),
     }
 
-    vertex_input_create_info: vk.PipelineVertexInputStateCreateInfo = {
+    vertex_input_state_create_info: vk.PipelineVertexInputStateCreateInfo = {
         sType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         vertexBindingDescriptionCount = 0,
         vertexAttributeDescriptionCount = 0,
+    }
+
+    input_assembly_state_create_info: vk.PipelineInputAssemblyStateCreateInfo = {
+        sType = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        topology = .TRIANGLE_LIST,
+        primitiveRestartEnable = false,
     }
 
     viewport: vk.Viewport = {
@@ -537,6 +587,12 @@ create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchai
         depthBiasEnable = false,
     }
 
+    multisample_state_create_info: vk.PipelineMultisampleStateCreateInfo = {
+        sType = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        rasterizationSamples = {._1},
+        sampleShadingEnable = false,
+    }
+
     color_blend_attachment_state: vk.PipelineColorBlendAttachmentState = {
         blendEnable = false,
         colorWriteMask = {.R, .G, .B, .A},
@@ -555,11 +611,36 @@ create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchai
     }
 
     res := vk.CreatePipelineLayout(device, &pipeline_layout_create_info, nil, &pipeline_layout); if res != .SUCCESS {
-        log.fatal("Error creating pipeline:", res)
-        return {}, {}, false
+        log.fatal("Error creating pipeline layout:", res)
+        ok = false
+        return
     }
     defer if !ok do vk.DestroyPipelineLayout(device, pipeline_layout, nil)
 
+
+    pipeline_create_info: vk.GraphicsPipelineCreateInfo = {
+        sType = .GRAPHICS_PIPELINE_CREATE_INFO,
+        stageCount = 2,
+        pStages = raw_data(shader_stages[:]),
+        pVertexInputState = &vertex_input_state_create_info,
+        pInputAssemblyState = &input_assembly_state_create_info,
+        pViewportState = &viewport_state_create_info,
+        pRasterizationState = &rasterizer_state_create_info,
+        pMultisampleState = &multisample_state_create_info,
+        pDepthStencilState = nil,
+        pColorBlendState = &color_blend_state_create_info,
+        pDynamicState = &dynamic_state_create_info,
+        
+        layout = pipeline_layout,
+        renderPass = render_pass,
+        subpass = 0,
+    }
+
+    res = vk.CreateGraphicsPipelines(device, 0, 1, &pipeline_create_info, nil, &pipeline); if res != .SUCCESS {
+        log.fatal("Error creating graphics pipeline:", res)
+        ok = false
+        return
+    }
 
     ok = true
     return
