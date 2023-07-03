@@ -11,3 +11,7 @@ init :: proc () -> (ok: bool) {
 shutdown :: proc() {
     _shutdown()
 }
+
+cmd_draw_frame :: proc() {
+    _cmd_draw_frame()
+}

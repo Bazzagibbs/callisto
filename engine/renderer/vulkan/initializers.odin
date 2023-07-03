@@ -89,7 +89,7 @@ create_instance :: proc() -> (instance: vk.Instance, ok: bool) {
         // debug_create_info := vk_impl.debug_messenger_create_info() 
         // instance_info.pNext = &debug_create_info
         instance_info.enabledLayerCount = len(validation_layers)
-        instance_info.ppEnabledLayerNames = raw_data(validation_layers[:])
+        instance_info.ppEnabledLayerNames = &validation_layers[0]
     }
     
     // Vulkan instance
@@ -237,8 +237,8 @@ is_queue_families_complete :: proc(indices: ^Queue_Family_Indices) -> (is_comple
     return true
 }
 
-create_logical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> (logical_device: vk.Device, queues: Queue_Handles, ok: bool) {
-    indices := find_queue_family_indices(physical_device, surface)
+create_logical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> (logical_device: vk.Device, queue_family_indices: Queue_Family_Indices, queues: Queue_Handles, ok: bool) {
+    queue_family_indices = find_queue_family_indices(physical_device, surface)
 
     // Queue families may have the same index. Only create one queue in this case.
     unique_indices_set := make(map[u32]struct{})
@@ -246,8 +246,8 @@ create_logical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Su
     queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo)
     defer delete(queue_create_infos)
 
-    unique_indices_set[indices.graphics.?] = {}
-    unique_indices_set[indices.present.?] = {}
+    unique_indices_set[queue_family_indices.graphics.?] = {}
+    unique_indices_set[queue_family_indices.present.?] = {}
     
     queue_priority: f32 = 1.0
     for index in unique_indices_set {
@@ -268,16 +268,16 @@ create_logical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Su
 
     when config.ENGINE_DEBUG {
         device_create_info.enabledLayerCount = len(validation_layers)
-        device_create_info.ppEnabledLayerNames = raw_data(validation_layers[:])
+        device_create_info.ppEnabledLayerNames = &validation_layers[0]
     }
 
     res := vk.CreateDevice(physical_device, &device_create_info, nil, &logical_device); if res != .SUCCESS {
         log.fatal("Failed to create logical device:", res)
-        return {}, {}, false
+        return {}, {}, {}, false
     }
 
-    vk.GetDeviceQueue(logical_device, indices.graphics.?, 0, &queues.graphics)
-    vk.GetDeviceQueue(logical_device, indices.present.?, 0, &queues.present)
+    vk.GetDeviceQueue(logical_device, queue_family_indices.graphics.?, 0, &queues.graphics)
+    vk.GetDeviceQueue(logical_device, queue_family_indices.present.?, 0, &queues.present)
     ok = true
     return 
 }
@@ -296,7 +296,7 @@ check_device_extension_support :: proc(physical_device: vk.PhysicalDevice) -> (o
     vk.EnumerateDeviceExtensionProperties(physical_device, nil, &extension_count, nil)
     extension_props := make([]vk.ExtensionProperties, extension_count)
     defer delete(extension_props)
-    vk.EnumerateDeviceExtensionProperties(physical_device, nil, &extension_count, raw_data(extension_props[:]))
+    vk.EnumerateDeviceExtensionProperties(physical_device, nil, &extension_count, &extension_props[0])
 
     outer: for required_ext in required_device_extensions {
         for available_ext in extension_props {
@@ -345,7 +345,7 @@ create_swapchain :: proc(physical_device: vk.PhysicalDevice, device: vk.Device, 
     if indices.graphics.? == indices.present.? {
         swapchain_create_info.imageSharingMode = .EXCLUSIVE
         swapchain_create_info.queueFamilyIndexCount = 2
-        swapchain_create_info.pQueueFamilyIndices = raw_data(indices_values[:])
+        swapchain_create_info.pQueueFamilyIndices = &indices_values[0]
     }
     else {
         swapchain_create_info.imageSharingMode = .CONCURRENT
@@ -461,10 +461,20 @@ create_swapchain_image_views :: proc(device: vk.Device, swapchain_details: ^Swap
 destroy_swapchain_image_views :: proc(device: vk.Device, image_views: ^[dynamic]vk.ImageView) {
     for image_view in image_views {
         vk.DestroyImageView(device, image_view, nil)
-        }
+    }
+
+    resize(image_views, 0)
 }
 
 create_render_pass :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details) -> (render_pass: vk.RenderPass, ok: bool) {
+    subpass_dependency: vk.SubpassDependency = {
+        srcSubpass = vk.SUBPASS_EXTERNAL,
+        dstSubpass = 0,
+        srcStageMask = {.COLOR_ATTACHMENT_OUTPUT},
+        srcAccessMask = {},
+        dstStageMask = {.COLOR_ATTACHMENT_OUTPUT},
+        dstAccessMask = {.COLOR_ATTACHMENT_WRITE},
+    }
 
     color_attachment_desc: vk.AttachmentDescription = {
         format = swapchain_details.format.format,
@@ -494,6 +504,8 @@ create_render_pass :: proc(device: vk.Device, swapchain_details: ^Swapchain_Deta
         pAttachments = &color_attachment_desc,
         subpassCount = 1,
         pSubpasses = &subpass_desc,
+        dependencyCount = 1,
+        pDependencies = &subpass_dependency,
     }
 
     res := vk.CreateRenderPass(device, &render_pass_create_info, nil, &render_pass); if res != .SUCCESS {
@@ -621,7 +633,7 @@ create_graphics_pipeline :: proc(device: vk.Device, swapchain_details: ^Swapchai
     pipeline_create_info: vk.GraphicsPipelineCreateInfo = {
         sType = .GRAPHICS_PIPELINE_CREATE_INFO,
         stageCount = 2,
-        pStages = raw_data(shader_stages[:]),
+        pStages = &shader_stages[0],
         pVertexInputState = &vertex_input_state_create_info,
         pInputAssemblyState = &input_assembly_state_create_info,
         pViewportState = &viewport_state_create_info,
@@ -666,4 +678,199 @@ create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.
 
     ok = true
     return
+}
+
+create_framebuffers :: proc(device: vk.Device, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, render_pass: vk.RenderPass, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+    resize(framebuffers, len(image_views))
+
+    for i in 0..<len(image_views) {
+        framebuffer_create_info: vk.FramebufferCreateInfo = {
+            sType = .FRAMEBUFFER_CREATE_INFO,
+            renderPass = render_pass,
+            attachmentCount = 1,
+            pAttachments = &image_views[i],
+            width = swapchain_details.swap_extent.width,
+            height = swapchain_details.swap_extent.height,
+            layers = 1,
+        }
+
+        res := vk.CreateFramebuffer(device, &framebuffer_create_info, nil, &framebuffers[i]); if res != .SUCCESS {
+            log.fatal("Failed to create framebuffers:", res)
+            for j in 0..<i {
+                vk.DestroyFramebuffer(device, framebuffers[j], nil)
+            }
+            return false
+        }
+    }
+    ok = true
+    return
+}
+
+destroy_framebuffers :: proc(device: vk.Device, framebuffers: ^[dynamic]vk.Framebuffer) {
+    for framebuffer in framebuffers {
+        vk.DestroyFramebuffer(device, framebuffer, nil)
+    }
+
+    resize(framebuffers, 0)
+}
+
+create_command_pool :: proc(device: vk.Device, queue_family_indices: ^Queue_Family_Indices) -> (command_pool: vk.CommandPool, ok: bool) {
+    command_pool_create_info: vk.CommandPoolCreateInfo = {
+        sType = .COMMAND_POOL_CREATE_INFO,
+        flags = {.RESET_COMMAND_BUFFER},
+        queueFamilyIndex = queue_family_indices.graphics.?,
+    }
+
+    res := vk.CreateCommandPool(device, &command_pool_create_info, nil, &command_pool); if res != .SUCCESS {
+        log.fatal("Failed to create command pool:", res)
+        return {}, false
+    }
+
+    ok = true
+    return
+}
+
+create_command_buffer :: proc(device: vk.Device, command_pool: vk.CommandPool) -> (command_buffer: vk.CommandBuffer, ok: bool) {
+    command_buffer_allocate_info: vk.CommandBufferAllocateInfo = {
+        sType = .COMMAND_BUFFER_ALLOCATE_INFO,
+        commandPool = command_pool,
+        level = .PRIMARY,
+        commandBufferCount = 1,
+    }
+
+    res := vk.AllocateCommandBuffers(device, &command_buffer_allocate_info, &command_buffer); if res != .SUCCESS {
+        log.fatal("Failed to allocate command buffer:", res)
+        return {}, false
+    }
+
+    ok = true
+    return
+}
+
+record_command_buffer :: proc(command_buffer: vk.CommandBuffer, render_pass: vk.RenderPass, swapchain_details: ^Swapchain_Details, framebuffer: vk.Framebuffer, pipeline: vk.Pipeline) -> (ok: bool) {
+    begin_info: vk.CommandBufferBeginInfo = {
+        sType = .COMMAND_BUFFER_BEGIN_INFO,
+        flags = {},
+    }
+
+    res := vk.BeginCommandBuffer(command_buffer, &begin_info); if res != .SUCCESS {
+        log.fatal("Failed to begin recording command buffer:", res)
+        return false
+    }
+
+    clear_color: vk.ClearValue = { color = { float32 = {0, 0, 0, 1}}}
+
+    render_pass_begin_info: vk.RenderPassBeginInfo = {
+        sType = .RENDER_PASS_BEGIN_INFO,
+        renderPass = render_pass,
+        framebuffer = framebuffer,
+        renderArea = {
+            offset = {0, 0},
+            extent = swapchain_details.swap_extent,
+        },
+        clearValueCount = 1,
+        pClearValues = &clear_color,
+    }
+
+    vk.CmdBeginRenderPass(command_buffer, &render_pass_begin_info, .INLINE) // Switch to SECONDARY_COMMAND_BUFFERS later
+    vk.CmdBindPipeline(command_buffer, .GRAPHICS, pipeline)
+
+    viewport: vk.Viewport = {
+        x = 0,
+        y = 0,
+        width = f32(swapchain_details.swap_extent.width),
+        height = f32(swapchain_details.swap_extent.height),
+        minDepth = 0,
+        maxDepth = 1,
+    }
+
+    vk.CmdSetViewport(command_buffer, 0, 1, &viewport)
+
+    scissor: vk.Rect2D = {
+        offset = {0, 0},
+        extent = swapchain_details.swap_extent,
+    }
+
+    vk.CmdSetScissor(command_buffer, 0, 1, &scissor)
+
+    vk.CmdDraw(command_buffer, 3, 1, 0, 0);
+
+    vk.CmdEndRenderPass(command_buffer)
+
+    res = vk.EndCommandBuffer(command_buffer); if res != .SUCCESS {
+        log.fatal("Failed to record command buffer:", res)
+        return false
+    }
+
+    return true
+}
+
+create_semaphore :: proc(device: vk.Device) -> (semaphore: vk.Semaphore, ok: bool) {
+    semaphore_create_info: vk.SemaphoreCreateInfo = {
+        sType = .SEMAPHORE_CREATE_INFO,
+    }
+    res := vk.CreateSemaphore(device, &semaphore_create_info, nil, &semaphore); if res != .SUCCESS {
+        log.fatal("Failed to create sempahore:", res)
+        return {}, false
+    }
+    ok = true
+    return
+}
+
+create_fence :: proc(device: vk.Device) -> (fence: vk.Fence, ok: bool) {
+    fence_create_info: vk.FenceCreateInfo = {
+        sType = .FENCE_CREATE_INFO,
+        flags = {.SIGNALED},
+    }
+    res := vk.CreateFence(device, &fence_create_info, nil, &fence); if res != .SUCCESS {
+        log.fatal("Failed to create fence:", res)
+        return {}, false
+    }
+    ok = true
+    return
+}
+
+
+submit_command_buffer :: proc(command_buffer: vk.CommandBuffer, command_queue: vk.Queue, swapchain: vk.SwapchainKHR, image_index: u32, wait_semaphore, signal_semaphore: vk.Semaphore, in_flight_fence: vk.Fence) -> (ok: bool) {
+    // Replace with arrays if required
+    wait_semaphores := wait_semaphore
+    signal_semaphores := signal_semaphore
+    command_buffers := command_buffer
+    swapchains := swapchain
+    image_indices := image_index
+
+    stage_flags := [?]vk.PipelineStageFlags{
+        {.COLOR_ATTACHMENT_OUTPUT},
+    }
+
+    submit_info: vk.SubmitInfo = {
+        sType = .SUBMIT_INFO,
+        waitSemaphoreCount = 1,
+        pWaitSemaphores = &wait_semaphores,
+        pWaitDstStageMask = &stage_flags[0],
+        commandBufferCount = 1,
+        pCommandBuffers = &command_buffers,
+        signalSemaphoreCount = 1,
+        pSignalSemaphores = &signal_semaphores,
+    }
+
+    res := vk.QueueSubmit(command_queue, 1, &submit_info, in_flight_fence); if res != .SUCCESS {
+        log.fatal("Failed to submit command buffer:", res)
+        return false
+    }
+    
+    present_info: vk.PresentInfoKHR = {
+        sType = .PRESENT_INFO_KHR,
+        waitSemaphoreCount = 1,
+        pWaitSemaphores = &signal_semaphores,
+        swapchainCount = 1,
+        pSwapchains = &swapchains,
+        pImageIndices = &image_indices,
+    }
+
+    res = vk.QueuePresentKHR(command_queue, &present_info); if res != .SUCCESS {
+        log.fatal("Failed to present:", res)
+        return false
+    }
+    return true
 }
