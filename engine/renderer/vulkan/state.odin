@@ -13,8 +13,8 @@ State :: struct {
     swapchain: vk.SwapchainKHR,
     swapchain_details: Swapchain_Details,
     target_image_index: u32,
-    swapchain_images: [dynamic]vk.Image,
-    swapchain_image_views: [dynamic]vk.ImageView,
+    images: [dynamic]vk.Image,
+    image_views: [dynamic]vk.ImageView,
     render_pass: vk.RenderPass,
     pipeline: vk.Pipeline,
     pipeline_layout: vk.PipelineLayout,
@@ -40,5 +40,5 @@ Swapchain_Details :: struct {
     capabilities: vk.SurfaceCapabilitiesKHR,
     format: vk.SurfaceFormatKHR,
     present_mode: vk.PresentModeKHR,
-    swap_extent: vk.Extent2D,
+    extent: vk.Extent2D,
 }

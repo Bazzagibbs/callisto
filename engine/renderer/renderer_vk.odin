@@ -31,10 +31,10 @@ _init :: proc() -> (ok: bool) {
     swapchain, swapchain_details = vk_impl.create_swapchain(&state) or_return
     defer if !ok do vk.DestroySwapchainKHR(device, swapchain, nil)
 
-    vk_impl.get_swapchain_images(&state, &swapchain_images)
+    vk_impl.get_images(&state, &state.images)
 
-    vk_impl.create_swapchain_image_views(&state, &swapchain_image_views) or_return
-    defer if !ok do vk_impl.destroy_swapchain_image_views(&state, &swapchain_image_views)
+    vk_impl.create_image_views(&state, &state.image_views) or_return
+    defer if !ok do vk_impl.destroy_image_views(&state, &state.image_views)
 
     render_pass = vk_impl.create_render_pass(&state) or_return
     defer if !ok do vk.DestroyRenderPass(device, render_pass, nil)
@@ -73,7 +73,7 @@ _shutdown :: proc() {
     defer vk.DestroyDevice(device, nil)
     defer vk.DestroyCommandPool(device, command_pool, nil)
     defer vk.DestroySwapchainKHR(device, swapchain, nil)
-    defer vk_impl.destroy_swapchain_image_views(&state, &swapchain_image_views)
+    defer vk_impl.destroy_image_views(&state, &state.image_views)
     defer vk.DestroyRenderPass(device, render_pass, nil)
     defer vk.DestroyPipelineLayout(device, pipeline_layout, nil)
     defer vk.DestroyPipeline(device, pipeline, nil)
@@ -89,10 +89,23 @@ _shutdown :: proc() {
 _cmd_draw_frame :: proc() {
     using state
     vk.WaitForFences(device, 1, &fence_in_flight, true, max(u64))
-    vk.ResetFences(device, 1, &fence_in_flight)
 
     target_image_index = 0
-    vk.AcquireNextImageKHR(device, swapchain, max(u64), semaphore_image_available, {}, &target_image_index)
+    res := vk.AcquireNextImageKHR(device, swapchain, max(u64), semaphore_image_available, {}, &target_image_index); if res != .SUCCESS {
+        switch {
+            case res == .ERROR_OUT_OF_DATE_KHR:
+                fallthrough
+            case res == .SUBOPTIMAL_KHR:
+                log.info("Image out of date, recreating swapchain...")
+                ok := vk_impl.recreate_swapchain(&state, &state.swapchain, &state.swapchain_details, &state.image_views, &state.framebuffers); if !ok {
+                    log.fatal("Failed to recreate swapchain")
+                }
+            return
+        }
+    }
+    
+    vk.ResetFences(device, 1, &fence_in_flight)
+
     vk.ResetCommandBuffer(command_buffer, {})
     vk_impl.record_command_buffer(&state, command_buffer)
     vk_impl.submit_command_buffer(&state, command_buffer)
