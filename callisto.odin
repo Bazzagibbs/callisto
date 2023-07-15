@@ -1,9 +1,9 @@
 package callisto
 
 import "core:log"
-import "engine/window"
-import "engine/log_util"
-import "engine/renderer"
+import "window"
+import "log_util"
+import "renderer"
 import "input"
 
 logger: log.Logger

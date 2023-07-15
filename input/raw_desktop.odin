@@ -10,7 +10,7 @@ package callisto_input
 import "core:log"
 import "core:c"
 import "vendor:glfw"
-import "../engine/window"
+import "../window"
 
 _init :: proc() -> (ok: bool) {
     log.info("Initializing input: GLFW")

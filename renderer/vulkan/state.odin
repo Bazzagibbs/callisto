@@ -1,4 +1,4 @@
-package callisto_engine_renderer_vulkan
+package callisto_renderer_vulkan
 
 import vk "vendor:vulkan"
 

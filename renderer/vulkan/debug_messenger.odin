@@ -1,9 +1,9 @@
-package callisto_engine_renderer_vulkan
+package callisto_renderer_vulkan
 
 import "core:log"
 import "core:runtime"
 import "core:fmt"
-import "../../../config"
+import "../../config"
 import vk "vendor:vulkan"
 
 logger: log.Logger = {}

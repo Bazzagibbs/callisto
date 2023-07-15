@@ -1,12 +1,14 @@
-package callisto_engine_renderer_vulkan
+package callisto_renderer_vulkan
 
 import "core:log"
 import "core:strings"
 import "core:math"
 import "core:os"
-when config.BUILD_TARGET == .Desktop do import "vendor:glfw"
+import "core:mem"
 import vk "vendor:vulkan"
-import "../../../config"
+import "../../config"
+import cg "../../graphics"
+when config.BUILD_TARGET == .Desktop do import "vendor:glfw" // vk loader provided by glfw, might be worth moving vk loading to window init?
 import "../../window"
 
 validation_layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
@@ -76,12 +78,13 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
     return true
 }
 
-create_debug_messenger :: proc(state: ^State, messenger: ^vk.DebugUtilsMessengerEXT) -> (ok: bool) {
+create_debug_messenger :: proc(messenger: ^vk.DebugUtilsMessengerEXT) -> (ok: bool) {
+    state := bound_state
+
     when config.ENGINE_DEBUG {
         // create debug messenger
         debug_create_info := debug_messenger_create_info()
-        res := vk.CreateDebugUtilsMessengerEXT(state.instance, &debug_create_info, nil, messenger
-        ); if res != .SUCCESS {
+        res := vk.CreateDebugUtilsMessengerEXT(state.instance, &debug_create_info, nil, messenger); if res != .SUCCESS {
             log.fatal("Error creating debug messenger:", res)
             return false
         }
@@ -107,7 +110,8 @@ check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
     return true
 }
 
-create_surface :: proc(state: ^State, surface: ^vk.SurfaceKHR) -> (ok: bool) {
+create_surface :: proc(surface: ^vk.SurfaceKHR) -> (ok: bool) {
+    state := bound_state
     when config.BUILD_TARGET == .Desktop {
         res := glfw.CreateWindowSurface(state.instance, glfw.WindowHandle(window.handle), nil, surface); if res != .SUCCESS {
             log.fatal("Failed to create window surface:", res)
@@ -121,7 +125,8 @@ create_surface :: proc(state: ^State, surface: ^vk.SurfaceKHR) -> (ok: bool) {
     return false
 }
 
-select_physical_device :: proc(state: ^State, physical_device: ^vk.PhysicalDevice) -> (ok: bool) {
+select_physical_device :: proc(physical_device: ^vk.PhysicalDevice) -> (ok: bool) {
+    state := bound_state
     // TODO: Also allow user to specify desired GPU in graphics settings
     device_count: u32
     vk.EnumeratePhysicalDevices(state.instance, &device_count, nil)
@@ -207,7 +212,8 @@ is_queue_families_complete :: proc(indices: ^Queue_Family_Indices) -> (is_comple
     return true
 }
 
-create_logical_device :: proc(state: ^State, logical_device: ^vk.Device,	queue_family_indices: ^Queue_Family_Indices, queue_handles: ^Queue_Handles) -> (ok: bool) {
+create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: ^Queue_Family_Indices, queue_handles: ^Queue_Handles) -> (ok: bool) {
+    state := bound_state
     queue_family_indices^ = find_queue_family_indices(state.physical_device, state.surface)
 
     // Queue families may have the same index. Only create one queue in this case.
@@ -282,8 +288,9 @@ check_device_extension_support :: proc(physical_device: vk.PhysicalDevice) -> (o
     return true
 }
 
-create_swapchain :: proc(state: ^State, swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details) -> (ok: bool) {
-    ok = select_swapchain_details(state, swapchain_details); if !ok {
+create_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details) -> (ok: bool) {
+    state := bound_state
+    ok = select_swapchain_details(swapchain_details); if !ok {
         log.fatal("Swapchain is not suitable")
         return false
     }
@@ -329,7 +336,8 @@ create_swapchain :: proc(state: ^State, swapchain: ^vk.SwapchainKHR, swapchain_d
     return true
 }
 
-select_swapchain_details :: proc(state: ^State, details: ^Swapchain_Details) -> (ok: bool) {
+select_swapchain_details :: proc(details: ^Swapchain_Details) -> (ok: bool) {
+    state := bound_state
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(state.physical_device, state.surface, &details.capabilities)
 
     format_count: u32
@@ -391,14 +399,16 @@ select_swapchain_extent :: proc(surface_capabilities: ^vk.SurfaceCapabilitiesKHR
     return surface_capabilities.currentExtent
 }
 
-get_images :: proc(state: ^State, images: ^[dynamic]vk.Image) {
+get_images :: proc(images: ^[dynamic]vk.Image) {
+    state := bound_state
     image_count: u32
     vk.GetSwapchainImagesKHR(state.device, state.swapchain, &image_count, nil)
     resize(images, int(image_count))
     vk.GetSwapchainImagesKHR(state.device, state.swapchain, &image_count, raw_data(images^))
 }
 
-create_image_views :: proc(state: ^State, image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
+create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
+    state := bound_state
     // Create image view for every image we have acquired
     resize(image_views, len(state.images))
     for image, i in state.images {
@@ -429,7 +439,8 @@ create_image_views :: proc(state: ^State, image_views: ^[dynamic]vk.ImageView) -
     return true
 }
 
-destroy_image_views :: proc(state: ^State, image_views: ^[dynamic]vk.ImageView) {
+destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
+    state := bound_state
     for image_view in image_views {
         vk.DestroyImageView(state.device, image_view, nil)
     }
@@ -437,7 +448,8 @@ destroy_image_views :: proc(state: ^State, image_views: ^[dynamic]vk.ImageView) 
     resize(image_views, 0)
 }
 
-create_render_pass :: proc(state: ^State, render_pass: ^vk.RenderPass) -> (ok: bool) {
+create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
+    state := bound_state
     subpass_dependency: vk.SubpassDependency = {
         srcSubpass = vk.SUBPASS_EXTERNAL,
         dstSubpass = 0,
@@ -487,165 +499,9 @@ create_render_pass :: proc(state: ^State, render_pass: ^vk.RenderPass) -> (ok: b
     return true
 }
 
-create_graphics_pipeline :: proc( state: ^State, pipeline: ^vk.Pipeline, pipeline_layout: ^vk.PipelineLayout) -> (ok: bool) {
-    vert_file, err1 := os.open("callisto/assets/shaders/vert.spv")
-    defer os.close(vert_file)
-    frag_file, err2 := os.open("callisto/assets/shaders/frag.spv")
-    defer os.close(frag_file)
-    if err1 != os.ERROR_NONE || err2 != os.ERROR_NONE {
-        log.error("Failed to open file")
-        return false
-    }
 
-    vert_module := create_shader_module(state.device, vert_file) or_return
-    defer vk.DestroyShaderModule(state.device, vert_module, nil)
-    frag_module := create_shader_module(state.device, frag_file) or_return
-    defer vk.DestroyShaderModule(state.device, frag_module, nil)
-
-    shader_stages := [?]vk.PipelineShaderStageCreateInfo {
-        // Vertex
-        {
-            sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
-            stage = {.VERTEX},
-            module = vert_module,
-            pName = "main",
-        },
-        // Fragment
-        {
-            sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
-            stage = {.FRAGMENT},
-            module = frag_module,
-            pName = "main",
-        },
-    }
-
-    dynamic_state_create_info: vk.PipelineDynamicStateCreateInfo = {
-        sType             = .PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        dynamicStateCount = u32(len(dynamic_states)),
-        pDynamicStates    = raw_data(dynamic_states),
-    }
-
-    vertex_input_state_create_info: vk.PipelineVertexInputStateCreateInfo = {
-        sType                           = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        vertexBindingDescriptionCount   = 0,
-        vertexAttributeDescriptionCount = 0,
-    }
-
-    input_assembly_state_create_info: vk.PipelineInputAssemblyStateCreateInfo = {
-        sType                  = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        topology               = .TRIANGLE_LIST,
-        primitiveRestartEnable = false,
-    }
-
-    viewport: vk.Viewport = {
-        x        = 0,
-        y        = 0,
-        width    = f32(state.swapchain_details.extent.width),
-        height   = f32(state.swapchain_details.extent.height),
-        minDepth = 0,
-        maxDepth = 1,
-    }
-
-    scissor: vk.Rect2D = {
-        offset = {0, 0},
-        extent = state.swapchain_details.extent,
-    }
-
-    viewport_state_create_info: vk.PipelineViewportStateCreateInfo = {
-        sType         = .PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        viewportCount = 1,
-        pViewports    = &viewport,
-        scissorCount  = 1,
-        pScissors     = &scissor,
-    }
-
-    rasterizer_state_create_info: vk.PipelineRasterizationStateCreateInfo = {
-        sType = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        depthClampEnable = false,
-        rasterizerDiscardEnable = false,
-        lineWidth = 1,
-        cullMode = {.BACK},
-        frontFace = .CLOCKWISE,
-        depthBiasEnable = false,
-    }
-
-    multisample_state_create_info: vk.PipelineMultisampleStateCreateInfo = {
-        sType = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        rasterizationSamples = {._1},
-        sampleShadingEnable = false,
-    }
-
-    color_blend_attachment_state: vk.PipelineColorBlendAttachmentState = {
-        blendEnable = false,
-        colorWriteMask = {.R, .G, .B, .A},
-    }
-
-    color_blend_state_create_info: vk.PipelineColorBlendStateCreateInfo = {
-        sType           = .PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        logicOpEnable   = false,
-        logicOp         = .COPY,
-        attachmentCount = 1,
-        pAttachments    = &color_blend_attachment_state,
-    }
-
-    pipeline_layout_create_info: vk.PipelineLayoutCreateInfo = {
-        sType = .PIPELINE_LAYOUT_CREATE_INFO,
-    }
-
-    res := vk.CreatePipelineLayout(state.device, &pipeline_layout_create_info, nil, pipeline_layout); if res != .SUCCESS {
-        log.fatal("Error creating pipeline layout:", res)
-        return false
-    }
-    defer if !ok do vk.DestroyPipelineLayout(state.device, pipeline_layout^, nil)
-
-    pipeline_create_info: vk.GraphicsPipelineCreateInfo = {
-        sType               = .GRAPHICS_PIPELINE_CREATE_INFO,
-        stageCount          = 2,
-        pStages             = &shader_stages[0],
-        pVertexInputState   = &vertex_input_state_create_info,
-        pInputAssemblyState = &input_assembly_state_create_info,
-        pViewportState      = &viewport_state_create_info,
-        pRasterizationState = &rasterizer_state_create_info,
-        pMultisampleState   = &multisample_state_create_info,
-        pDepthStencilState  = nil,
-        pColorBlendState    = &color_blend_state_create_info,
-        pDynamicState       = &dynamic_state_create_info,
-        layout              = pipeline_layout^,
-        renderPass          = state.render_pass,
-        subpass             = 0,
-    }
-
-    res = vk.CreateGraphicsPipelines(state.device, 0, 1, &pipeline_create_info, nil, pipeline); if res != .SUCCESS {
-        log.fatal("Error creating graphics pipeline:", res)
-        return false
-    }
-
-    return true
-}
-
-create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.ShaderModule, ok: bool) {
-    module_source, ok1 := os.read_entire_file(file); if !ok1 {
-        log.error("Failed to create shader module: Could not read file")
-        return {}, false
-    }
-    defer delete(module_source)
-
-    module_info: vk.ShaderModuleCreateInfo = {
-        sType    = .SHADER_MODULE_CREATE_INFO,
-        codeSize = len(module_source),
-        pCode    = transmute(^u32)raw_data(module_source), // yuck
-    }
-
-    res := vk.CreateShaderModule(device, &module_info, nil, &module); if res != .SUCCESS {
-        log.error("Failed to create shader module")
-        return {}, false
-    }
-
-    ok = true
-    return
-}
-
-create_framebuffers :: proc(state: ^State, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+    state := bound_state
     resize(framebuffers, len(state.image_views))
 
     for i in 0 ..< len(state.image_views) {
@@ -670,7 +526,8 @@ create_framebuffers :: proc(state: ^State, framebuffers: ^[dynamic]vk.Framebuffe
     return true
 }
 
-destroy_framebuffers :: proc(state: ^State, framebuffer_array: ^[dynamic]vk.Framebuffer) {
+destroy_framebuffers :: proc(framebuffer_array: ^[dynamic]vk.Framebuffer) {
+    state := bound_state
     for framebuffer in framebuffer_array {
         vk.DestroyFramebuffer(state.device, framebuffer, nil)
     }
@@ -678,7 +535,8 @@ destroy_framebuffers :: proc(state: ^State, framebuffer_array: ^[dynamic]vk.Fram
     resize(framebuffer_array, 0)
 }
 
-create_command_pool :: proc(state: ^State, command_pool: ^vk.CommandPool) -> (ok: bool) {
+create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
+    state := bound_state
     command_pool_create_info: vk.CommandPoolCreateInfo = {
         sType = .COMMAND_POOL_CREATE_INFO,
         flags = {.RESET_COMMAND_BUFFER},
@@ -694,7 +552,8 @@ create_command_pool :: proc(state: ^State, command_pool: ^vk.CommandPool) -> (ok
     return
 }
 
-create_command_buffers :: proc(state: ^State, count: int, command_buffers: ^[dynamic]vk.CommandBuffer) -> (ok: bool) {
+create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.CommandBuffer) -> (ok: bool) {
+    state := bound_state
     resize(command_buffers, count)
     command_buffer_allocate_info: vk.CommandBufferAllocateInfo = {
         sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
@@ -711,9 +570,9 @@ create_command_buffers :: proc(state: ^State, count: int, command_buffers: ^[dyn
     return true
 }
 
-record_command_buffer :: proc(state: ^State) -> (ok: bool) {
+begin_command_buffer :: proc() -> (ok: bool) {
+    state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
-
     begin_info: vk.CommandBufferBeginInfo = {
         sType = .COMMAND_BUFFER_BEGIN_INFO,
         flags = {},
@@ -724,6 +583,22 @@ record_command_buffer :: proc(state: ^State) -> (ok: bool) {
         return false
     }
 
+    return true
+}
+
+end_command_buffer :: proc() -> (ok: bool) {
+    state := bound_state
+    command_buffer := state.command_buffers[state.flight_frame]
+    res := vk.EndCommandBuffer(command_buffer); if res != .SUCCESS {
+        log.fatal("Failed to end recording command buffer:", res)
+        return false
+    }
+    return true
+}
+
+begin_render_pass :: proc() {
+    state := bound_state
+    command_buffer := state.command_buffers[state.flight_frame]
     clear_color: vk.ClearValue = {
         color = {float32 = {0, 0, 0, 1}},
     }
@@ -738,8 +613,7 @@ record_command_buffer :: proc(state: ^State) -> (ok: bool) {
     }
 
     vk.CmdBeginRenderPass(command_buffer, &render_pass_begin_info, .INLINE) // Switch to SECONDARY_command_bufferS later
-    vk.CmdBindPipeline(command_buffer, .GRAPHICS, state.pipeline)
-
+    
     viewport: vk.Viewport = {
         x        = 0,
         y        = 0,
@@ -757,20 +631,28 @@ record_command_buffer :: proc(state: ^State) -> (ok: bool) {
     }
 
     vk.CmdSetScissor(command_buffer, 0, 1, &scissor)
-
-    vk.CmdDraw(command_buffer, 3, 1, 0, 0)
-
-    vk.CmdEndRenderPass(command_buffer)
-
-    res = vk.EndCommandBuffer(command_buffer); if res != .SUCCESS {
-        log.fatal("Failed to record command buffer:", res)
-        return false
-    }
-
-    return true
 }
 
-create_semaphores :: proc(state: ^State, count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok: bool) {
+end_render_pass :: proc() {
+    state := bound_state
+    command_buffer := state.command_buffers[state.flight_frame]
+    vk.CmdEndRenderPass(command_buffer)
+}
+
+bind_shader :: proc(pipeline: vk.Pipeline) {
+    state := bound_state
+    command_buffer := state.command_buffers[state.flight_frame]
+    vk.CmdBindPipeline(command_buffer, .GRAPHICS, pipeline)
+}
+
+draw :: proc(/* vertex_buffer: */) {
+    state := bound_state
+    command_buffer := state.command_buffers[state.flight_frame]
+    vk.CmdDraw(command_buffer, 3, 1, 0, 0)
+}
+
+create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok: bool) {
+    state := bound_state
     resize(semaphores, count)
     
     semaphore_create_info: vk.SemaphoreCreateInfo = {
@@ -790,7 +672,8 @@ create_semaphores :: proc(state: ^State, count: int, semaphores: ^[dynamic]vk.Se
     return true
 }
 
-create_fences :: proc(state: ^State, count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
+create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
+    state := bound_state
     resize(fences, int(count))
 
     fence_create_info: vk.FenceCreateInfo = {
@@ -811,7 +694,8 @@ create_fences :: proc(state: ^State, count: int, fences: ^[dynamic]vk.Fence) -> 
     return
 }
 
-destroy_semaphores :: proc(state: ^State, semaphores: ^[dynamic]vk.Semaphore) {
+destroy_semaphores :: proc(semaphores: ^[dynamic]vk.Semaphore) {
+    state := bound_state
     for semaphore in semaphores^ {
         vk.DestroySemaphore(state.device, semaphore, nil)
     }
@@ -819,7 +703,8 @@ destroy_semaphores :: proc(state: ^State, semaphores: ^[dynamic]vk.Semaphore) {
     resize(semaphores, 0)
 }
 
-destroy_fences :: proc(state: ^State, fences: ^[dynamic]vk.Fence) {
+destroy_fences :: proc(fences: ^[dynamic]vk.Fence) {
+    state := bound_state
     for fence in fences^ {
         vk.DestroyFence(state.device, fence, nil)
     }
@@ -828,7 +713,8 @@ destroy_fences :: proc(state: ^State, fences: ^[dynamic]vk.Fence) {
 }
 
 
-submit_command_buffer :: proc(state: ^State) -> (ok: bool) {
+submit_command_buffer :: proc() -> (ok: bool) {
+    state := bound_state
     // Replace with arrays if required
     image_available_semaphore := state.image_available_semaphores[state.flight_frame]
     render_finished_semaphore := state.render_finished_semaphores[state.flight_frame]
@@ -857,7 +743,8 @@ submit_command_buffer :: proc(state: ^State) -> (ok: bool) {
     return true
 }
 
-present :: proc(state: ^State) -> (ok: bool) {
+present :: proc() -> (ok: bool) {
+    state := bound_state
     render_finished_semaphore := state.render_finished_semaphores[state.flight_frame]
     present_info: vk.PresentInfoKHR = {
         sType              = .PRESENT_INFO_KHR,
@@ -873,7 +760,7 @@ present :: proc(state: ^State) -> (ok: bool) {
         case res == .ERROR_OUT_OF_DATE_KHR:
             fallthrough
         case res == .SUBOPTIMAL_KHR:
-            ok = recreate_swapchain(state, &state.swapchain, &state.swapchain_details, &state.image_views, &state.framebuffers); if !ok {
+            ok = recreate_swapchain(&state.swapchain, &state.swapchain_details, &state.image_views, &state.framebuffers); if !ok {
                 log.fatal("Failed to recreate swapchain after attempted present:", res)
                 return false
             }
@@ -886,20 +773,35 @@ present :: proc(state: ^State) -> (ok: bool) {
     return true
 }
 
-recreate_swapchain :: proc(state: ^State, swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+recreate_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+    state := bound_state
     vk.DeviceWaitIdle(state.device)
 
-    destroy_framebuffers(state, framebuffers)
-    destroy_image_views(state, image_views)
+    destroy_framebuffers(framebuffers)
+    destroy_image_views(image_views)
     vk.DestroySwapchainKHR(state.device, swapchain^, nil)
 
-    create_swapchain(state, swapchain, swapchain_details) or_return
+    create_swapchain(swapchain, swapchain_details) or_return
     defer if !ok do vk.DestroySwapchainKHR(state.device, swapchain^, nil)
-    create_image_views(state, image_views) or_return
-    defer if !ok do destroy_image_views(state, image_views)
-    create_framebuffers(state, framebuffers) or_return
-    defer if !ok do destroy_framebuffers(state, framebuffers)
+    create_image_views(image_views) or_return
+    defer if !ok do destroy_image_views(image_views)
+    create_framebuffers(framebuffers) or_return
+    defer if !ok do destroy_framebuffers(framebuffers)
 
     ok = true
     return
+}
+
+
+find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -> u32 {
+    state := bound_state
+    mem_properties: vk.PhysicalDeviceMemoryProperties
+    vk.GetPhysicalDeviceMemoryProperties(state.physical_device, &mem_properties)
+    for i in 0..<mem_properties.memoryTypeCount {
+        if (type_filter & (1 << i) != 0) && ((mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i
+        }
+    }
+    log.error("Failed to find suitable memory type")
+    return 0
 }

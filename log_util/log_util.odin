@@ -1,7 +1,7 @@
 package callisto_engine_log_util
 
 import "core:log"
-import "../../config"
+import "../config"
 
 
 create :: proc() -> (logger, logger_internal: log.Logger) {
