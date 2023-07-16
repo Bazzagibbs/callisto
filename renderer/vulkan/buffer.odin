@@ -7,7 +7,8 @@ import cg "../../graphics"
 
 create_vertex_buffer :: proc(vertices: []$T, buffer: ^cg.Vertex_Buffer) -> (ok: bool) {
     using bound_state
-    buffer.size = u32(size_of(typeid_of(T)) * len(vertices))
+    buffer.vertex_count = u32(len(vertices))
+    buffer.size = u32(type_info_of(typeid_of(T)).size * len(vertices))
 
     vertex_buffer_create_info: vk.BufferCreateInfo = {
         sType = .BUFFER_CREATE_INFO,

@@ -49,7 +49,7 @@ cmd_draw :: proc(buffer: ^cg.Vertex_Buffer) {
     buffers := []vk.Buffer {buffer.handle}
     offsets := []vk.DeviceSize {0}
     vk.CmdBindVertexBuffers(command_buffer, 0, 1, raw_data(buffers), raw_data(offsets))
-    vk.CmdDraw(command_buffer, buffer.size, 1, 0, 0)
+    vk.CmdDraw(command_buffer, buffer.vertex_count, 1, 0, 0)
 }
 
 cmd_present :: proc() {

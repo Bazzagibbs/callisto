@@ -43,10 +43,6 @@ init :: proc() -> (ok: bool) {
     create_render_pass(&render_pass) or_return
     defer if !ok do vk.DestroyRenderPass(device, render_pass, nil)
 
-    // create_graphics_pipeline(&shader_description, &pipeline, &pipeline_layout) or_return
-    // defer if !ok do vk.DestroyPipelineLayout(device, pipeline_layout, nil)
-    // defer if !ok do vk.DestroyPipeline(device, pipeline, nil)
-
     create_framebuffers(&framebuffers) or_return
     defer if !ok do destroy_framebuffers(&framebuffers)
 
@@ -80,8 +76,6 @@ shutdown :: proc() {
     defer vk.DestroySwapchainKHR(device, swapchain, nil)
     defer destroy_image_views(&image_views)
     defer vk.DestroyRenderPass(device, render_pass, nil)
-    // defer vk.DestroyPipelineLayout(device, pipeline_layout, nil)
-    // defer vk.DestroyPipeline(device, pipeline, nil)
     defer destroy_framebuffers(&framebuffers)
     defer vk.FreeCommandBuffers(device, command_pool, u32(len(command_buffers)), raw_data(command_buffers))
     defer destroy_semaphores(&image_available_semaphores)

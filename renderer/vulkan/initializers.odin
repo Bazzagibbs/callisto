@@ -12,7 +12,7 @@ when config.BUILD_TARGET == .Desktop do import "vendor:glfw" // vk loader provid
 import "../../window"
 
 validation_layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
-required_instance_extensions: [dynamic]cstring = {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+required_instance_extensions: [dynamic]cstring = {/*vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME*/}
 required_device_extensions: [dynamic]cstring = {vk.KHR_SWAPCHAIN_EXTENSION_NAME}
 dynamic_states: [dynamic]vk.DynamicState = {.VIEWPORT, .SCISSOR}
 
@@ -47,7 +47,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
     instance_info: vk.InstanceCreateInfo = {
         sType = vk.StructureType.INSTANCE_CREATE_INFO,
         pApplicationInfo = &app_info,
-        flags = {.ENUMERATE_PORTABILITY_KHR},
+        flags = {/*.ENUMERATE_PORTABILITY_KHR*/},
         enabledExtensionCount = u32(len(required_instance_extensions)),
         ppEnabledExtensionNames = raw_data(required_instance_extensions),
     }
@@ -67,7 +67,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
 
     // Vulkan instance
     res = vk.CreateInstance(&instance_info, nil, instance); if res != .SUCCESS {
-        log.fatal("Failed to create Vulkan instance:", res)
+        log.fatal("Failed to create Vulkan instance:", res, required_instance_extensions)
         return false
     }
     defer if !ok do vk.DestroyInstance(instance^, nil)
