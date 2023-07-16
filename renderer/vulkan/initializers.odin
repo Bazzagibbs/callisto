@@ -582,7 +582,6 @@ begin_command_buffer :: proc() -> (ok: bool) {
         log.fatal("Failed to begin recording command buffer:", res)
         return false
     }
-
     return true
 }
 

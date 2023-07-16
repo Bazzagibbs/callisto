@@ -8,7 +8,7 @@ when config.RENDERER_API == .Vulkan {
     Vertex_Buffer :: struct {
         handle:         vk.Buffer,
         memory_handle:  vk.DeviceMemory,
-        // size
-        // vertex type
+        size:           u32,
+        // vertex type?
     }
 }

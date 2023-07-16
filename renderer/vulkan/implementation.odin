@@ -8,11 +8,11 @@ import cg "../../graphics"
 import "../../config"
 
 // Ownership, may support multiple vk instances later.
-state: State = {}
+main_state: State = {}
 bound_state: ^State
 
 init :: proc() -> (ok: bool) {
-    bound_state = &state
+    bound_state = &main_state
     using bound_state
 
     log.info("Initializing renderer: Vulkan")
@@ -80,8 +80,8 @@ shutdown :: proc() {
     defer vk.DestroySwapchainKHR(device, swapchain, nil)
     defer destroy_image_views(&image_views)
     defer vk.DestroyRenderPass(device, render_pass, nil)
-    defer vk.DestroyPipelineLayout(device, pipeline_layout, nil)
-    defer vk.DestroyPipeline(device, pipeline, nil)
+    // defer vk.DestroyPipelineLayout(device, pipeline_layout, nil)
+    // defer vk.DestroyPipeline(device, pipeline, nil)
     defer destroy_framebuffers(&framebuffers)
     defer vk.FreeCommandBuffers(device, command_pool, u32(len(command_buffers)), raw_data(command_buffers))
     defer destroy_semaphores(&image_available_semaphores)

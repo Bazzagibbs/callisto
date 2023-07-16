@@ -3,6 +3,7 @@ package callisto_renderer_vulkan
 import "core:log"
 import "core:runtime"
 import "core:fmt"
+import "core:strings"
 import "../../config"
 import vk "vendor:vulkan"
 
@@ -36,7 +37,10 @@ default_log_callback :: proc "contextless" (   messageSeverity: vk.DebugUtilsMes
     context = runtime.default_context()
     context.logger = logger
     level := vk_severity_to_log_level(messageSeverity)
-    log.log(level, pCallbackData.pMessage)
+
+    message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n ", -1, context.temp_allocator);
+    // if was_alloc do defer delete(message)
+    log.log(level, message)
     return false
 }
 

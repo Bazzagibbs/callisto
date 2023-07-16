@@ -7,7 +7,6 @@ import "../../config"
 
 cmd_record :: proc() {
     using bound_state
-    begin_command_buffer()
     vk.WaitForFences(device, 1, &in_flight_fences[flight_frame], true, max(u64))
 
     target_image_index = 0
@@ -26,6 +25,7 @@ cmd_record :: proc() {
     
     vk.ResetFences(device, 1, &in_flight_fences[flight_frame])
     vk.ResetCommandBuffer(command_buffers[flight_frame], {})
+    begin_command_buffer()
 }
 
 cmd_begin_render_pass :: proc() {
@@ -42,11 +42,14 @@ cmd_bind_shader :: proc(shader: ^cg.Shader) {
     vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, vk.Pipeline(shader.handle))
 }
 
-cmd_bind_buffer :: proc(buffer: ^cg.Vertex_Buffer) {
+cmd_draw :: proc(buffer: ^cg.Vertex_Buffer) {
     using bound_state
-    buffers := [?]vk.Buffer {vk.Buffer(buffer.handle)}
-    offsets := [?]vk.DeviceSize {0}
-    vk.CmdBindVertexBuffers(command_buffers[flight_frame], 0, 1, &buffers[0], &offsets[0])
+    command_buffer := command_buffers[flight_frame]
+
+    buffers := []vk.Buffer {buffer.handle}
+    offsets := []vk.DeviceSize {0}
+    vk.CmdBindVertexBuffers(command_buffer, 0, 1, raw_data(buffers), raw_data(offsets))
+    vk.CmdDraw(command_buffer, buffer.size, 1, 0, 0)
 }
 
 cmd_present :: proc() {

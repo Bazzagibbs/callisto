@@ -181,5 +181,8 @@ create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.
 }
 
 destroy_shader :: proc(shader: ^cg.Shader) {
-
+    using bound_state
+    vk.DeviceWaitIdle(device)
+    vk.DestroyPipeline(device, shader.handle, nil)    
+    vk.DestroyPipelineLayout(device, shader.layout, nil)
 }

@@ -25,11 +25,11 @@ destroy_shader :: proc(shader: ^cg.Shader) {
 }
 
 create_vertex_buffer :: proc(data: []$T, vertex_buffer: ^cg.Vertex_Buffer) -> (ok: bool) {
-    return impl.create_vertex_buffer(&impl.state, data, vertex_buffer)
+    return impl.create_vertex_buffer(data, vertex_buffer)
 }
 
 destroy_vertex_buffer :: proc(vertex_buffer: ^cg.Vertex_Buffer) {
-    impl.destroy_vertex_buffer(&impl.state, vertex_buffer)
+    impl.destroy_vertex_buffer(vertex_buffer)
 }
 
 
@@ -49,8 +49,8 @@ cmd_bind_shader :: proc(shader: ^cg.Shader) {
     impl.cmd_bind_shader(shader)
 }
 
-cmd_bind_buffer :: proc(buffer: ^cg.Vertex_Buffer) {
-    impl.cmd_bind_buffer(buffer)
+cmd_draw :: proc(buffer: ^cg.Vertex_Buffer) {
+    impl.cmd_draw(buffer)
 }
 
 cmd_present :: proc() {
