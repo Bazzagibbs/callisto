@@ -2,8 +2,7 @@ package callisto
 
 import "core:log"
 import "window"
-import "log_util"
-import "renderer"
+import "graphics"
 import "input"
 
 logger: log.Logger
@@ -12,9 +11,10 @@ logger_internal: log.Logger
 // Initialize Callisto engine. If successful, call `engine.shutdown()` before exiting the program.
 init :: proc() -> (ok: bool) {
 
-    logger, logger_internal = log_util.create()
+    logger, logger_internal = create_loggers()
     context.logger = logger_internal
     log.info("Initializing Callisto engine")
+    defer if !ok do destroy_loggers(logger, logger_internal)
     
     ok = window.init(); if ok == false {
         log.fatal("Window could not be initialized")
@@ -28,11 +28,11 @@ init :: proc() -> (ok: bool) {
     }
     defer if !ok do input.shutdown()
 
-    ok = renderer.init(); if ok == false {
+    ok = graphics.init(); if ok == false {
         log.fatal("Renderer could not be initialized")
         return
     }
-    defer if !ok do renderer.shutdown()
+    defer if !ok do graphics.shutdown()
 
     return
 }
@@ -45,10 +45,10 @@ shutdown :: proc() {
     
     context.logger = logger_internal
     
-    defer log_util.destroy(logger, logger_internal)
+    defer destroy_loggers(logger, logger_internal)
     defer window.shutdown()
     defer input.shutdown()
-    defer renderer.shutdown()
+    defer graphics.shutdown()
     
 }
 

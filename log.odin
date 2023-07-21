@@ -1,10 +1,10 @@
-package callisto_engine_log_util
+package callisto
 
 import "core:log"
-import "../config"
+import "config"
 
 
-create :: proc() -> (logger, logger_internal: log.Logger) {
+create_loggers :: proc() -> (logger, logger_internal: log.Logger) {
     console_logger_opts: log.Options :{
         .Level, 
         .Terminal_Color, 
@@ -20,7 +20,7 @@ create :: proc() -> (logger, logger_internal: log.Logger) {
 }
 
 
-destroy :: proc(logger, logger_internal: log.Logger) {
+destroy_loggers :: proc(logger, logger_internal: log.Logger) {
     log.info("Shutting down logger")
     log.destroy_console_logger(logger)
     log.destroy_console_logger(logger_internal)

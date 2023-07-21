@@ -1,12 +1,19 @@
-package callisto_renderer_vulkan
+package callisto_graphics_vulkan
 
 import "core:os"
 import "core:log"
+import "core:mem"
 import vk "vendor:vulkan"
-import cg "../../graphics"
+// Graphics common
+import "../common"
 
-create_shader :: proc(shader_description: ^cg.Shader_Description, shader: ^cg.Shader) -> (ok: bool) {
+create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^common.Shader) -> (ok: bool) {
     state := bound_state
+    cvk_shader, err := mem.new(CVK_Shader); if err != nil {
+        log.error("Failed to create shader:", err)
+        return false
+    }
+    defer if !ok do mem.free(cvk_shader)
 
     vert_file, err1 := os.open(shader_description.vertex_shader_path)
     if err1 != os.ERROR_NONE {
@@ -127,11 +134,11 @@ create_shader :: proc(shader_description: ^cg.Shader_Description, shader: ^cg.Sh
         sType = .PIPELINE_LAYOUT_CREATE_INFO,
     }
 
-    res := vk.CreatePipelineLayout(state.device, &pipeline_layout_create_info, nil, &shader.layout); if res != .SUCCESS {
+    res := vk.CreatePipelineLayout(state.device, &pipeline_layout_create_info, nil, &cvk_shader.pipeline_layout); if res != .SUCCESS {
         log.fatal("Error creating pipeline layout:", res)
         return false
     }
-    defer if !ok do vk.DestroyPipelineLayout(state.device, shader.layout, nil)
+    defer if !ok do vk.DestroyPipelineLayout(state.device, cvk_shader.pipeline_layout, nil)
 
     pipeline_create_info: vk.GraphicsPipelineCreateInfo = {
         sType               = .GRAPHICS_PIPELINE_CREATE_INFO,
@@ -145,16 +152,19 @@ create_shader :: proc(shader_description: ^cg.Shader_Description, shader: ^cg.Sh
         pDepthStencilState  = nil,
         pColorBlendState    = &color_blend_state_create_info,
         pDynamicState       = &dynamic_state_create_info,
-        layout              = shader.layout,
+        layout              = cvk_shader.pipeline_layout,
         renderPass          = state.render_pass,
         subpass             = 0,
     }
 
-    res = vk.CreateGraphicsPipelines(state.device, 0, 1, &pipeline_create_info, nil, &shader.handle); if res != .SUCCESS {
+    pipeline: vk.Pipeline
+    res = vk.CreateGraphicsPipelines(state.device, 0, 1, &pipeline_create_info, nil, &pipeline); if res != .SUCCESS {
         log.fatal("Error creating graphics pipeline:", res)
         return false
     }
+    cvk_shader.pipeline = pipeline
 
+    shader^ = transmute(common.Shader)cvk_shader
     return true
 }
 
@@ -180,9 +190,12 @@ create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.
     return
 }
 
-destroy_shader :: proc(shader: ^cg.Shader) {
+destroy_shader :: proc(shader: common.Shader) {
     using bound_state
+    cvk_shader := transmute(^CVK_Shader)shader
+
     vk.DeviceWaitIdle(device)
-    vk.DestroyPipeline(device, shader.handle, nil)    
-    vk.DestroyPipelineLayout(device, shader.layout, nil)
+    vk.DestroyPipeline(device, cvk_shader.pipeline, nil)    
+    vk.DestroyPipelineLayout(device, cvk_shader.pipeline_layout, nil)
+    mem.free(cvk_shader)
 }

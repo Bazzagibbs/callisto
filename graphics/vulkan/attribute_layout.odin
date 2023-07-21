@@ -1,4 +1,4 @@
-package callisto_renderer_vulkan
+package callisto_graphics_vulkan
 
 import "core:runtime"
 import "core:intrinsics"
@@ -11,7 +11,6 @@ get_vertex_binding_description :: proc(vertex_type: typeid) -> (binding_desc: vk
         stride = u32(type_info_of(vertex_type).size),
         inputRate = .VERTEX,
     }
-    log.info("stride:", binding_desc.stride)
     return
 }
 
@@ -38,7 +37,6 @@ get_vertex_attribute_descriptions :: proc(vertex_type: typeid, attribute_descs: 
     for i in 0..<attr_count {
         type := struct_info.types[i]
         offset := struct_info.offsets[i]
-        log.info(offset)
         ok = _get_vertex_attribute_from_type(type.id, offset, &location_accumulator, &attribute_descs[i]); if !ok {
             log.fatal("Invalid vertex attribute type:", type)
             return

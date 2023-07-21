@@ -1,8 +1,7 @@
-package callisto_renderer
+package callisto_graphics
 
 import "core:log"
 import "../config"
-import cg "../graphics"
 when config.RENDERER_API == .Vulkan {
     import impl "vulkan"
 }
@@ -15,20 +14,19 @@ shutdown :: proc() {
     impl.shutdown()
 }
 
-
-create_shader :: proc(shader_description: ^cg.Shader_Description, shader: ^cg.Shader) -> (ok: bool) {
+create_shader :: proc(shader_description: ^Shader_Description, shader: ^Shader) -> (ok: bool) {
     return impl.create_shader(shader_description, shader)
 }
 
-destroy_shader :: proc(shader: ^cg.Shader) {
+destroy_shader :: proc(shader: Shader) {
     impl.destroy_shader(shader)
 }
 
-create_vertex_buffer :: proc(data: []$T, vertex_buffer: ^cg.Vertex_Buffer) -> (ok: bool) {
+create_vertex_buffer :: proc(data: []$T, vertex_buffer: ^Vertex_Buffer) -> (ok: bool) {
     return impl.create_vertex_buffer(data, vertex_buffer)
 }
 
-destroy_vertex_buffer :: proc(vertex_buffer: ^cg.Vertex_Buffer) {
+destroy_vertex_buffer :: proc(vertex_buffer: Vertex_Buffer) {
     impl.destroy_vertex_buffer(vertex_buffer)
 }
 
@@ -45,11 +43,11 @@ cmd_end_render_pass :: proc() {
     impl.cmd_end_render_pass()
 }
 
-cmd_bind_shader :: proc(shader: ^cg.Shader) {
+cmd_bind_shader :: proc(shader: Shader) {
     impl.cmd_bind_shader(shader)
 }
 
-cmd_draw :: proc(buffer: ^cg.Vertex_Buffer) {
+cmd_draw :: proc(buffer: Vertex_Buffer) {
     impl.cmd_draw(buffer)
 }
 

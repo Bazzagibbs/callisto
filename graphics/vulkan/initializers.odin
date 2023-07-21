@@ -1,4 +1,4 @@
-package callisto_renderer_vulkan
+package callisto_graphics_vulkan
 
 import "core:log"
 import "core:strings"
@@ -7,7 +7,6 @@ import "core:os"
 import "core:mem"
 import vk "vendor:vulkan"
 import "../../config"
-import cg "../../graphics"
 when config.BUILD_TARGET == .Desktop do import "vendor:glfw" // vk loader provided by glfw, might be worth moving vk loading to window init?
 import "../../window"
 

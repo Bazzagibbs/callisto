@@ -1,10 +1,9 @@
 //+build windows, linux, darwin
-package callisto_renderer_vulkan
+package callisto_graphics_vulkan
 
 import "core:log"
 import vk "vendor:vulkan"
 import "core:strings"
-import cg "../../graphics"
 import "../../config"
 
 // Ownership, may support multiple vk instances later.

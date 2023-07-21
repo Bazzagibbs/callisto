@@ -1,9 +1,9 @@
-package callisto_renderer_vulkan
+package callisto_graphics_vulkan
 
 import "core:log"
 import vk "vendor:vulkan"
-import cg "../../graphics"
 import "../../config"
+import "../common"
 
 cmd_record :: proc() {
     using bound_state
@@ -37,19 +37,22 @@ cmd_end_render_pass :: proc() {
 }
 
 
-cmd_bind_shader :: proc(shader: ^cg.Shader) {
+cmd_bind_shader :: proc(shader: common.Shader) {
     using bound_state
-    vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, vk.Pipeline(shader.handle))
+    cvk_shader := transmute(^CVK_Shader)shader
+    vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, cvk_shader.pipeline)
 }
 
-cmd_draw :: proc(buffer: ^cg.Vertex_Buffer) {
+cmd_draw :: proc(buffer: common.Vertex_Buffer) {
     using bound_state
+    cvk_buffer := transmute(^CVK_Buffer)buffer
+
     command_buffer := command_buffers[flight_frame]
 
-    buffers := []vk.Buffer {buffer.handle}
+    buffers := []vk.Buffer {cvk_buffer.buffer}
     offsets := []vk.DeviceSize {0}
     vk.CmdBindVertexBuffers(command_buffer, 0, 1, raw_data(buffers), raw_data(offsets))
-    vk.CmdDraw(command_buffer, buffer.vertex_count, 1, 0, 0)
+    vk.CmdDraw(command_buffer, u32(cvk_buffer.length), 1, 0, 0)
 }
 
 cmd_present :: proc() {

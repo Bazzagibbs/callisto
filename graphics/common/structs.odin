@@ -1,7 +1,14 @@
-package callisto_graphics
+package callisto_graphics_common
 
-import "core:os"
-import "../config"
+import "../../common"
+
+Buffer :: distinct common.Handle
+
+Vertex_Buffer :: distinct Buffer
+
+
+
+Shader :: distinct common.Handle
 
 Shader_Description :: struct {
     vertex_shader_path:     string,
@@ -14,14 +21,4 @@ Shader_Description :: struct {
     //  }
     // ```
     vertex_typeid:          typeid,
-}
-
-when config.RENDERER_API == .Vulkan {
-    import vk "vendor:vulkan"
-
-    Shader :: struct {
-        handle:     vk.Pipeline,
-        layout:     vk.PipelineLayout,
-    }
-    
 }

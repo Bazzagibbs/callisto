@@ -1,4 +1,4 @@
-package callisto_renderer_vulkan
+package callisto_graphics_vulkan
 
 import "core:log"
 import "core:runtime"
