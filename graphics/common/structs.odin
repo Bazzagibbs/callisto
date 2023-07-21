@@ -2,13 +2,12 @@ package callisto_graphics_common
 
 import "../../common"
 
-Buffer :: distinct common.Handle
+Buffer                  :: distinct common.Handle
 
-Vertex_Buffer :: distinct Buffer
+Vertex_Buffer           :: distinct Buffer
+Index_Buffer            :: distinct Buffer
 
-
-
-Shader :: distinct common.Handle
+Shader                  :: distinct common.Handle
 
 Shader_Description :: struct {
     vertex_shader_path:     string,
@@ -22,3 +21,6 @@ Shader_Description :: struct {
     // ```
     vertex_typeid:          typeid,
 }
+
+
+Mesh                    :: distinct common.Handle

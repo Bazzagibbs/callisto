@@ -107,7 +107,7 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         rasterizerDiscardEnable = false,
         lineWidth = 1,
         cullMode = {.BACK},
-        frontFace = .CLOCKWISE,
+        frontFace = .COUNTER_CLOCKWISE,
         depthBiasEnable = false,
     }
 

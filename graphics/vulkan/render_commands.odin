@@ -43,16 +43,19 @@ cmd_bind_shader :: proc(shader: common.Shader) {
     vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, cvk_shader.pipeline)
 }
 
-cmd_draw :: proc(buffer: common.Vertex_Buffer) {
+cmd_draw :: proc(mesh: common.Mesh) {
     using bound_state
-    cvk_buffer := transmute(^CVK_Buffer)buffer
+    cvk_mesh := transmute(^CVK_Mesh)mesh
+    cvk_vert_buffer := transmute(^CVK_Buffer)cvk_mesh.vertex_buffer
+    cvk_index_buffer := transmute(^CVK_Buffer)cvk_mesh.index_buffer
 
     command_buffer := command_buffers[flight_frame]
 
-    buffers := []vk.Buffer {cvk_buffer.buffer}
+    vert_buffers := []vk.Buffer {cvk_vert_buffer.buffer}
     offsets := []vk.DeviceSize {0}
-    vk.CmdBindVertexBuffers(command_buffer, 0, 1, raw_data(buffers), raw_data(offsets))
-    vk.CmdDraw(command_buffer, u32(cvk_buffer.length), 1, 0, 0)
+    vk.CmdBindVertexBuffers(command_buffer, 0, 1, raw_data(vert_buffers), raw_data(offsets))
+    vk.CmdBindIndexBuffer(command_buffer, cvk_index_buffer.buffer, 0, .UINT32) // TODO: get index size dynamically
+    vk.CmdDrawIndexed(command_buffer, u32(cvk_index_buffer.length), 1, 0, 0, 0)
 }
 
 cmd_present :: proc() {

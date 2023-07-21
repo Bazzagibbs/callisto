@@ -5,11 +5,11 @@ import "core:mem"
 import "../common"
 import vk "vendor:vulkan"
 
-create_vertex_buffer :: proc(vertices: []$T, buffer: ^common.Vertex_Buffer) -> (ok: bool) {
+create_vertex_buffer :: proc(vertices: $T/[]$E, buffer: ^common.Vertex_Buffer) -> (ok: bool) {
     using bound_state
     
     buf_len := u64(len(vertices))
-    buf_size := u64(buf_len * size_of(T))
+    buf_size := u64(buf_len * size_of(E))
 
     // cvk_buffer, err := mem.new(CVK_Buffer); if err != nil {
     //     log.error("Failed to create buffer:", err)
@@ -24,8 +24,9 @@ create_vertex_buffer :: proc(vertices: []$T, buffer: ^common.Vertex_Buffer) -> (
     defer _destroy_buffer(staging_buffer)
     staging_buffer.size = buf_size
     staging_buffer.length = buf_len
+    staging_buffer_usage: vk.BufferUsageFlags = {.TRANSFER_SRC}
     staging_buffer_properties: vk.MemoryPropertyFlags = {.HOST_VISIBLE, .HOST_COHERENT}
-    _create_buffer(staging_buffer.size, {.TRANSFER_SRC}, staging_buffer_properties, &staging_buffer.buffer, &staging_buffer.memory) or_return
+    _create_buffer(staging_buffer.size, staging_buffer_usage, staging_buffer_properties, &staging_buffer.buffer, &staging_buffer.memory) or_return
 
     // Copy data to staging buffer
     vk_data: rawptr
@@ -40,8 +41,9 @@ create_vertex_buffer :: proc(vertices: []$T, buffer: ^common.Vertex_Buffer) -> (
     defer if !ok do _destroy_buffer(local_buffer)
     local_buffer.size = buf_size
     local_buffer.length = buf_len
-    properties: vk.MemoryPropertyFlags = {.HOST_VISIBLE, .HOST_COHERENT}
-    _create_buffer(local_buffer.size, {.TRANSFER_DST, .VERTEX_BUFFER}, properties, &local_buffer.buffer, &local_buffer.memory) or_return
+    usage: vk.BufferUsageFlags = {.TRANSFER_DST, .VERTEX_BUFFER}
+    properties: vk.MemoryPropertyFlags = {.DEVICE_LOCAL}
+    _create_buffer(local_buffer.size, usage, properties, &local_buffer.buffer, &local_buffer.memory) or_return
 
     _copy_buffer(staging_buffer, local_buffer) or_return
     buffer^ = transmute(common.Vertex_Buffer)local_buffer
@@ -52,6 +54,71 @@ destroy_vertex_buffer :: proc(buffer: common.Vertex_Buffer) {
     _destroy_buffer(transmute(^CVK_Buffer)buffer)
 }
 
+
+create_index_buffer :: proc(indices: $T/[]$E, buffer: ^common.Index_Buffer) -> (ok: bool) {
+    using bound_state
+    buf_len := u64(len(indices))
+    buf_size := u64(buf_len * size_of(E))
+
+    staging_buffer, err1 := new(CVK_Buffer); if err1 != .None {
+        log.error("Failed to create buffer:", err1)
+        return false
+    }
+    defer _destroy_buffer(staging_buffer)
+    staging_buffer.size = buf_size
+    staging_buffer.length = buf_len
+    staging_buffer_usage: vk.BufferUsageFlags = {.TRANSFER_SRC}
+    staging_buffer_properties: vk.MemoryPropertyFlags = {.HOST_VISIBLE, .HOST_COHERENT}
+    _create_buffer(staging_buffer.size, staging_buffer_usage, staging_buffer_properties, &staging_buffer.buffer, &staging_buffer.memory) or_return
+    
+    vk_data: rawptr
+    vk.MapMemory(device, staging_buffer.memory, 0, vk.DeviceSize(staging_buffer.size), {}, &vk_data)
+    mem.copy(vk_data, raw_data(indices), int(staging_buffer.size))
+    vk.UnmapMemory(device, staging_buffer.memory)
+
+    local_buffer, err2 := new(CVK_Buffer); if err2 != .None {
+        log.error("Failed to create buffer:", err2)
+        return false
+    }
+    defer if !ok do _destroy_buffer(local_buffer)
+    local_buffer.size = buf_size
+    local_buffer.length = buf_len
+    usage: vk.BufferUsageFlags = {.TRANSFER_DST, .INDEX_BUFFER}
+    properties: vk.MemoryPropertyFlags = {.DEVICE_LOCAL}
+    _create_buffer(local_buffer.size, usage, properties, &local_buffer.buffer, &local_buffer.memory) or_return
+
+    _copy_buffer(staging_buffer, local_buffer) or_return
+
+    buffer^ = transmute(common.Index_Buffer)local_buffer
+    return true
+}
+
+destroy_index_buffer :: proc(buffer: common.Index_Buffer) {
+    _destroy_buffer(transmute(^CVK_Buffer)buffer)
+}
+
+create_mesh :: proc(vertices: $U/[]$V, indices: $X/[]$Y, mesh: ^common.Mesh) -> (ok: bool) {
+    cvk_mesh, err1 := new(CVK_Mesh); if err1 != .None {
+        log.error("Failed to create mesh:", err1)
+        return false
+    }
+    defer if !ok do free(cvk_mesh)
+    create_vertex_buffer(vertices, &cvk_mesh.vertex_buffer) or_return
+    defer if !ok do destroy_vertex_buffer(cvk_mesh.vertex_buffer)
+    create_index_buffer(indices, &cvk_mesh.index_buffer) or_return
+    defer if !ok do destroy_index_buffer(cvk_mesh.index_buffer)
+
+    mesh^ = transmute(common.Mesh)cvk_mesh
+
+    return true
+}
+
+destroy_mesh :: proc(mesh: common.Mesh) {
+    cvk_mesh := transmute(^CVK_Mesh)mesh
+    destroy_vertex_buffer(cvk_mesh.vertex_buffer)
+    destroy_index_buffer(cvk_mesh.index_buffer)
+    free(cvk_mesh)
+}
 
 _create_buffer :: proc(size: u64, usage: vk.BufferUsageFlags, properties: vk.MemoryPropertyFlags, buffer: ^vk.Buffer, memory: ^vk.DeviceMemory) -> (ok: bool) {
     using bound_state
