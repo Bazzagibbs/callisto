@@ -43,3 +43,13 @@ Swapchain_Details :: struct {
 	present_mode: vk.PresentModeKHR,
 	extent:       vk.Extent2D,
 }
+
+destroy_state :: proc(using state: ^State) {
+	delete(images)
+	delete(image_views)
+	delete(framebuffers)
+	delete(command_buffers)
+	delete(image_available_semaphores)
+	delete(render_finished_semaphores)
+	delete(in_flight_fences)
+}

@@ -18,6 +18,10 @@ init_logger :: proc() {
     logger = log.create_console_logger(lowest=config.ENGINE_DEBUG_LEVEL, opt=renderer_logger_opts, ident="VK")
 }
 
+destroy_logger :: proc(logger: log.Logger) {
+    log.destroy_console_logger(logger)
+}
+
 // Debug messenger that forwards validation layer messages to the engine's internal logger
 debug_messenger_create_info :: proc() -> (messenger_info: vk.DebugUtilsMessengerCreateInfoEXT) {    
     messenger_info = {

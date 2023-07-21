@@ -71,5 +71,6 @@ _destroy_buffer :: proc(buffer: ^CVK_Buffer) {
     vk.DeviceWaitIdle(device)
     vk.DestroyBuffer(device, buffer.buffer, nil)
     vk.FreeMemory(device, vk.DeviceMemory(buffer.memory), nil)
+    // mem.free_with_size(buffer, size_of(CVK_Buffer))
     mem.free(buffer)
 }

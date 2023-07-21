@@ -197,5 +197,6 @@ destroy_shader :: proc(shader: common.Shader) {
     vk.DeviceWaitIdle(device)
     vk.DestroyPipeline(device, cvk_shader.pipeline, nil)    
     vk.DestroyPipelineLayout(device, cvk_shader.pipeline_layout, nil)
+    // mem.free_with_size(cvk_shader, size_of(CVK_Shader))
     mem.free(cvk_shader)
 }

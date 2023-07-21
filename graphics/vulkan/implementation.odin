@@ -67,7 +67,15 @@ shutdown :: proc() {
     using bound_state
 
     vk.DeviceWaitIdle(device)
+    // TODO: Move these out of global scope
+    defer delete(required_instance_extensions)
+    defer delete(required_device_extensions)
+    defer delete(dynamic_states)
+    // ====================================
+
+    defer destroy_state(bound_state)
     defer vk.DestroyInstance(instance, nil)
+    defer destroy_logger(logger)
     defer vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
     defer vk.DestroySurfaceKHR(instance, surface, nil)
     defer vk.DestroyDevice(device, nil)
