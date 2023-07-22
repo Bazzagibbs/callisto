@@ -60,10 +60,8 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     binding_desc := get_vertex_binding_description(shader_description.vertex_typeid)
     attribute_descs: [dynamic]vk.VertexInputAttributeDescription
     defer delete(attribute_descs)
-    ok = get_vertex_attribute_descriptions(shader_description.vertex_typeid, &attribute_descs); if !ok {
-        log.fatal("Failed to get vertex attribute descriptions")
-        return
-    }
+    get_vertex_attribute_descriptions(shader_description.vertex_typeid, &attribute_descs) or_return
+
 
     vertex_input_state_create_info: vk.PipelineVertexInputStateCreateInfo = {
         sType                           = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -129,9 +127,14 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         attachmentCount = 1,
         pAttachments    = &color_blend_attachment_state,
     }
+    
+    create_descriptor_set_layout(&cvk_shader.descriptor_set_layout) or_return
+    defer if !ok do destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
 
     pipeline_layout_create_info: vk.PipelineLayoutCreateInfo = {
         sType = .PIPELINE_LAYOUT_CREATE_INFO,
+        setLayoutCount = 1,
+        pSetLayouts = &cvk_shader.descriptor_set_layout,
     }
 
     res := vk.CreatePipelineLayout(state.device, &pipeline_layout_create_info, nil, &cvk_shader.pipeline_layout); if res != .SUCCESS {
@@ -197,6 +200,6 @@ destroy_shader :: proc(shader: common.Shader) {
     vk.DeviceWaitIdle(device)
     vk.DestroyPipeline(device, cvk_shader.pipeline, nil)    
     vk.DestroyPipelineLayout(device, cvk_shader.pipeline_layout, nil)
-    // mem.free_with_size(cvk_shader, size_of(CVK_Shader))
+    destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
     mem.free(cvk_shader)
 }

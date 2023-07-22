@@ -5,18 +5,32 @@ import "../common"
 
 // Vulkan-specific structs
 CVK_Buffer :: struct {
-	size: 		u64,
-	length:     u64,
-	buffer: 	vk.Buffer,
-	memory:		vk.DeviceMemory,
+    size        : u64,
+    length      : u64,
+    buffer      : vk.Buffer,
+    memory      : vk.DeviceMemory,
 }
 
 CVK_Shader :: struct {
-	pipeline: 			vk.Pipeline,
-	pipeline_layout:    vk.PipelineLayout,
+    vertex_typeid           : typeid,
+    uniform_buffer_typeid   : typeid,
+    pipeline                : vk.Pipeline,
+    pipeline_layout         : vk.PipelineLayout,
+    descriptor_set_layout   : vk.DescriptorSetLayout,
 }
 
 CVK_Mesh :: struct {
-	vertex_buffer:	common.Vertex_Buffer,
-	index_buffer:	common.Index_Buffer,
+    vertex_buffer   : ^CVK_Buffer,
+    index_buffer    : ^CVK_Buffer,
+}
+
+// CVK_Material_Master :: struct {
+//     shared_instance     : common.Material_Instance,
+// }
+
+CVK_Material_Instance :: struct {
+    shader                  : ^CVK_Shader,
+    uniform_buffer_data     : rawptr,
+    uniform_buffers         : [dynamic]^CVK_Buffer,
+    uniform_buffers_mapped  : [dynamic]rawptr,
 }

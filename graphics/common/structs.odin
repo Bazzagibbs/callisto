@@ -6,12 +6,12 @@ Buffer                  :: distinct common.Handle
 
 Vertex_Buffer           :: distinct Buffer
 Index_Buffer            :: distinct Buffer
+Uniform_Buffer          :: distinct Buffer
 
-Shader                  :: distinct common.Handle
+Mesh                    :: distinct common.Handle
+
 
 Shader_Description :: struct {
-    vertex_shader_path:     string,
-    fragment_shader_path:   string,
     // typeid of a struct that describes the layout of vertex attributes for this shader.
     // ```
     //  UV_Vertex :: struct {
@@ -19,8 +19,14 @@ Shader_Description :: struct {
     //      uv:         [2]f32,
     //  }
     // ```
-    vertex_typeid:          typeid,
+    vertex_typeid           : typeid,
+    uniform_buffer_typeid   : typeid,
+    vertex_shader_path      : string,
+    fragment_shader_path    : string,
 }
 
+Shader                  :: distinct common.Handle
 
-Mesh                    :: distinct common.Handle
+// Material_Master         :: distinct common.Handle
+// Material_Variant        :: distinct common.Handle // Overrides uniforms from a material master
+Material_Instance       :: distinct common.Handle // Instantiated values from a material master or variant

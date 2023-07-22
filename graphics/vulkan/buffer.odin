@@ -3,19 +3,19 @@ package callisto_graphics_vulkan
 import "core:log"
 import "core:mem"
 import "../common"
+import "../../config"
 import vk "vendor:vulkan"
 
-create_vertex_buffer :: proc(vertices: $T/[]$E, buffer: ^common.Vertex_Buffer) -> (ok: bool) {
+create_vertex_buffer :: proc(vertices: $T/[]$E, vertex_buffer: ^common.Vertex_Buffer) -> (ok: bool) {
+    cvk_buffer := transmute(^^CVK_Buffer)vertex_buffer
+    return _create_vertex_buffer_internal(vertices, cvk_buffer)
+}
+
+_create_vertex_buffer_internal :: proc(vertices: $T/[]$E, cvk_buffer: ^^CVK_Buffer) -> (ok: bool) {
     using bound_state
     
     buf_len := u64(len(vertices))
     buf_size := u64(buf_len * size_of(E))
-
-    // cvk_buffer, err := mem.new(CVK_Buffer); if err != nil {
-    //     log.error("Failed to create buffer:", err)
-    //     return false
-    // }
-    // defer if !ok do mem.free(cvk_buffer)
 
     staging_buffer, err1 := new(CVK_Buffer); if err1 != .None {
         log.error("Failed to create buffer:", err1)
@@ -46,16 +46,24 @@ create_vertex_buffer :: proc(vertices: $T/[]$E, buffer: ^common.Vertex_Buffer) -
     _create_buffer(local_buffer.size, usage, properties, &local_buffer.buffer, &local_buffer.memory) or_return
 
     _copy_buffer(staging_buffer, local_buffer) or_return
-    buffer^ = transmute(common.Vertex_Buffer)local_buffer
+    cvk_buffer^ = local_buffer
     return true
 }
 
 destroy_vertex_buffer :: proc(buffer: common.Vertex_Buffer) {
-    _destroy_buffer(transmute(^CVK_Buffer)buffer)
+    _destroy_index_buffer_internal(transmute(^CVK_Buffer)buffer)
+}
+
+_destroy_vertex_buffer_internal :: proc(cvk_buffer: ^CVK_Buffer) {
+    _destroy_buffer(cvk_buffer)
 }
 
 
 create_index_buffer :: proc(indices: $T/[]$E, buffer: ^common.Index_Buffer) -> (ok: bool) {
+    return _create_index_buffer_internal(indices, transmute(^^CVK_Buffer)buffer)
+}
+
+_create_index_buffer_internal :: proc(indices: $T/[]$E, cvk_buffer: ^^CVK_Buffer) -> (ok: bool) {
     using bound_state
     buf_len := u64(len(indices))
     buf_size := u64(buf_len * size_of(E))
@@ -89,13 +97,62 @@ create_index_buffer :: proc(indices: $T/[]$E, buffer: ^common.Index_Buffer) -> (
 
     _copy_buffer(staging_buffer, local_buffer) or_return
 
-    buffer^ = transmute(common.Index_Buffer)local_buffer
+    cvk_buffer^ = local_buffer
     return true
 }
 
 destroy_index_buffer :: proc(buffer: common.Index_Buffer) {
-    _destroy_buffer(transmute(^CVK_Buffer)buffer)
+    _destroy_index_buffer_internal(transmute(^CVK_Buffer)buffer)
 }
+
+_destroy_index_buffer_internal :: proc(buffer: ^CVK_Buffer) {
+    _destroy_buffer(buffer)
+}
+
+create_material_uniform_buffers :: proc(uniform_buffer_typeid: typeid, material_instance: ^CVK_Material_Instance) -> (ok: bool) {
+    using bound_state
+    buf_size := u64(size_of(uniform_buffer_typeid))
+    usage: vk.BufferUsageFlags = {.UNIFORM_BUFFER}
+    properties: vk.MemoryPropertyFlags = {.HOST_VISIBLE, .HOST_COHERENT}
+    resize(&material_instance.uniform_buffers, config.RENDERER_FRAMES_IN_FLIGHT)
+    resize(&material_instance.uniform_buffers_mapped, config.RENDERER_FRAMES_IN_FLIGHT)
+
+    for i in 0..<config.RENDERER_FRAMES_IN_FLIGHT {
+        cvk_buffer, err := new(CVK_Buffer); if err != .None {
+            log.error("Failed to create uniform buffer:", err)
+            return false
+        }
+        _create_buffer(buf_size, usage, properties, &cvk_buffer.buffer, &cvk_buffer.memory) or_return
+        defer if !ok do _destroy_buffer(cvk_buffer)
+
+
+        res := vk.MapMemory(device, cvk_buffer.memory, 0, vk.DeviceSize(buf_size), {}, &material_instance.uniform_buffers_mapped[i]); if res != .SUCCESS {
+            log.error("Failed to create uniform buffer:", res)
+            return false
+        }
+        defer if !ok {
+            vk.UnmapMemory(device, cvk_buffer.memory)
+            vk.FreeMemory(device, cvk_buffer.memory, nil)
+        } 
+        
+        material_instance.uniform_buffers[i] = cvk_buffer
+    }
+    return true
+}
+
+
+destroy_material_uniform_buffers :: proc(material_instance: common.Material_Instance) {
+    using bound_state
+    cvk_mat_instance := transmute(^CVK_Material_Instance)material_instance
+    for i in 0..<config.RENDERER_FRAMES_IN_FLIGHT {
+        buf := cvk_mat_instance.uniform_buffers[i]
+        cvk_buffer := transmute(^CVK_Buffer)buf
+        vk.UnmapMemory(device, cvk_buffer.memory)
+        vk.FreeMemory(device, cvk_buffer.memory, nil)
+        _destroy_buffer(cvk_buffer)
+    }
+}
+
 
 create_mesh :: proc(vertices: $U/[]$V, indices: $X/[]$Y, mesh: ^common.Mesh) -> (ok: bool) {
     cvk_mesh, err1 := new(CVK_Mesh); if err1 != .None {
@@ -103,20 +160,19 @@ create_mesh :: proc(vertices: $U/[]$V, indices: $X/[]$Y, mesh: ^common.Mesh) -> 
         return false
     }
     defer if !ok do free(cvk_mesh)
-    create_vertex_buffer(vertices, &cvk_mesh.vertex_buffer) or_return
-    defer if !ok do destroy_vertex_buffer(cvk_mesh.vertex_buffer)
-    create_index_buffer(indices, &cvk_mesh.index_buffer) or_return
-    defer if !ok do destroy_index_buffer(cvk_mesh.index_buffer)
+    _create_vertex_buffer_internal(vertices, &cvk_mesh.vertex_buffer) or_return
+    defer if !ok do _destroy_vertex_buffer_internal(cvk_mesh.vertex_buffer)
+    _create_index_buffer_internal(indices, &cvk_mesh.index_buffer) or_return
+    defer if !ok do _destroy_index_buffer_internal(cvk_mesh.index_buffer)
 
     mesh^ = transmute(common.Mesh)cvk_mesh
-
     return true
 }
 
 destroy_mesh :: proc(mesh: common.Mesh) {
     cvk_mesh := transmute(^CVK_Mesh)mesh
-    destroy_vertex_buffer(cvk_mesh.vertex_buffer)
-    destroy_index_buffer(cvk_mesh.index_buffer)
+    _destroy_vertex_buffer_internal(cvk_mesh.vertex_buffer)
+    _destroy_index_buffer_internal(cvk_mesh.index_buffer)
     free(cvk_mesh)
 }
 
@@ -160,8 +216,7 @@ _destroy_buffer :: proc(buffer: ^CVK_Buffer) {
     vk.DeviceWaitIdle(device)
     vk.DestroyBuffer(device, buffer.buffer, nil)
     vk.FreeMemory(device, vk.DeviceMemory(buffer.memory), nil)
-    // mem.free_with_size(buffer, size_of(CVK_Buffer))
-    mem.free(buffer)
+    free(buffer)
 }
 
 _copy_buffer :: proc(src_buffer, dst_buffer: ^CVK_Buffer) -> (ok: bool) {

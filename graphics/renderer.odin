@@ -25,6 +25,27 @@ destroy_shader :: proc(shader: Shader) {
     impl.destroy_shader(shader)
 }
 
+create_material_instance :: proc {
+    create_material_instance_from_shader,
+    // create_material_instance_from_master,
+    // create_material_instance_from_variant,
+}
+
+create_material_instance_from_shader :: proc(shader: Shader, material_instance: ^Material_Instance) -> (ok: bool) {
+    return impl.create_material_instance_from_shader(shader, material_instance)
+}
+
+// create_material_instance_from_master :: proc() -> (ok: bool) {}
+// create_material_instance_from_variant :: proc() -> (ok: bool) {}
+
+destroy_material_instance :: proc(material_instance: Material_Instance) {
+    impl.destroy_material_instance(material_instance)
+}
+
+upload_material_uniforms :: proc(material_instance: Material_Instance, data: ^$T) {
+    impl.upload_material_uniforms(material_instance, data)
+}
+
 create_vertex_buffer :: proc(data: $T/[]$E, vertex_buffer: ^Vertex_Buffer) -> (ok: bool) {
     return impl.create_vertex_buffer(data, vertex_buffer)
 }
