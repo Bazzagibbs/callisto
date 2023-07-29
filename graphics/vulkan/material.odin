@@ -84,7 +84,7 @@ upload_material_uniforms :: proc(material_instance: common.Material_Instance, da
     assert(cvk_mat_instance.shader.uniform_buffer_typeid == typeid_of(T), "Material uniform buffer upload error: type mismatch")
     
     mapped_buffer := cvk_mat_instance.uniform_buffers_mapped[flight_frame]
-    buffer_size := size_of(cvk_mat_instance.shader.uniform_buffer_typeid);
+    uniform_buffer_data_size := int(cvk_mat_instance.uniform_buffers[flight_frame].size)
 
-    mem.copy(&mapped_buffer, data, buffer_size)
+    mem.copy(mapped_buffer, data, uniform_buffer_data_size)
 }

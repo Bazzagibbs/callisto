@@ -4,7 +4,7 @@ package callisto_window
 import "core:log"
 import "core:c"
 import "vendor:glfw"
-
+import "../config"
 
 // TODO: load these values from a config file at compile time
 title :: "Callisto"
@@ -23,7 +23,7 @@ _init :: proc() -> (success: bool) {
    
     glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API) // Disable OpenGL
     glfw.WindowHint(glfw.RESIZABLE, 0) /* glfw.FALSE */
-    handle = glfw.CreateWindow(width, height, title, nil, nil)
+    handle = glfw.CreateWindow(config.WINDOW_WIDTH, config.WINDOW_HEIGHT, cstring(config.APP_NAME), nil, nil)
 
     if(handle == nil) {
         glfw.Terminate()
