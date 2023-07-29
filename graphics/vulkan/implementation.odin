@@ -58,6 +58,8 @@ init :: proc() -> (ok: bool) {
     create_fences(config.RENDERER_FRAMES_IN_FLIGHT, &in_flight_fences) or_return
     defer if !ok do destroy_fences(&in_flight_fences)
 
+    create_descriptor_pool(&descriptor_pool) or_return
+    defer if !ok do vk.DestroyDescriptorPool(device, descriptor_pool, nil)
 
     return true
 }
@@ -88,4 +90,5 @@ shutdown :: proc() {
     defer destroy_semaphores(&image_available_semaphores)
     defer destroy_semaphores(&render_finished_semaphores)
     defer destroy_fences(&in_flight_fences)
+    defer vk.DestroyDescriptorPool(device, descriptor_pool, nil)
 }

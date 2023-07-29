@@ -25,6 +25,7 @@ State :: struct {
 	image_available_semaphores: [dynamic]vk.Semaphore,
 	render_finished_semaphores: [dynamic]vk.Semaphore,
 	in_flight_fences:           [dynamic]vk.Fence,
+    descriptor_pool:            vk.DescriptorPool,
 }
 
 Queue_Family_Indices :: struct {

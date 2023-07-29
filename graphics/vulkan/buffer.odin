@@ -2,6 +2,7 @@ package callisto_graphics_vulkan
 
 import "core:log"
 import "core:mem"
+import "core:runtime"
 import "../common"
 import "../../config"
 import vk "vendor:vulkan"
@@ -110,8 +111,20 @@ _destroy_index_buffer_internal :: proc(buffer: ^CVK_Buffer) {
 }
 
 create_material_uniform_buffers :: proc(uniform_buffer_typeid: typeid, material_instance: ^CVK_Material_Instance) -> (ok: bool) {
+    ok = true
     using bound_state
-    buf_size := u64(size_of(uniform_buffer_typeid))
+    
+    ubo_type_info := type_info_of(uniform_buffer_typeid)
+    #partial switch v in ubo_type_info.variant {
+        case runtime.Type_Info_Struct:
+        case runtime.Type_Info_Named:
+            ubo_type_info = v.base
+        case:
+            log.error("Unsupported uniform buffer type")
+            return false
+    }
+    buf_size := ubo_type_info.size
+
     usage: vk.BufferUsageFlags = {.UNIFORM_BUFFER}
     properties: vk.MemoryPropertyFlags = {.HOST_VISIBLE, .HOST_COHERENT}
     resize(&material_instance.uniform_buffers, config.RENDERER_FRAMES_IN_FLIGHT)
@@ -122,7 +135,8 @@ create_material_uniform_buffers :: proc(uniform_buffer_typeid: typeid, material_
             log.error("Failed to create uniform buffer:", err)
             return false
         }
-        _create_buffer(buf_size, usage, properties, &cvk_buffer.buffer, &cvk_buffer.memory) or_return
+        cvk_buffer.size = u64(buf_size)
+        _create_buffer(cvk_buffer.size, usage, properties, &cvk_buffer.buffer, &cvk_buffer.memory) or_return
         defer if !ok do _destroy_buffer(cvk_buffer)
 
 
@@ -147,8 +161,8 @@ destroy_material_uniform_buffers :: proc(material_instance: common.Material_Inst
     for i in 0..<config.RENDERER_FRAMES_IN_FLIGHT {
         buf := cvk_mat_instance.uniform_buffers[i]
         cvk_buffer := transmute(^CVK_Buffer)buf
-        vk.UnmapMemory(device, cvk_buffer.memory)
-        vk.FreeMemory(device, cvk_buffer.memory, nil)
+        // vk.UnmapMemory(device, cvk_buffer.memory)
+        // vk.FreeMemory(device, cvk_buffer.memory, nil)
         _destroy_buffer(cvk_buffer)
     }
 }

@@ -37,10 +37,21 @@ cmd_end_render_pass :: proc() {
 }
 
 
-cmd_bind_shader :: proc(shader: common.Shader) {
+// cmd_bind_shader :: proc(shader: common.Shader) {
+//     using bound_state
+//     cvk_shader := transmute(^CVK_Shader)shader
+//     vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, cvk_shader.pipeline)
+// }
+
+cmd_bind_material_instance :: proc(material_instance: common.Material_Instance) {
     using bound_state
-    cvk_shader := transmute(^CVK_Shader)shader
-    vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, cvk_shader.pipeline)
+    cvk_material_instance := transmute(^CVK_Material_Instance)material_instance
+    shader := cvk_material_instance.shader
+    command_buffer := command_buffers[flight_frame]
+    descriptor_set := cvk_material_instance.descriptor_sets[flight_frame]
+
+    vk.CmdBindPipeline(command_buffer, .GRAPHICS, shader.pipeline)
+    vk.CmdBindDescriptorSets(command_buffer, .GRAPHICS, shader.pipeline_layout, 0, 1, &descriptor_set, 0, nil)
 }
 
 cmd_draw :: proc(mesh: common.Mesh) {

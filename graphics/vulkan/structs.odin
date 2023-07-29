@@ -30,7 +30,7 @@ CVK_Mesh :: struct {
 
 CVK_Material_Instance :: struct {
     shader                  : ^CVK_Shader,
-    uniform_buffer_data     : rawptr,
     uniform_buffers         : [dynamic]^CVK_Buffer,
     uniform_buffers_mapped  : [dynamic]rawptr,
+    descriptor_sets         : [dynamic]vk.DescriptorSet,
 }

@@ -803,3 +803,53 @@ find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -
     log.error("Failed to find suitable memory type")
     return 0
 }
+
+create_descriptor_pool :: proc(descriptor_pool: ^vk.DescriptorPool) -> (ok: bool) {
+    // using bound_state // shadows descriptor_pool parameter
+
+    pool_size: vk.DescriptorPoolSize = {
+        type = .UNIFORM_BUFFER,
+        descriptorCount = u32(config.RENDERER_FRAMES_IN_FLIGHT),
+    }
+
+    descriptor_pool_create_info: vk.DescriptorPoolCreateInfo = {
+        sType = .DESCRIPTOR_POOL_CREATE_INFO,
+        poolSizeCount = 1,
+        pPoolSizes = &pool_size,
+        maxSets = u32(config.RENDERER_FRAMES_IN_FLIGHT),
+    }
+
+    res := vk.CreateDescriptorPool(bound_state.device, &descriptor_pool_create_info, nil, descriptor_pool); if res != .SUCCESS {
+        log.error("Failed to create descriptor pool:", res)
+        return false
+    }
+
+    return true
+}
+
+// Handles do not need to be destroyed, automatically freed when corresponding descriptor pool is destroyed
+allocate_descriptor_sets :: proc(descriptor_pool: vk.DescriptorPool, descriptor_set_layout: vk.DescriptorSetLayout, descriptor_sets: ^[dynamic]vk.DescriptorSet) -> (ok: bool) {
+    using bound_state
+    resize(descriptor_sets, config.RENDERER_FRAMES_IN_FLIGHT)
+   
+    descriptor_set_layouts := make([]vk.DescriptorSetLayout, config.RENDERER_FRAMES_IN_FLIGHT)
+    defer delete(descriptor_set_layouts)
+    for i in 0..<config.RENDERER_FRAMES_IN_FLIGHT {
+        descriptor_set_layouts[i] = descriptor_set_layout
+    }
+
+    descriptor_set_alloc_info: vk.DescriptorSetAllocateInfo = {
+        sType = .DESCRIPTOR_SET_ALLOCATE_INFO,
+        descriptorPool = descriptor_pool,
+        descriptorSetCount = u32(config.RENDERER_FRAMES_IN_FLIGHT),
+        pSetLayouts = raw_data(descriptor_set_layouts),
+    }
+
+
+    res := vk.AllocateDescriptorSets(device, &descriptor_set_alloc_info, raw_data(descriptor_sets^)); if res != .SUCCESS {
+        log.error("Failed to allocate descriptor sets:", res)
+        return false
+    }
+
+    return true
+}
