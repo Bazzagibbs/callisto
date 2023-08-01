@@ -108,9 +108,17 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         depthClampEnable = false,
         rasterizerDiscardEnable = false,
         lineWidth = 1,
-        cullMode = {.BACK},
         frontFace = .COUNTER_CLOCKWISE,
         depthBiasEnable = false,
+    }
+    
+    switch shader_description.cull_mode {
+        case .BACK:
+            rasterizer_state_create_info.cullMode = {.BACK}
+        case .FRONT:
+            rasterizer_state_create_info.cullMode = {.FRONT}
+        case .NONE:
+            rasterizer_state_create_info.cullMode = {}
     }
 
     multisample_state_create_info: vk.PipelineMultisampleStateCreateInfo = {

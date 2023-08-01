@@ -78,9 +78,8 @@ destroy_material_instance :: proc(material_instance: common.Material_Instance) {
 upload_material_uniforms :: proc(material_instance: common.Material_Instance, data: ^$T) {
     using bound_state
     cvk_mat_instance := transmute(^CVK_Material_Instance)material_instance
+    
     // TODO: replace with compile-time check
-    // log.info("data: %v, expected typeid: %v", typeid_of(T), cvk_mat_instance.shader.uniform_buffer_typeid)
-    // log.info(cvk_mat_instance.shader.uniform_buffer_typeid)
     assert(cvk_mat_instance.shader.uniform_buffer_typeid == typeid_of(T), "Material uniform buffer upload error: type mismatch")
     
     mapped_buffer := cvk_mat_instance.uniform_buffers_mapped[flight_frame]

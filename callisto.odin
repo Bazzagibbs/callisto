@@ -15,7 +15,7 @@ init :: proc() -> (ok: bool) {
     context.logger = logger_internal
     log.info("Initializing Callisto engine")
     defer if !ok do destroy_loggers(logger, logger_internal)
-    
+
     ok = window.init(); if ok == false {
         log.fatal("Window could not be initialized")
         return

@@ -407,30 +407,12 @@ get_images :: proc(images: ^[dynamic]vk.Image) {
 }
 
 create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
-    state := bound_state
     // Create image view for every image we have acquired
-    resize(image_views, len(state.images))
-    for image, i in state.images {
-        image_view_create_info: vk.ImageViewCreateInfo = {
-            sType = .IMAGE_VIEW_CREATE_INFO,
-            image = image,
-            viewType = .D2,
-            format = state.swapchain_details.format.format,
-            components = {.IDENTITY, .IDENTITY, .IDENTITY, .IDENTITY},
-            subresourceRange = {
-                aspectMask = {.COLOR},
-                baseMipLevel = 0,
-                levelCount = 1,
-                baseArrayLayer = 0,
-                layerCount = 1,
-            },
-        }
-
-        res := vk.CreateImageView(state.device, &image_view_create_info, nil, &image_views[i]); if res != .SUCCESS {
-            log.fatal("Failed to create image views:", res)
-            // Destroy any successfully created image views
-            for j in 0 ..< i {
-                vk.DestroyImageView(state.device, image_views[j], nil)
+    resize(image_views, len(bound_state.images))
+    for image, i in bound_state.images {
+        ok = _create_vk_image_view(image, bound_state.swapchain_details.format.format, &image_views[i]); if !ok {
+            for j in 0..<i {
+                _destroy_vk_image_view(image_views[j])
             }
             return false
         }
@@ -441,10 +423,10 @@ create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
 destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
     state := bound_state
     for image_view in image_views {
-        vk.DestroyImageView(state.device, image_view, nil)
+        _destroy_vk_image_view(image_view)
     }
 
-    resize(image_views, 0)
+    clear(image_views)
 }
 
 create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
@@ -494,7 +476,7 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
         log.fatal("Failed to create render pass:", res)
         return false
     }
-
+    
     return true
 }
 

@@ -38,6 +38,9 @@ init :: proc() -> (ok: bool) {
 
     create_image_views(&image_views) or_return
     defer if !ok do destroy_image_views(&image_views)
+    for image_view in image_views {
+        set_debug_name(u64(image_view), .IMAGE_VIEW, "Swapchain Image View")
+    }
 
     create_render_pass(&render_pass) or_return
     defer if !ok do vk.DestroyRenderPass(device, render_pass, nil)

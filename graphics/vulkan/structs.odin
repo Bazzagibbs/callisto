@@ -1,5 +1,6 @@
 package callisto_graphics_vulkan
 
+import "core:image"
 import vk "vendor:vulkan"
 import "../common"
 
@@ -33,4 +34,11 @@ CVK_Material_Instance :: struct {
     uniform_buffers         : [dynamic]^CVK_Buffer,
     uniform_buffers_mapped  : [dynamic]rawptr,
     descriptor_sets         : [dynamic]vk.DescriptorSet,
+}
+
+CVK_Texture :: struct {
+    image                   : vk.Image,
+    memory                  : vk.DeviceMemory,
+    sampler                 : vk.Sampler,
+    image_view              : vk.ImageView,
 }

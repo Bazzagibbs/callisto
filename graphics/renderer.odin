@@ -72,6 +72,16 @@ destroy_mesh :: #force_inline proc(mesh: Mesh) {
     impl.destroy_mesh(mesh)
 }
 
+create_texture :: #force_inline proc(texture_description: ^Texture_Description, texture: ^Texture) -> (ok: bool) {
+    return impl.create_texture(texture_description, texture) 
+}
+
+destroy_texture :: #force_inline proc(texture: Texture) {
+    impl.destroy_texture(texture)
+}
+
+// ==============================================================================
+
 cmd_record :: #force_inline proc() {
     impl.cmd_record()
 }

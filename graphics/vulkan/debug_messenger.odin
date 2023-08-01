@@ -5,6 +5,7 @@ import "core:runtime"
 import "core:fmt"
 import "core:strings"
 import "../../config"
+import cal_common "../../common"
 import vk "vendor:vulkan"
 
 logger: log.Logger = {}
@@ -84,4 +85,19 @@ vk_severity_to_log_level :: proc(vk_severity: vk.DebugUtilsMessageSeverityFlagsE
 
     return log.Level.Debug
     
+}
+
+set_debug_name :: proc(handle: u64, vk_type: vk.ObjectType, name: cstring) {
+    when config.ENGINE_DEBUG {
+        obj_name_info := vk.DebugUtilsObjectNameInfoEXT {
+            sType = .DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+            objectType = vk_type,
+            objectHandle = handle,
+            pObjectName = name,
+        }
+
+        res := vk.SetDebugUtilsObjectNameEXT(bound_state.device, &obj_name_info); if res != .SUCCESS {
+            log.error("Failed to set VK object debug name", name, ":", res)
+        }
+    }
 }
