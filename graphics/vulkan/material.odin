@@ -25,6 +25,8 @@ create_material_instance_from_shader :: proc(shader: common.Shader, material_ins
     cvk_shader := transmute(^CVK_Shader)shader
     cvk_mat_instance.shader = cvk_shader
 
+    cvk_white_tex := transmute(^CVK_Texture)common.built_in.texture_white
+
     create_material_uniform_buffers(cvk_shader.uniform_buffer_typeid, cvk_mat_instance) or_return
     
     allocate_descriptor_sets(descriptor_pool, cvk_shader.descriptor_set_layout, &cvk_mat_instance.descriptor_sets) or_return
@@ -36,17 +38,34 @@ create_material_instance_from_shader :: proc(shader: common.Shader, material_ins
             range = vk.DeviceSize(cvk_mat_instance.uniform_buffers[i].size),
         }
 
-        write_descriptor_set: vk.WriteDescriptorSet = {
-            sType = .WRITE_DESCRIPTOR_SET,
-            dstSet = desc_set,
-            dstBinding = 0,
-            dstArrayElement = 0,
-            descriptorType = .UNIFORM_BUFFER,
-            descriptorCount = 1,
-            pBufferInfo = &descriptor_buffer_info,
+        descriptor_image_info := vk.DescriptorImageInfo {
+            imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+            imageView = cvk_white_tex.image_view,
+            sampler = texture_sampler_default,
         }
 
-        vk.UpdateDescriptorSets(device, 1, &write_descriptor_set, 0, nil)
+        write_descriptor_sets := [] vk.WriteDescriptorSet {
+            {
+                sType = .WRITE_DESCRIPTOR_SET,
+                dstSet = desc_set,
+                dstBinding = 0,
+                dstArrayElement = 0,
+                descriptorType = .UNIFORM_BUFFER,
+                descriptorCount = 1,
+                pBufferInfo = &descriptor_buffer_info,
+            },
+            {
+                sType = .WRITE_DESCRIPTOR_SET,
+                dstSet = desc_set,
+                dstBinding = 1,
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = &descriptor_image_info,
+            },
+        }
+
+        vk.UpdateDescriptorSets(device, u32(len(write_descriptor_sets)), raw_data(write_descriptor_sets), 0, nil)
     }
 
     material_instance^ = transmute(common.Material_Instance)cvk_mat_instance

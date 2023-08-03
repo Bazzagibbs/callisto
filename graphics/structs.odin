@@ -3,6 +3,8 @@ package callisto_graphics
 // Expose "common" structs to user
 import "common"
 
+Built_In            :: common.Built_In
+
 Buffer 				:: common.Buffer
 Vertex_Buffer 		:: common.Vertex_Buffer
 Index_Buffer 		:: common.Index_Buffer

@@ -64,6 +64,9 @@ init :: proc() -> (ok: bool) {
     create_descriptor_pool(&descriptor_pool) or_return
     defer if !ok do vk.DestroyDescriptorPool(device, descriptor_pool, nil)
 
+    create_texture_sampler(&texture_sampler_default) or_return
+    defer if !ok do destroy_texture_sampler(texture_sampler_default)
+
     return true
 }
 
@@ -94,4 +97,5 @@ shutdown :: proc() {
     defer destroy_semaphores(&render_finished_semaphores)
     defer destroy_fences(&in_flight_fences)
     defer vk.DestroyDescriptorPool(device, descriptor_pool, nil)
+    defer destroy_texture_sampler(texture_sampler_default)
 }

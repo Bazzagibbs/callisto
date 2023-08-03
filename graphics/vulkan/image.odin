@@ -48,7 +48,8 @@ create_texture :: proc(texture_description: ^common.Texture_Description, texture
     _copy_vk_buffer_to_vk_image(staging_cvk_buffer.buffer, cvk_texture.image, u32(img.width), u32(img.height))
     _transition_vk_image_layout(cvk_texture.image, image_format, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL)
 
-    create_texture_image_view(cvk_texture.image, image_format, &cvk_texture.image_view) or_return
+    create_image_view(cvk_texture.image, image_format, &cvk_texture.image_view) or_return
+    defer if !ok do destroy_image_view(cvk_texture.image_view)
 
     texture^ = transmute(common.Texture)cvk_texture
     return true
@@ -62,16 +63,7 @@ destroy_texture :: proc(texture: common.Texture) {
     free(cvk_texture)
 }
 
-
-create_texture_image_view :: proc(img: vk.Image, img_format: vk.Format, img_view: ^vk.ImageView) -> (ok: bool) {
-    return _create_vk_image_view(img, img_format, img_view)
-}
-
-destroy_image_view :: proc(image_view: vk.ImageView) {
-    _destroy_vk_image_view(image_view)
-}
-
-_create_vk_image_view :: proc(img: vk.Image, format: vk.Format, img_view: ^vk.ImageView) -> (ok: bool) {
+create_image_view :: proc(img: vk.Image, format: vk.Format, img_view: ^vk.ImageView) -> (ok: bool) {
     image_view_create_info := vk.ImageViewCreateInfo {
         sType = .IMAGE_VIEW_CREATE_INFO,
         image = img,
@@ -95,13 +87,32 @@ _create_vk_image_view :: proc(img: vk.Image, format: vk.Format, img_view: ^vk.Im
     return true
 }
 
-_destroy_vk_image_view :: proc(image_view: vk.ImageView) {
+destroy_image_view :: proc(image_view: vk.ImageView) {
     vk.DestroyImageView(bound_state.device, image_view, nil)
 }
 
-_create_vk_texture_sampler :: proc(sampler: ^vk.Sampler) -> (ok: bool) {
-    sampler_create_info := vk.SamplerCreateInfo {
 
+create_texture_sampler :: proc(sampler: ^vk.Sampler) -> (ok: bool) {
+    properties: vk.PhysicalDeviceProperties
+    vk.GetPhysicalDeviceProperties(bound_state.physical_device, &properties);
+
+    sampler_create_info := vk.SamplerCreateInfo {
+        sType = .SAMPLER_CREATE_INFO,
+        magFilter               = .LINEAR,
+        minFilter               = .LINEAR,
+        addressModeU            = .REPEAT,
+        addressModeV            = .REPEAT,
+        addressModeW            = .REPEAT,
+        anisotropyEnable        = true,
+        maxAnisotropy           = properties.limits.maxSamplerAnisotropy,
+        borderColor             = .INT_OPAQUE_BLACK,
+        unnormalizedCoordinates = false,
+        compareEnable           = false,
+        compareOp               = .ALWAYS,
+        mipmapMode              = .LINEAR,
+        mipLodBias              = 0,
+        minLod                  = 0,
+        maxLod                  = 0,
     }
 
     res := vk.CreateSampler(bound_state.device, &sampler_create_info, nil, sampler); if res != .SUCCESS {
@@ -111,7 +122,7 @@ _create_vk_texture_sampler :: proc(sampler: ^vk.Sampler) -> (ok: bool) {
     return true
 }
 
-_destroy_vk_texture_sampler :: proc(sampler: vk.Sampler) {
+destroy_texture_sampler :: proc(sampler: vk.Sampler) {
     vk.DestroySampler(bound_state.device,  sampler, nil)
 }
 

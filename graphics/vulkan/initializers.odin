@@ -34,7 +34,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
         append(&required_instance_extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
     }
 
-    app_info: vk.ApplicationInfo = {
+    app_info := vk.ApplicationInfo {
         sType              = vk.StructureType.APPLICATION_INFO,
         pApplicationName   = cstring(config.APP_NAME),
         applicationVersion = vk.MAKE_VERSION(config.APP_VERSION[0], config.APP_VERSION[1], config.APP_VERSION[2]),
@@ -43,7 +43,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
         apiVersion         = vk.MAKE_VERSION(1, 1, 0),
     }
 
-    instance_info: vk.InstanceCreateInfo = {
+    instance_info := vk.InstanceCreateInfo {
         sType = vk.StructureType.INSTANCE_CREATE_INFO,
         pApplicationInfo = &app_info,
         flags = {/*.ENUMERATE_PORTABILITY_KHR*/},
@@ -172,8 +172,12 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Sur
 
 is_physical_device_suitable :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> bool {
     families := find_queue_family_indices(physical_device, surface)
+    features: vk.PhysicalDeviceFeatures
+    vk.GetPhysicalDeviceFeatures(physical_device, &features)
+
     ok := is_queue_families_complete(&families)
     ok &= check_device_extension_support(physical_device)
+    ok &= features.samplerAnisotropy == true
     return ok
 }
 
@@ -230,9 +234,11 @@ create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: 
     }
 
 
-    features: vk.PhysicalDeviceFeatures = {}
+    features := vk.PhysicalDeviceFeatures {
+        samplerAnisotropy = true,
+    }
 
-    device_create_info: vk.DeviceCreateInfo = {
+    device_create_info := vk.DeviceCreateInfo {
         sType                   = .DEVICE_CREATE_INFO,
         queueCreateInfoCount    = u32(len(queue_create_infos)),
         pQueueCreateInfos       = raw_data(queue_create_infos),
@@ -302,7 +308,7 @@ create_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapch
     }
 
 
-    swapchain_create_info: vk.SwapchainCreateInfoKHR = {
+    swapchain_create_info := vk.SwapchainCreateInfoKHR {
         sType = .SWAPCHAIN_CREATE_INFO_KHR,
         surface = state.surface,
         minImageCount = image_count,
@@ -410,9 +416,9 @@ create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
     // Create image view for every image we have acquired
     resize(image_views, len(bound_state.images))
     for image, i in bound_state.images {
-        ok = _create_vk_image_view(image, bound_state.swapchain_details.format.format, &image_views[i]); if !ok {
+        ok = create_image_view(image, bound_state.swapchain_details.format.format, &image_views[i]); if !ok {
             for j in 0..<i {
-                _destroy_vk_image_view(image_views[j])
+                destroy_image_view(image_views[j])
             }
             return false
         }
@@ -423,7 +429,7 @@ create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
 destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
     state := bound_state
     for image_view in image_views {
-        _destroy_vk_image_view(image_view)
+        destroy_image_view(image_view)
     }
 
     clear(image_views)
@@ -431,7 +437,7 @@ destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
 
 create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
     state := bound_state
-    subpass_dependency: vk.SubpassDependency = {
+    subpass_dependency := vk.SubpassDependency {
         srcSubpass = vk.SUBPASS_EXTERNAL,
         dstSubpass = 0,
         srcStageMask = {.COLOR_ATTACHMENT_OUTPUT},
@@ -440,7 +446,7 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
         dstAccessMask = {.COLOR_ATTACHMENT_WRITE},
     }
 
-    color_attachment_desc: vk.AttachmentDescription = {
+    color_attachment_desc := vk.AttachmentDescription {
         format = state.swapchain_details.format.format,
         samples = {._1},
         loadOp = .CLEAR,
@@ -451,18 +457,18 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
         finalLayout = .PRESENT_SRC_KHR,
     }
 
-    color_attachment_ref: vk.AttachmentReference = {
+    color_attachment_ref := vk.AttachmentReference {
         attachment = 0,
         layout     = .COLOR_ATTACHMENT_OPTIMAL,
     }
 
-    subpass_desc: vk.SubpassDescription = {
+    subpass_desc := vk.SubpassDescription {
         pipelineBindPoint    = .GRAPHICS,
         colorAttachmentCount = 1,
         pColorAttachments    = &color_attachment_ref,
     }
 
-    render_pass_create_info: vk.RenderPassCreateInfo = {
+    render_pass_create_info := vk.RenderPassCreateInfo {
         sType           = .RENDER_PASS_CREATE_INFO,
         attachmentCount = 1,
         pAttachments    = &color_attachment_desc,
@@ -486,7 +492,7 @@ create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool
     resize(framebuffers, len(state.image_views))
 
     for i in 0 ..< len(state.image_views) {
-        framebuffer_create_info: vk.FramebufferCreateInfo = {
+        framebuffer_create_info := vk.FramebufferCreateInfo {
             sType           = .FRAMEBUFFER_CREATE_INFO,
             renderPass      = state.render_pass,
             attachmentCount = 1,
@@ -518,7 +524,7 @@ destroy_framebuffers :: proc(framebuffer_array: ^[dynamic]vk.Framebuffer) {
 
 create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
     state := bound_state
-    command_pool_create_info: vk.CommandPoolCreateInfo = {
+    command_pool_create_info := vk.CommandPoolCreateInfo {
         sType = .COMMAND_POOL_CREATE_INFO,
         flags = {.RESET_COMMAND_BUFFER},
         queueFamilyIndex = state.queue_family_indices.graphics.?,
@@ -536,7 +542,7 @@ create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
 create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.CommandBuffer) -> (ok: bool) {
     state := bound_state
     resize(command_buffers, count)
-    command_buffer_allocate_info: vk.CommandBufferAllocateInfo = {
+    command_buffer_allocate_info := vk.CommandBufferAllocateInfo {
         sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
         commandPool        = state.command_pool,
         level              = .PRIMARY,
@@ -554,7 +560,7 @@ create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.Command
 begin_command_buffer :: proc() -> (ok: bool) {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
-    begin_info: vk.CommandBufferBeginInfo = {
+    begin_info := vk.CommandBufferBeginInfo {
         sType = .COMMAND_BUFFER_BEGIN_INFO,
         flags = {},
     }
@@ -579,11 +585,11 @@ end_command_buffer :: proc() -> (ok: bool) {
 begin_render_pass :: proc() {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
-    clear_color: vk.ClearValue = {
+    clear_color := vk.ClearValue {
         color = {float32 = {0, 0, 0, 1}},
     }
 
-    render_pass_begin_info: vk.RenderPassBeginInfo = {
+    render_pass_begin_info := vk.RenderPassBeginInfo {
         sType = .RENDER_PASS_BEGIN_INFO,
         renderPass = state.render_pass,
         framebuffer = state.framebuffers[state.target_image_index],
@@ -594,7 +600,7 @@ begin_render_pass :: proc() {
 
     vk.CmdBeginRenderPass(command_buffer, &render_pass_begin_info, .INLINE) // Switch to SECONDARY_command_bufferS later
     
-    viewport: vk.Viewport = {
+    viewport := vk.Viewport {
         x        = 0,
         y        = 0,
         width    = f32(state.swapchain_details.extent.width),
@@ -605,7 +611,7 @@ begin_render_pass :: proc() {
 
     vk.CmdSetViewport(command_buffer, 0, 1, &viewport)
 
-    scissor: vk.Rect2D = {
+    scissor := vk.Rect2D {
         offset = {0, 0},
         extent = state.swapchain_details.extent,
     }
@@ -635,7 +641,7 @@ create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok
     state := bound_state
     resize(semaphores, count)
     
-    semaphore_create_info: vk.SemaphoreCreateInfo = {
+    semaphore_create_info := vk.SemaphoreCreateInfo {
         sType = .SEMAPHORE_CREATE_INFO,
     }
 
@@ -656,7 +662,7 @@ create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
     state := bound_state
     resize(fences, int(count))
 
-    fence_create_info: vk.FenceCreateInfo = {
+    fence_create_info := vk.FenceCreateInfo {
         sType = .FENCE_CREATE_INFO,
         flags = {.SIGNALED},
     }
@@ -703,7 +709,7 @@ submit_command_buffer :: proc() -> (ok: bool) {
 
     stage_flags := [?]vk.PipelineStageFlags{{.COLOR_ATTACHMENT_OUTPUT}}
 
-    submit_info: vk.SubmitInfo = {
+    submit_info := vk.SubmitInfo {
         sType                = .SUBMIT_INFO,
         waitSemaphoreCount   = 1,
         pWaitSemaphores      = &image_available_semaphore,
@@ -726,7 +732,7 @@ submit_command_buffer :: proc() -> (ok: bool) {
 present :: proc() -> (ok: bool) {
     state := bound_state
     render_finished_semaphore := state.render_finished_semaphores[state.flight_frame]
-    present_info: vk.PresentInfoKHR = {
+    present_info := vk.PresentInfoKHR {
         sType              = .PRESENT_INFO_KHR,
         waitSemaphoreCount = 1,
         pWaitSemaphores    = &render_finished_semaphore,
@@ -786,52 +792,3 @@ find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -
     return 0
 }
 
-create_descriptor_pool :: proc(descriptor_pool: ^vk.DescriptorPool) -> (ok: bool) {
-    // using bound_state // shadows descriptor_pool parameter
-
-    pool_size: vk.DescriptorPoolSize = {
-        type = .UNIFORM_BUFFER,
-        descriptorCount = u32(config.RENDERER_FRAMES_IN_FLIGHT),
-    }
-
-    descriptor_pool_create_info: vk.DescriptorPoolCreateInfo = {
-        sType = .DESCRIPTOR_POOL_CREATE_INFO,
-        poolSizeCount = 1,
-        pPoolSizes = &pool_size,
-        maxSets = u32(config.RENDERER_FRAMES_IN_FLIGHT),
-    }
-
-    res := vk.CreateDescriptorPool(bound_state.device, &descriptor_pool_create_info, nil, descriptor_pool); if res != .SUCCESS {
-        log.error("Failed to create descriptor pool:", res)
-        return false
-    }
-
-    return true
-}
-
-// Handles do not need to be destroyed, automatically freed when corresponding descriptor pool is destroyed
-allocate_descriptor_sets :: proc(descriptor_pool: vk.DescriptorPool, descriptor_set_layout: vk.DescriptorSetLayout, descriptor_sets: ^[dynamic]vk.DescriptorSet) -> (ok: bool) {
-    using bound_state
-    resize(descriptor_sets, config.RENDERER_FRAMES_IN_FLIGHT)
-   
-    descriptor_set_layouts := make([]vk.DescriptorSetLayout, config.RENDERER_FRAMES_IN_FLIGHT)
-    defer delete(descriptor_set_layouts)
-    for i in 0..<config.RENDERER_FRAMES_IN_FLIGHT {
-        descriptor_set_layouts[i] = descriptor_set_layout
-    }
-
-    descriptor_set_alloc_info: vk.DescriptorSetAllocateInfo = {
-        sType = .DESCRIPTOR_SET_ALLOCATE_INFO,
-        descriptorPool = descriptor_pool,
-        descriptorSetCount = u32(config.RENDERER_FRAMES_IN_FLIGHT),
-        pSetLayouts = raw_data(descriptor_set_layouts),
-    }
-
-
-    res := vk.AllocateDescriptorSets(device, &descriptor_set_alloc_info, raw_data(descriptor_sets^)); if res != .SUCCESS {
-        log.error("Failed to allocate descriptor sets:", res)
-        return false
-    }
-
-    return true
-}

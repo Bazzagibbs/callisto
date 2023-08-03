@@ -2,18 +2,27 @@ package callisto_graphics
 
 import "core:log"
 import "core:intrinsics"
+import "common"
 import "../config"
 
 when config.RENDERER_API == .Vulkan {
     import impl "vulkan"
 }
 
+built_in: Built_In
 
-init :: #force_inline proc () -> (ok: bool) {
-    return impl.init()
+init :: proc () -> (ok: bool) {
+    impl.init() or_return
+    defer if !ok do impl.shutdown()
+
+    _create_built_ins() or_return
+    defer if !ok do _destroy_built_ins()
+
+    return true
 }
 
-shutdown :: #force_inline proc() {
+shutdown :: proc() {
+    _destroy_built_ins()
     impl.shutdown()
 }
 
@@ -108,4 +117,28 @@ cmd_draw :: #force_inline proc(mesh: Mesh) {
 
 cmd_present :: #force_inline proc() {
     impl.cmd_present()
+}
+
+// =============
+
+_create_built_ins :: proc() -> (ok: bool) {
+    common.built_in = &built_in
+
+    white_texture_desc          := Texture_Description {image_path = "callisto/assets/textures/white.png"}
+    black_texture_desc          := Texture_Description {image_path = "callisto/assets/textures/black.png"}
+    transparent_texture_desc    := Texture_Description {image_path = "callisto/assets/textures/transparent.png"}
+    create_texture(&white_texture_desc, &built_in.texture_white) or_return
+    defer if !ok do destroy_texture(built_in.texture_white)
+    create_texture(&black_texture_desc, &built_in.texture_black)
+    defer if !ok do destroy_texture(built_in.texture_black)
+    create_texture(&transparent_texture_desc, &built_in.texture_transparent)
+    defer if !ok do destroy_texture(built_in.texture_transparent)
+
+    return true
+}
+
+_destroy_built_ins :: proc() {
+    destroy_texture(built_in.texture_white)
+    destroy_texture(built_in.texture_black)
+    destroy_texture(built_in.texture_transparent)
 }

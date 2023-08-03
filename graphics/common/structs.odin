@@ -2,6 +2,12 @@ package callisto_graphics_common
 
 import "../../common"
 
+Built_In :: struct {
+    texture_white           : Texture,
+    texture_black           : Texture,
+    texture_transparent     : Texture,
+}
+
 Handle                  :: common.Handle
 
 Buffer                  :: distinct Handle
