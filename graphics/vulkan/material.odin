@@ -106,3 +106,30 @@ upload_material_uniforms :: proc(material_instance: common.Material_Instance, da
 
     mem.copy(mapped_buffer, data, uniform_buffer_data_size)
 }
+
+set_material_instance_texture :: proc(material_instance: common.Material_Instance, texture_binding: common.Texture_Binding, texture: common.Texture) {
+    cvk_material_instance := transmute(^CVK_Material_Instance)material_instance
+    cvk_texture := transmute(^CVK_Texture)texture
+
+    descriptor_image_info := vk.DescriptorImageInfo {
+        imageLayout = .SHADER_READ_ONLY_OPTIMAL,
+        imageView = cvk_texture.image_view,
+        sampler = bound_state.texture_sampler_default,
+    }
+
+    for desc_set, i in cvk_material_instance.descriptor_sets {
+        write_descriptor_sets := [] vk.WriteDescriptorSet {
+            {
+                sType = .WRITE_DESCRIPTOR_SET,
+                dstSet = desc_set,
+                dstBinding = u32(texture_binding),
+                dstArrayElement = 0,
+                descriptorType = .COMBINED_IMAGE_SAMPLER,
+                descriptorCount = 1,
+                pImageInfo = &descriptor_image_info,
+            },
+        }
+        
+        vk.UpdateDescriptorSets(bound_state.device, u32(len(write_descriptor_sets)), raw_data(write_descriptor_sets), 0, nil)
+    }
+}

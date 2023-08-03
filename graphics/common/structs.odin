@@ -54,6 +54,8 @@ Texture_Description :: struct {
     color_space             : Image_Color_Space,
 }
 
+Texture_Binding         :: distinct u32
+
 Image_Color_Space :: enum {
     SRGB,
     LINEAR,

@@ -57,6 +57,11 @@ shutdown :: proc() {
 should_loop :: proc() -> bool {
     input.flush()
     window.poll_events()
-    return window.should_close() == false
+    if window.should_close() == false {
+        return true
+    }
+
+    graphics.wait_until_idle() // Wait until renderer resources are not in use before starting shutdown
+    return false
 }
 

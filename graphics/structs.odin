@@ -23,5 +23,6 @@ Mesh 				:: common.Mesh
 
 Texture             :: common.Texture
 Texture_Description :: common.Texture_Description
+Texture_Binding     :: common.Texture_Binding
 
 Image_Color_Space   :: common.Image_Color_Space

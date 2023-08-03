@@ -99,3 +99,7 @@ shutdown :: proc() {
     defer vk.DestroyDescriptorPool(device, descriptor_pool, nil)
     defer destroy_texture_sampler(texture_sampler_default)
 }
+
+wait_until_idle :: proc() {
+    vk.DeviceWaitIdle(bound_state.device)
+}

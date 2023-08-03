@@ -26,6 +26,10 @@ shutdown :: proc() {
     impl.shutdown()
 }
 
+wait_until_idle :: proc() {
+    impl.wait_until_idle()
+}
+
 create_shader :: #force_inline proc(shader_description: ^Shader_Description, shader: ^Shader) -> (ok: bool) {
     return impl.create_shader(shader_description, shader)
 }
@@ -87,6 +91,10 @@ create_texture :: #force_inline proc(texture_description: ^Texture_Description, 
 
 destroy_texture :: #force_inline proc(texture: Texture) {
     impl.destroy_texture(texture)
+}
+
+set_material_instance_texture :: proc(material_instance: Material_Instance, texture_binding: Texture_Binding, texture: Texture) {
+    impl.set_material_instance_texture(material_instance, texture_binding, texture)
 }
 
 // ==============================================================================
