@@ -416,7 +416,7 @@ create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
     // Create image view for every image we have acquired
     resize(image_views, len(bound_state.images))
     for image, i in bound_state.images {
-        ok = create_image_view(image, bound_state.swapchain_details.format.format, &image_views[i]); if !ok {
+        ok = create_image_view(image, bound_state.swapchain_details.format.format, {.COLOR}, &image_views[i]); if !ok {
             for j in 0..<i {
                 destroy_image_view(image_views[j])
             }
@@ -440,10 +440,10 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
     subpass_dependency := vk.SubpassDependency {
         srcSubpass = vk.SUBPASS_EXTERNAL,
         dstSubpass = 0,
-        srcStageMask = {.COLOR_ATTACHMENT_OUTPUT},
+        srcStageMask = {.COLOR_ATTACHMENT_OUTPUT, .EARLY_FRAGMENT_TESTS},
         srcAccessMask = {},
-        dstStageMask = {.COLOR_ATTACHMENT_OUTPUT},
-        dstAccessMask = {.COLOR_ATTACHMENT_WRITE},
+        dstStageMask = {.COLOR_ATTACHMENT_OUTPUT, .EARLY_FRAGMENT_TESTS},
+        dstAccessMask = {.COLOR_ATTACHMENT_WRITE, .DEPTH_STENCIL_ATTACHMENT_WRITE},
     }
 
     color_attachment_desc := vk.AttachmentDescription {
@@ -462,16 +462,38 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
         layout     = .COLOR_ATTACHMENT_OPTIMAL,
     }
 
+    depth_attachment_desc := vk.AttachmentDescription {
+        format          = find_depth_format(),
+        samples         = {._1},
+        loadOp          = .CLEAR,
+        storeOp         = .DONT_CARE,
+        stencilLoadOp   = .DONT_CARE,
+        stencilStoreOp  = .DONT_CARE,
+        initialLayout   = .UNDEFINED,
+        finalLayout     = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    }
+
+    depth_attachment_ref := vk.AttachmentReference {
+        attachment = 1,
+        layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    }
+
     subpass_desc := vk.SubpassDescription {
-        pipelineBindPoint    = .GRAPHICS,
-        colorAttachmentCount = 1,
-        pColorAttachments    = &color_attachment_ref,
+        pipelineBindPoint       = .GRAPHICS,
+        colorAttachmentCount    = 1,
+        pColorAttachments       = &color_attachment_ref,
+        pDepthStencilAttachment = &depth_attachment_ref,
+    }
+
+    attachments := []vk.AttachmentDescription {
+        color_attachment_desc,
+        depth_attachment_desc,
     }
 
     render_pass_create_info := vk.RenderPassCreateInfo {
         sType           = .RENDER_PASS_CREATE_INFO,
-        attachmentCount = 1,
-        pAttachments    = &color_attachment_desc,
+        attachmentCount = u32(len(attachments)),
+        pAttachments    = raw_data(attachments),
         subpassCount    = 1,
         pSubpasses      = &subpass_desc,
         dependencyCount = 1,
@@ -488,24 +510,28 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
 
 
 create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
-    state := bound_state
-    resize(framebuffers, len(state.image_views))
+    resize(framebuffers, len(bound_state.image_views))
 
-    for i in 0 ..< len(state.image_views) {
+    for image_view, i in bound_state.image_views {
+        attachments := []vk.ImageView {
+            image_view,
+            bound_state.depth_image_view,
+        }
+
         framebuffer_create_info := vk.FramebufferCreateInfo {
             sType           = .FRAMEBUFFER_CREATE_INFO,
-            renderPass      = state.render_pass,
-            attachmentCount = 1,
-            pAttachments    = &state.image_views[i],
-            width           = state.swapchain_details.extent.width,
-            height          = state.swapchain_details.extent.height,
+            renderPass      = bound_state.render_pass,
+            attachmentCount = u32(len(attachments)),
+            pAttachments    = raw_data(attachments),
+            width           = bound_state.swapchain_details.extent.width,
+            height          = bound_state.swapchain_details.extent.height,
             layers          = 1,
         }
 
-        res := vk.CreateFramebuffer(state.device, &framebuffer_create_info, nil, &framebuffers[i]); if res != .SUCCESS {
+        res := vk.CreateFramebuffer(bound_state.device, &framebuffer_create_info, nil, &framebuffers[i]); if res != .SUCCESS {
             log.fatal("Failed to create framebuffers:", res)
             for j in 0 ..< i {
-                vk.DestroyFramebuffer(state.device, framebuffers[j], nil)
+                vk.DestroyFramebuffer(bound_state.device, framebuffers[j], nil)
             }
             return false
         }
@@ -585,8 +611,9 @@ end_command_buffer :: proc() -> (ok: bool) {
 begin_render_pass :: proc() {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
-    clear_color := vk.ClearValue {
-        color = {float32 = {0, 0, 0, 1}},
+    clear_values := []vk.ClearValue {
+        {color = {float32 = {0, 0, 0, 1}}},
+        {depthStencil = { depth = 1, stencil = 0}},
     }
 
     render_pass_begin_info := vk.RenderPassBeginInfo {
@@ -594,8 +621,8 @@ begin_render_pass :: proc() {
         renderPass = state.render_pass,
         framebuffer = state.framebuffers[state.target_image_index],
         renderArea = {offset = {0, 0}, extent = state.swapchain_details.extent},
-        clearValueCount = 1,
-        pClearValues = &clear_color,
+        clearValueCount = u32(len(clear_values)),
+        pClearValues = raw_data(clear_values),
     }
 
     vk.CmdBeginRenderPass(command_buffer, &render_pass_begin_info, .INLINE) // Switch to SECONDARY_command_bufferS later
@@ -760,17 +787,18 @@ present :: proc() -> (ok: bool) {
 }
 
 recreate_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
-    state := bound_state
-    vk.DeviceWaitIdle(state.device)
+    vk.DeviceWaitIdle(bound_state.device)
 
+    destroy_depth_image(bound_state.depth_image, bound_state.depth_image_memory, bound_state.depth_image_view)
     destroy_framebuffers(framebuffers)
     destroy_image_views(image_views)
-    vk.DestroySwapchainKHR(state.device, swapchain^, nil)
+    vk.DestroySwapchainKHR(bound_state.device, swapchain^, nil)
 
     create_swapchain(swapchain, swapchain_details) or_return
-    defer if !ok do vk.DestroySwapchainKHR(state.device, swapchain^, nil)
+    defer if !ok do vk.DestroySwapchainKHR(bound_state.device, swapchain^, nil)
     create_image_views(image_views) or_return
     defer if !ok do destroy_image_views(image_views)
+    create_depth_image(&bound_state.depth_image, &bound_state.depth_image_memory, &bound_state.depth_image_view)
     create_framebuffers(framebuffers) or_return
     defer if !ok do destroy_framebuffers(framebuffers)
 
@@ -792,3 +820,54 @@ find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -
     return 0
 }
 
+
+create_depth_image :: proc(depth_image: ^vk.Image, depth_image_memory: ^vk.DeviceMemory, depth_image_view: ^vk.ImageView) -> (ok: bool) {
+    depth_format := find_depth_format()
+    if depth_format == .UNDEFINED do return false
+
+    extents := bound_state.swapchain_details.extent
+    _create_vk_image(extents.width, extents.height, depth_format, .OPTIMAL, {.DEPTH_STENCIL_ATTACHMENT}, {.DEVICE_LOCAL}, depth_image, depth_image_memory) or_return
+    defer if !ok do vk.FreeMemory(bound_state.device, depth_image_memory^, nil)
+    defer if !ok do vk.DestroyImage(bound_state.device, depth_image^, nil)
+
+    create_image_view(depth_image^, depth_format, {.DEPTH}, depth_image_view) or_return
+    
+    _transition_vk_image_layout(depth_image^, depth_format, .UNDEFINED ,.DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+
+    return true
+}
+
+destroy_depth_image :: proc(depth_image: vk.Image, depth_image_memory: vk.DeviceMemory, depth_image_view: vk.ImageView) {
+    vk.DestroyImageView(bound_state.device, depth_image_view, nil)
+    vk.DestroyImage(bound_state.device, depth_image, nil)
+    vk.FreeMemory(bound_state.device, depth_image_memory, nil)
+}
+
+
+find_supported_format :: proc(candidates: []vk.Format, tiling: vk.ImageTiling, required_features: vk.FormatFeatureFlags) -> vk.Format {
+    for format in candidates {
+        props : vk.FormatProperties
+        vk.GetPhysicalDeviceFormatProperties(bound_state.physical_device, format, &props)
+
+        #partial switch tiling {
+            case .LINEAR:
+                if props.linearTilingFeatures >= required_features {
+                    return format
+                }
+            case .OPTIMAL:
+                if props.optimalTilingFeatures >= required_features {
+                    return format
+                }
+        }
+    }
+
+    log.error("Failed to find supported format")
+    return .UNDEFINED
+}
+
+find_depth_format :: proc() -> vk.Format {
+    return find_supported_format(
+        {.D32_SFLOAT_S8_UINT, .D24_UNORM_S8_UINT, .D32_SFLOAT}, 
+        .OPTIMAL, 
+        {.DEPTH_STENCIL_ATTACHMENT})
+}

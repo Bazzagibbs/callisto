@@ -43,9 +43,14 @@ default_log_callback :: proc "contextless" (   messageSeverity: vk.DebugUtilsMes
     context.logger = logger
     level := vk_severity_to_log_level(messageSeverity)
 
-    message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n ", -1, context.temp_allocator);
-    // if was_alloc do defer delete(message)
+    message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n | ", -1, context.temp_allocator);
+
     log.log(level, message)
+    when config.RENDERER_PANIC_ON_ERROR {
+        if level == .Error {
+            panic("Renderer error")
+        }
+    }
     return false
 }
 

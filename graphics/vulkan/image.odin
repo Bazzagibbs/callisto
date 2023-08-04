@@ -48,7 +48,7 @@ create_texture :: proc(texture_description: ^common.Texture_Description, texture
     _copy_vk_buffer_to_vk_image(staging_cvk_buffer.buffer, cvk_texture.image, u32(img.width), u32(img.height))
     _transition_vk_image_layout(cvk_texture.image, image_format, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL)
 
-    create_image_view(cvk_texture.image, image_format, &cvk_texture.image_view) or_return
+    create_image_view(cvk_texture.image, image_format, {.COLOR}, &cvk_texture.image_view) or_return
     defer if !ok do destroy_image_view(cvk_texture.image_view)
 
     texture^ = transmute(common.Texture)cvk_texture
@@ -63,7 +63,7 @@ destroy_texture :: proc(texture: common.Texture) {
     free(cvk_texture)
 }
 
-create_image_view :: proc(img: vk.Image, format: vk.Format, img_view: ^vk.ImageView) -> (ok: bool) {
+create_image_view :: proc(img: vk.Image, format: vk.Format, aspect: vk.ImageAspectFlags, img_view: ^vk.ImageView) -> (ok: bool) {
     image_view_create_info := vk.ImageViewCreateInfo {
         sType = .IMAGE_VIEW_CREATE_INFO,
         image = img,
@@ -71,7 +71,7 @@ create_image_view :: proc(img: vk.Image, format: vk.Format, img_view: ^vk.ImageV
         format = format,
         components = {.IDENTITY, .IDENTITY, .IDENTITY, .IDENTITY},
         subresourceRange = {
-            aspectMask = {.COLOR},
+            aspectMask = aspect,
             baseMipLevel = 0,
             levelCount = 1,
             baseArrayLayer = 0,
@@ -197,6 +197,14 @@ _transition_vk_image_layout :: proc(img: vk.Image, format: vk.Format, old_layout
         },
     }
 
+    if new_layout == .DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+        image_barrier.subresourceRange.aspectMask = {.DEPTH}
+
+        if has_stencil_component(format) {
+            image_barrier.subresourceRange.aspectMask += {.STENCIL}
+        }
+    }
+
     source_stage, destination_stage: vk.PipelineStageFlags
 
     if old_layout == .UNDEFINED && new_layout == .TRANSFER_DST_OPTIMAL {
@@ -210,6 +218,12 @@ _transition_vk_image_layout :: proc(img: vk.Image, format: vk.Format, old_layout
         image_barrier.dstAccessMask = {.SHADER_READ}
         source_stage = {.TRANSFER}
         destination_stage = {.FRAGMENT_SHADER}
+    }
+    else if old_layout == .UNDEFINED && new_layout == .DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+        image_barrier.srcAccessMask = {}
+        image_barrier.dstAccessMask = {.DEPTH_STENCIL_ATTACHMENT_READ, .DEPTH_STENCIL_ATTACHMENT_WRITE}
+        source_stage = {.TOP_OF_PIPE}
+        destination_stage = {.EARLY_FRAGMENT_TESTS}
     }
     else {
         log.error("Unsupported image layout transition:", old_layout, "->", new_layout)
@@ -255,4 +269,9 @@ build_vk_format :: proc(channels, bit_depth: int, color_space: common.Image_Colo
     }
     
     return .UNDEFINED
+}
+
+has_stencil_component :: proc(format: vk.Format) -> bool {
+    return  format == .D32_SFLOAT_S8_UINT ||
+            format == .D24_UNORM_S8_UINT
 }

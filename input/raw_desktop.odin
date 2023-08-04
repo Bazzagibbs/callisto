@@ -50,6 +50,8 @@ _set_mouse_input_raw :: proc(use_raw: bool = true) {
 // GLFW-specific callbacks
 _key_callback :: proc(window: glfw.WindowHandle, key, scancode, action, mods: c.int){
     using input_accumulator
+    if key >= len(kbm_down_buffer.keys) || key < 0 do return
+
     switch Button_Press_Action(action) {
         case .Press:
             kbm_down_buffer.keys[key] = true

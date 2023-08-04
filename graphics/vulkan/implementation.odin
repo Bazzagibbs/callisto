@@ -30,24 +30,7 @@ init :: proc() -> (ok: bool) {
     
     create_logical_device(&device, &queue_family_indices, &queues) or_return
     defer if !ok do vk.DestroyDevice(device, nil)
-
-    create_swapchain(&swapchain, &swapchain_details) or_return
-    defer if !ok do vk.DestroySwapchainKHR(device, swapchain, nil)
-
-    get_images(&images)
-
-    create_image_views(&image_views) or_return
-    defer if !ok do destroy_image_views(&image_views)
-    for image_view in image_views {
-        set_debug_name(u64(image_view), .IMAGE_VIEW, "Swapchain Image View")
-    }
-
-    create_render_pass(&render_pass) or_return
-    defer if !ok do vk.DestroyRenderPass(device, render_pass, nil)
-
-    create_framebuffers(&framebuffers) or_return
-    defer if !ok do destroy_framebuffers(&framebuffers)
-
+    
     create_command_pool(&command_pool) or_return
     defer if !ok do vk.DestroyCommandPool(device, command_pool, nil)
 
@@ -60,6 +43,23 @@ init :: proc() -> (ok: bool) {
     defer if !ok do destroy_semaphores(&render_finished_semaphores)
     create_fences(config.RENDERER_FRAMES_IN_FLIGHT, &in_flight_fences) or_return
     defer if !ok do destroy_fences(&in_flight_fences)
+
+    create_swapchain(&swapchain, &swapchain_details) or_return
+    defer if !ok do vk.DestroySwapchainKHR(device, swapchain, nil)
+
+    get_images(&images)
+
+    create_image_views(&image_views) or_return
+    defer if !ok do destroy_image_views(&image_views)
+    
+    create_depth_image(&depth_image, &depth_image_memory, &depth_image_view) or_return
+    defer if !ok do destroy_depth_image(depth_image, depth_image_memory, depth_image_view)
+
+    create_render_pass(&render_pass) or_return
+    defer if !ok do vk.DestroyRenderPass(device, render_pass, nil)
+
+    create_framebuffers(&framebuffers) or_return
+    defer if !ok do destroy_framebuffers(&framebuffers)
 
     create_descriptor_pool(&descriptor_pool) or_return
     defer if !ok do vk.DestroyDescriptorPool(device, descriptor_pool, nil)
@@ -88,16 +88,17 @@ shutdown :: proc() {
     defer vk.DestroySurfaceKHR(instance, surface, nil)
     defer vk.DestroyDevice(device, nil)
     defer vk.DestroyCommandPool(device, command_pool, nil)
-    defer vk.DestroySwapchainKHR(device, swapchain, nil)
-    defer destroy_image_views(&image_views)
-    defer vk.DestroyRenderPass(device, render_pass, nil)
-    defer destroy_framebuffers(&framebuffers)
     defer vk.FreeCommandBuffers(device, command_pool, u32(len(command_buffers)), raw_data(command_buffers))
     defer destroy_semaphores(&image_available_semaphores)
     defer destroy_semaphores(&render_finished_semaphores)
     defer destroy_fences(&in_flight_fences)
+    defer vk.DestroySwapchainKHR(device, swapchain, nil)
+    defer destroy_image_views(&image_views)
+    defer vk.DestroyRenderPass(device, render_pass, nil)
+    defer destroy_framebuffers(&framebuffers)
     defer vk.DestroyDescriptorPool(device, descriptor_pool, nil)
     defer destroy_texture_sampler(texture_sampler_default)
+    defer destroy_depth_image(depth_image, depth_image_memory, depth_image_view)
 }
 
 wait_until_idle :: proc() {

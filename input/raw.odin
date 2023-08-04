@@ -75,16 +75,32 @@ get_mouse_button :: proc(button: Mouse_Button) -> bool {
 }
 
 // Returns the mouse position in screen coordinates relative to the top-left of the window. Right is x+, down is y+.
-get_mouse_position :: proc() -> (mouse_pos: [2]f64) {
+get_mouse_position :: proc() -> (mouse_pos: [2]f32) {
+    return {f32(input_accumulator.mouse_pos.x), f32(input_accumulator.mouse_pos.y)}
+}
+
+// Returns the mouse position in screen coordinates relative to the top-left of the window. Right is x+, down is y+.
+get_mouse_position_f64 :: proc() -> (mouse_pos: [2]f64) {
     return input_accumulator.mouse_pos
 }
 
 // Returns the delta position of the mouse in screen coordinates relative to the top-left of the window. Right is x+, down is y+.
-get_mouse_delta :: proc() -> (mouse_delta: [2]f64) {
+get_mouse_delta :: proc() -> (mouse_delta: [2]f32) {
+    temp := input_accumulator.mouse_pos - input_accumulator.mouse_pos_last
+    return {f32(temp.x), f32(temp.y)}
+}
+
+// Returns the delta position of the mouse in screen coordinates relative to the top-left of the window. Right is x+, down is y+.
+get_mouse_delta_f64 :: proc() -> (mouse_delta: [2]f64) {
     return input_accumulator.mouse_pos - input_accumulator.mouse_pos_last
 }
 
 // Returns the delta position of the mouse scroll wheel, in number of "steps" on a regular scroll wheel.
-get_scroll_delta :: proc() -> (scroll_delta: [2]f64) {
+get_scroll_delta :: proc() -> (scroll_delta: [2]f32) {
+    return {f32(input_accumulator.scroll_delta.x), f32(input_accumulator.scroll_delta.y)}
+}
+
+// Returns the delta position of the mouse scroll wheel, in number of "steps" on a regular scroll wheel.
+get_scroll_delta_f64 :: proc() -> (scroll_delta: [2]f64) {
     return input_accumulator.scroll_delta
 }

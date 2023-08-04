@@ -25,7 +25,7 @@ create_descriptor_pool :: proc(descriptor_pool: ^vk.DescriptorPool) -> (ok: bool
         sType           = .DESCRIPTOR_POOL_CREATE_INFO,
         poolSizeCount   = u32(len(pool_sizes)),
         pPoolSizes      = raw_data(pool_sizes),
-        maxSets         = u32(config.RENDERER_FRAMES_IN_FLIGHT),
+        maxSets         = u32(config.RENDERER_FRAMES_IN_FLIGHT * 2),
     }
 
     res := vk.CreateDescriptorPool(bound_state.device, &descriptor_pool_create_info, nil, descriptor_pool); if res != .SUCCESS {

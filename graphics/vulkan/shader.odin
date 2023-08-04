@@ -55,7 +55,7 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         },
     }
 
-    dynamic_state_create_info: vk.PipelineDynamicStateCreateInfo = {
+    dynamic_state_create_info := vk.PipelineDynamicStateCreateInfo {
         sType             = .PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         dynamicStateCount = u32(len(dynamic_states)),
         pDynamicStates    = raw_data(dynamic_states),
@@ -67,7 +67,7 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     _get_vertex_attribute_descriptions(shader_description.vertex_typeid, &attribute_descs) or_return
 
 
-    vertex_input_state_create_info: vk.PipelineVertexInputStateCreateInfo = {
+    vertex_input_state_create_info := vk.PipelineVertexInputStateCreateInfo {
         sType                           = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         vertexBindingDescriptionCount   = 1,
         pVertexBindingDescriptions      = &binding_desc,
@@ -75,13 +75,13 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         pVertexAttributeDescriptions    = raw_data(attribute_descs),
     }
 
-    input_assembly_state_create_info: vk.PipelineInputAssemblyStateCreateInfo = {
+    input_assembly_state_create_info := vk.PipelineInputAssemblyStateCreateInfo {
         sType                  = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         topology               = .TRIANGLE_LIST,
         primitiveRestartEnable = false,
     }
 
-    viewport: vk.Viewport = {
+    viewport := vk.Viewport {
         x        = 0,
         y        = 0,
         width    = f32(state.swapchain_details.extent.width),
@@ -90,12 +90,12 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         maxDepth = 1,
     }
 
-    scissor: vk.Rect2D = {
+    scissor := vk.Rect2D {
         offset = {0, 0},
         extent = state.swapchain_details.extent,
     }
 
-    viewport_state_create_info: vk.PipelineViewportStateCreateInfo = {
+    viewport_state_create_info := vk.PipelineViewportStateCreateInfo {
         sType         = .PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         viewportCount = 1,
         pViewports    = &viewport,
@@ -103,7 +103,7 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         pScissors     = &scissor,
     }
 
-    rasterizer_state_create_info: vk.PipelineRasterizationStateCreateInfo = {
+    rasterizer_state_create_info := vk.PipelineRasterizationStateCreateInfo {
         sType = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         depthClampEnable = false,
         rasterizerDiscardEnable = false,
@@ -121,18 +121,18 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
             rasterizer_state_create_info.cullMode = {}
     }
 
-    multisample_state_create_info: vk.PipelineMultisampleStateCreateInfo = {
+    multisample_state_create_info := vk.PipelineMultisampleStateCreateInfo {
         sType = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         rasterizationSamples = {._1},
         sampleShadingEnable = false,
     }
 
-    color_blend_attachment_state: vk.PipelineColorBlendAttachmentState = {
+    color_blend_attachment_state := vk.PipelineColorBlendAttachmentState {
         blendEnable = false,
         colorWriteMask = {.R, .G, .B, .A},
     }
 
-    color_blend_state_create_info: vk.PipelineColorBlendStateCreateInfo = {
+    color_blend_state_create_info := vk.PipelineColorBlendStateCreateInfo {
         sType           = .PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         logicOpEnable   = false,
         logicOp         = .COPY,
@@ -143,7 +143,7 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     create_descriptor_set_layout(&cvk_shader.descriptor_set_layout) or_return
     defer if !ok do destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
 
-    pipeline_layout_create_info: vk.PipelineLayoutCreateInfo = {
+    pipeline_layout_create_info := vk.PipelineLayoutCreateInfo {
         sType = .PIPELINE_LAYOUT_CREATE_INFO,
         setLayoutCount = 1,
         pSetLayouts = &cvk_shader.descriptor_set_layout,
@@ -155,7 +155,20 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     }
     defer if !ok do vk.DestroyPipelineLayout(state.device, cvk_shader.pipeline_layout, nil)
 
-    pipeline_create_info: vk.GraphicsPipelineCreateInfo = {
+    depth_stencil_state := vk.PipelineDepthStencilStateCreateInfo {
+        sType = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        depthTestEnable = true,
+        depthWriteEnable = true,
+        depthCompareOp = .LESS,
+        depthBoundsTestEnable = false,
+        minDepthBounds = 0,
+        maxDepthBounds = 1,
+        stencilTestEnable = false,
+        front = {},
+        back = {},
+    }
+
+    pipeline_create_info := vk.GraphicsPipelineCreateInfo {
         sType               = .GRAPHICS_PIPELINE_CREATE_INFO,
         stageCount          = 2,
         pStages             = &shader_stages[0],
@@ -164,7 +177,7 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         pViewportState      = &viewport_state_create_info,
         pRasterizationState = &rasterizer_state_create_info,
         pMultisampleState   = &multisample_state_create_info,
-        pDepthStencilState  = nil,
+        pDepthStencilState  = &depth_stencil_state,
         pColorBlendState    = &color_blend_state_create_info,
         pDynamicState       = &dynamic_state_create_info,
         layout              = cvk_shader.pipeline_layout,
@@ -190,7 +203,7 @@ create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.
     }
     defer delete(module_source)
 
-    module_info: vk.ShaderModuleCreateInfo = {
+    module_info := vk.ShaderModuleCreateInfo {
         sType    = .SHADER_MODULE_CREATE_INFO,
         codeSize = len(module_source),
         pCode    = transmute(^u32)raw_data(module_source),
