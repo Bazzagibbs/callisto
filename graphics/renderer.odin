@@ -85,6 +85,14 @@ destroy_mesh :: #force_inline proc(mesh: Mesh) {
     impl.destroy_mesh(mesh)
 }
 
+// create_model :: proc(model_description: ^Model_Description, model: ^Model) -> (ok: bool) {
+//     return impl.create_model(model_description, model)
+// }
+
+// destroy_model :: proc(model: Model) {
+//     impl.destroy_model(model)
+// }
+
 create_texture :: #force_inline proc(texture_description: ^Texture_Description, texture: ^Texture) -> (ok: bool) {
     return impl.create_texture(texture_description, texture) 
 }
@@ -132,9 +140,9 @@ cmd_present :: #force_inline proc() {
 _create_built_ins :: proc() -> (ok: bool) {
     common.built_in = &built_in
 
-    white_texture_desc          := Texture_Description {image_path = "callisto/assets/textures/white.png"}
-    black_texture_desc          := Texture_Description {image_path = "callisto/assets/textures/black.png"}
-    transparent_texture_desc    := Texture_Description {image_path = "callisto/assets/textures/transparent.png"}
+    white_texture_desc          := Texture_Description {image_path = "callisto/resources/textures/white.png"}
+    black_texture_desc          := Texture_Description {image_path = "callisto/resources/textures/black.png"}
+    transparent_texture_desc    := Texture_Description {image_path = "callisto/resources/textures/transparent.png"}
     create_texture(&white_texture_desc, &built_in.texture_white) or_return
     defer if !ok do destroy_texture(built_in.texture_white)
     create_texture(&black_texture_desc, &built_in.texture_black)

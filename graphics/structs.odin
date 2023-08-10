@@ -12,7 +12,6 @@ Uniform_Buffer 		:: common.Uniform_Buffer
 
 Shader 				:: common.Shader
 Shader_Description 	:: common.Shader_Description
-
 Shader_Description_Cull_Mode :: common.Shader_Description_Cull_Mode
 
 // Material_Master     :: common.Material_Master
@@ -20,6 +19,9 @@ Shader_Description_Cull_Mode :: common.Shader_Description_Cull_Mode
 Material_Instance   :: common.Material_Instance
 
 Mesh 				:: common.Mesh
+
+Model               :: common.Model
+Model_Description   :: common.Model_Description
 
 Texture             :: common.Texture
 Texture_Description :: common.Texture_Description

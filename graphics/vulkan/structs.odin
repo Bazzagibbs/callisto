@@ -25,6 +25,14 @@ CVK_Mesh :: struct {
     index_buffer    : ^CVK_Buffer,
 }
 
+CVK_Model :: struct {
+    // meshes,
+    // materials,
+    // textures,
+    // cameras,
+    // lights,
+}
+
 // CVK_Material_Master :: struct {
 //     shared_instance     : common.Material_Instance,
 // }

@@ -16,11 +16,15 @@ Vertex_Buffer           :: distinct Buffer
 Index_Buffer            :: distinct Buffer
 Uniform_Buffer          :: distinct Buffer
 
-Mesh                    :: distinct Handle
+Mesh                    :: common.Mesh
 
+// Contains bundled mesh/texture/material data
+Model                   :: distinct Handle
+Model_Description :: struct {
+    model_path              : string,
+}
 
 Shader                  :: distinct Handle
-
 Shader_Description :: struct {
     // typeid of a struct that describes the layout of vertex attributes for this shader.
     // ```
@@ -48,15 +52,14 @@ Shader_Description_Cull_Mode :: enum {
 Material_Instance       :: distinct Handle // Instantiated values from a material master or variant
 
 Texture                 :: distinct Handle
-
 Texture_Description :: struct {
     image_path              : string,
     color_space             : Image_Color_Space,
 }
 
-Texture_Binding         :: distinct u32
-
 Image_Color_Space :: enum {
     SRGB,
     LINEAR,
 }
+
+Texture_Binding         :: distinct u32
