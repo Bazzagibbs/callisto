@@ -43,14 +43,14 @@ import_gltf :: proc(model_path: string) -> (mesh: asset.Mesh, material: asset.Ma
                 
                 case .normal: 
                     mesh.normals = make([]asset.vec3, attribute.data.count)
-                    _ = cgltf.accessor_unpack_floats(attribute.data, transmute(^f32)raw_data(mesh.normals.([]asset.vec3)), attribute.data.count * 3)
+                    _ = cgltf.accessor_unpack_floats(attribute.data, transmute(^f32)raw_data(mesh.normals), attribute.data.count * 3)
 
                 case .texcoord:
                     tex_coord_store: ^f32
                     switch attribute.name {
                         case "TEXCOORD_0": 
                             mesh.tex_coords_0 = make([]asset.vec2, attribute.data.count)
-                            tex_coord_store = transmute(^f32)raw_data(mesh.tex_coords_0.([]asset.vec2))
+                            tex_coord_store = transmute(^f32)raw_data(mesh.tex_coords_0)
                         case "TEXCOORD_1":
                             mesh.tex_coords_1 = make([]asset.vec2, attribute.data.count)
                             tex_coord_store = transmute(^f32)raw_data(mesh.tex_coords_1.([]asset.vec2))
@@ -71,7 +71,19 @@ import_gltf :: proc(model_path: string) -> (mesh: asset.Mesh, material: asset.Ma
                 case .custom:
                     log.error("GLTF Attribute type not implemented:", attribute.type)
             }
+
+            indices_accessor := primitive.indices
+            mesh.indices = make([]u32, indices_accessor.count)
+
+            for i in 0..<indices_accessor.count {
+                mesh.indices[i] = u32(cgltf.accessor_read_index(indices_accessor, i))
+            }
+
         }
+
+
+
+
     }
     // }
 
