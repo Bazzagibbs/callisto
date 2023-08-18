@@ -31,21 +31,27 @@ loop :: proc() {
 }
 ```
 
-## Using Callisto logger
+## Callisto Debug Utilities
 
-After Callisto has been initialized, a logger is available to be used by your application.
+Callisto provides a `util` package that can help with debugging boilerplate.
 
 ```odin
 package main
 include "callisto"
 include "core:log"
+include "callisto/util"
 
 main :: proc() {
-    // ...
+    
+    when ODIN_DEBUG {
+        context.logger = util.create_logger()
+        defer util.destroy_logger(context.logger)
 
-    // context.logger only needs to be set once at the outermost scope of your application, 
-    // e.g. the entry point
-    context.logger = callisto.logger
+        // A tracking allocator that will print out any bad allocations and/or memory leaks when it is destroyed
+        track := util.create_tracking_allocator()
+        context.allocator = mem.tracking_allocator(&track)
+        defer util.destroy_tracking_allocator(&track)
+    }
 
     log.info("Hellope!")
 }
