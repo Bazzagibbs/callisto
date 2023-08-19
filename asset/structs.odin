@@ -8,8 +8,9 @@ mat4        :: matrix[4,4]f32
 
 Mesh                :: struct {
     // Mandatory
-    vertices            : []vec3,
     indices             : []u32,
+    
+    positions           : []vec3,
     normals             : []vec3,
     tex_coords_0        : []vec2,
     // Optional

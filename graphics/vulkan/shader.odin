@@ -35,7 +35,6 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     frag_module := create_shader_module(state.device, frag_file) or_return
     defer vk.DestroyShaderModule(state.device, frag_module, nil)
     
-    cvk_shader.vertex_typeid = shader_description.vertex_typeid
     cvk_shader.uniform_buffer_typeid = shader_description.uniform_buffer_typeid
 
     shader_stages := [?]vk.PipelineShaderStageCreateInfo {
@@ -61,16 +60,16 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         pDynamicStates    = raw_data(dynamic_states),
     }
 
-    binding_desc := _get_vertex_binding_description(shader_description.vertex_typeid)
-    attribute_descs: [dynamic]vk.VertexInputAttributeDescription
+    binding_descs   := _get_vertex_binding_descriptions()
+    defer delete(binding_descs)
+    attribute_descs := _get_vertex_attribute_descriptions() 
     defer delete(attribute_descs)
-    _get_vertex_attribute_descriptions(shader_description.vertex_typeid, &attribute_descs) or_return
 
 
     vertex_input_state_create_info := vk.PipelineVertexInputStateCreateInfo {
         sType                           = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        vertexBindingDescriptionCount   = 1,
-        pVertexBindingDescriptions      = &binding_desc,
+        vertexBindingDescriptionCount   = u32(len(binding_descs)),
+        pVertexBindingDescriptions      = raw_data(binding_descs),
         vertexAttributeDescriptionCount = u32(len(attribute_descs)),
         pVertexAttributeDescriptions    = raw_data(attribute_descs),
     }
@@ -229,60 +228,55 @@ destroy_shader :: proc(shader: common.Shader) {
     mem.free(cvk_shader)
 }
 
-_get_vertex_binding_description :: proc(vertex_type: typeid) -> (binding_desc: vk.VertexInputBindingDescription) {
-    binding_desc = {
-        binding = 0,
-        stride = u32(type_info_of(vertex_type).size),
-        inputRate = .VERTEX,
+// TODO: calculate which attributes are used by the shaders at shader compile time
+_get_vertex_binding_descriptions :: proc() -> (binding_descs: []vk.VertexInputBindingDescription) {
+
+    binding_descs = make([]vk.VertexInputBindingDescription, 3)
+    binding_descs[0] = {   // Position (3 * f32)
+        binding     = 0,
+        stride      = u32(3 * 4),
+        inputRate   = .VERTEX,
     }
-    return
+    binding_descs[1] = {   // Normal (3 * f32)
+        binding     = 1,
+        stride      = u32(3 * 4),
+        inputRate   = .VERTEX,
+    }
+    binding_descs[2] = {   // Tex Coord (2 * f32)
+        binding     = 2,
+        stride      = u32(2 * 4),
+        inputRate   = .VERTEX,
+    }
+   
+    return 
 }
 
-_get_vertex_attribute_descriptions :: proc(vertex_type: typeid, attribute_descs: ^[dynamic]vk.VertexInputAttributeDescription) -> (ok: bool) {
-    
-    location_accumulator := 0
-    
-    vertex_type_info := type_info_of(vertex_type)
-    struct_info: runtime.Type_Info_Struct = {}
-    #partial switch variant_info in vertex_type_info.variant {
-        case runtime.Type_Info_Named:
-            struct_info = variant_info.base.variant.(runtime.Type_Info_Struct)
-        case runtime.Type_Info_Struct:
-            struct_info = variant_info
-        case:
-            log.fatal("Invalid vertex attribute struct")
-            return false
-    }
+// TODO: get info from shader compile time
+_get_vertex_attribute_descriptions :: proc() -> (attribute_descs: []vk.VertexInputAttributeDescription) {
+    vec3, _ := _typeid_to_vk_format([3]f32)
+    vec2, _ := _typeid_to_vk_format([2]f32)
 
-    attr_count := len(struct_info.types)
-    resize(attribute_descs, attr_count)
-    defer if !ok do resize(attribute_descs, 0)
-    
-    for i in 0..<attr_count {
-        type := struct_info.types[i]
-        offset := struct_info.offsets[i]
-        ok = _get_vertex_attribute_from_type(type.id, offset, &location_accumulator, &attribute_descs[i]); if !ok {
-            log.fatal("Invalid vertex attribute type:", type)
-            return
-        }
+    attribute_descs = make([]vk.VertexInputAttributeDescription, 3)
+    attribute_descs[0] = {   // Position
+        binding     = 0,
+        location    = 0,
+        format      = vec3,
+        offset      = 0,
     }
-
+    attribute_descs[1] = {   // Normal
+        binding     = 1,
+        location    = 1,
+        format      = vec3,
+        offset      = 0,
+    }
+    attribute_descs[2] = {   // Tex Coord
+        binding     = 2,
+        location    = 2,
+        format      = vec2,
+        offset      = 0,
+    }
+    
     return
-}
-
-_get_vertex_attribute_from_type :: proc(attribute_type: typeid, offset: uintptr, location_accumulator: ^int, attribute_description: ^vk.VertexInputAttributeDescription) -> (ok: bool) {
-    vk_format, locations_used := _typeid_to_vk_format(attribute_type)
-    if vk_format == .UNDEFINED do return false
-
-    attribute_description^ = {
-        binding =   0,
-        location =  u32(location_accumulator^),
-        format =    vk_format,
-        offset =    u32(offset),
-    }
-
-    location_accumulator^ += locations_used
-    return true
 }
 
 _typeid_to_vk_format :: #force_inline proc(id: typeid) -> (format: vk.Format, locations_used: int) {

@@ -45,7 +45,7 @@ create_texture :: proc(texture_description: ^common.Texture_Description, texture
     _create_vk_image(u32(img.width), u32(img.height), image_format, .OPTIMAL, {.TRANSFER_DST, .SAMPLED}, {.DEVICE_LOCAL}, &cvk_texture.image, &cvk_texture.memory) or_return
 
     _transition_vk_image_layout(cvk_texture.image, image_format, .UNDEFINED, .TRANSFER_DST_OPTIMAL)
-    _copy_vk_buffer_to_vk_image(staging_cvk_buffer.buffer, cvk_texture.image, u32(img.width), u32(img.height))
+    copy_vk_buffer_to_vk_image(staging_cvk_buffer.buffer, cvk_texture.image, u32(img.width), u32(img.height))
     _transition_vk_image_layout(cvk_texture.image, image_format, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL)
 
     create_image_view(cvk_texture.image, image_format, {.COLOR}, &cvk_texture.image_view) or_return

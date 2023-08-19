@@ -26,14 +26,6 @@ Model_Description :: struct {
 
 Shader                  :: distinct Handle
 Shader_Description :: struct {
-    // typeid of a struct that describes the layout of vertex attributes for this shader.
-    // ```
-    //  UV_Vertex :: struct {
-    //      position:   [3]f32,
-    //      uv:         [2]f32,
-    //  }
-    // ```
-    vertex_typeid           : typeid,
     uniform_buffer_typeid   : typeid,
     vertex_shader_path      : string,
     fragment_shader_path    : string,

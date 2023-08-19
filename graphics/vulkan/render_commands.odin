@@ -57,16 +57,24 @@ cmd_bind_material_instance :: proc(material_instance: common.Material_Instance) 
 cmd_draw :: proc(mesh: common.Mesh) {
     using bound_state
     cvk_mesh := transmute(^CVK_Mesh)mesh
-    cvk_vert_buffer := transmute(^CVK_Buffer)cvk_mesh.vertex_buffer
-    cvk_index_buffer := transmute(^CVK_Buffer)cvk_mesh.index_buffer
 
     command_buffer := command_buffers[flight_frame]
 
-    vert_buffers := []vk.Buffer {cvk_vert_buffer.buffer}
-    offsets := []vk.DeviceSize {0}
-    vk.CmdBindVertexBuffers(command_buffer, 0, 1, raw_data(vert_buffers), raw_data(offsets))
-    vk.CmdBindIndexBuffer(command_buffer, cvk_index_buffer.buffer, 0, .UINT32) // TODO: get index size dynamically
-    vk.CmdDrawIndexed(command_buffer, u32(cvk_index_buffer.length), 1, 0, 0, 0)
+    vert_buffers := []vk.Buffer {
+        cvk_mesh.positions.buffer,
+        cvk_mesh.normals.buffer,
+        cvk_mesh.tex_coords_0.buffer,
+    }
+    
+    offsets := []vk.DeviceSize {
+        0, 
+        0, 
+        0,
+    }
+    
+    vk.CmdBindVertexBuffers(command_buffer, 0, u32(len(vert_buffers)), raw_data(vert_buffers), raw_data(offsets))
+    vk.CmdBindIndexBuffer(command_buffer, cvk_mesh.indices.buffer, 0, .UINT32) // TODO: get index size dynamically
+    vk.CmdDrawIndexed(command_buffer, u32(cvk_mesh.indices.length), 1, 0, 0, 0)
 }
 
 cmd_present :: proc() {

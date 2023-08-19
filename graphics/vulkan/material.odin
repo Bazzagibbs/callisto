@@ -107,7 +107,7 @@ upload_material_uniforms :: proc(material_instance: common.Material_Instance, da
     mem.copy(mapped_buffer, data, uniform_buffer_data_size)
 }
 
-set_material_instance_texture :: proc(material_instance: common.Material_Instance, texture_binding: common.Texture_Binding, texture: common.Texture) {
+set_material_instance_texture :: proc(material_instance: common.Material_Instance, texture: common.Texture, texture_binding: common.Texture_Binding) {
     cvk_material_instance := transmute(^CVK_Material_Instance)material_instance
     cvk_texture := transmute(^CVK_Texture)texture
 

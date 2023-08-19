@@ -4,6 +4,7 @@ import "core:log"
 import "core:intrinsics"
 import "common"
 import "../config"
+import "../asset"
 
 when config.RENDERER_API == .Vulkan {
     import impl "vulkan"
@@ -59,39 +60,32 @@ upload_material_uniforms :: #force_inline proc(material_instance: Material_Insta
     impl.upload_material_uniforms(material_instance, data)
 }
 
-create_vertex_buffer :: #force_inline proc(data: $T/[]$E, vertex_buffer: ^Vertex_Buffer) -> (ok: bool) {
-    return impl.create_vertex_buffer(data, vertex_buffer)
-}
-
-destroy_vertex_buffer :: #force_inline proc(vertex_buffer: Vertex_Buffer) {
-    impl.destroy_vertex_buffer(vertex_buffer)
-}
-
-create_index_buffer :: #force_inline proc(data: $T/[]$E, index_buffer: ^Index_Buffer) -> (ok: bool) 
-        where E == u16 || E == u32 {
-    return impl.create_index_buffer(data, index_buffer)
-}
-
-destroy_index_buffer :: #force_inline proc(index_buffer: Index_Buffer) {
-    impl.destroy_index_buffer(index_buffer)
-}
-
-create_mesh :: #force_inline proc(vertices: $U/[]$V, indices: $X/[]$Y, mesh: ^Mesh) -> (ok: bool)
-        where Y == u16 || Y == u32 {
-    return impl.create_mesh(vertices, indices, mesh)
-}
-
-destroy_mesh :: #force_inline proc(mesh: Mesh) {
-    impl.destroy_mesh(mesh)
-}
-
-// create_model :: proc(model_description: ^Model_Description, model: ^Model) -> (ok: bool) {
-//     return impl.create_model(model_description, model)
+// create_vertex_buffer :: #force_inline proc(data: $T/[]$E, vertex_buffer: ^Vertex_Buffer) -> (ok: bool) {
+//     return impl.create_vertex_buffer(data, vertex_buffer)
 // }
 
-// destroy_model :: proc(model: Model) {
-//     impl.destroy_model(model)
+// destroy_vertex_buffer :: #force_inline proc(vertex_buffer: Vertex_Buffer) {
+//     impl.destroy_vertex_buffer(vertex_buffer)
 // }
+
+// create_index_buffer :: #force_inline proc(data: $T/[]$E, index_buffer: ^Index_Buffer) -> (ok: bool) 
+//         where E == u16 || E == u32 {
+//     return impl.create_index_buffer(data, index_buffer)
+// }
+
+// destroy_index_buffer :: #force_inline proc(index_buffer: Index_Buffer) {
+//     impl.destroy_index_buffer(index_buffer)
+// }
+
+// Create a renderable copy of a mesh asset on the GPU. The mesh's vertex data is not readable/writeable.
+// The source asset may be unloaded from CPU memory after instantiation.
+create_static_mesh :: proc(mesh_asset: ^asset.Mesh, mesh: ^Mesh) -> (ok: bool) {
+    return impl.create_static_mesh(mesh_asset, mesh)
+}
+
+destroy_static_mesh :: proc(mesh: Mesh) {
+    impl.destroy_static_mesh(mesh)
+}
 
 create_texture :: #force_inline proc(texture_description: ^Texture_Description, texture: ^Texture) -> (ok: bool) {
     return impl.create_texture(texture_description, texture) 
@@ -101,8 +95,8 @@ destroy_texture :: #force_inline proc(texture: Texture) {
     impl.destroy_texture(texture)
 }
 
-set_material_instance_texture :: proc(material_instance: Material_Instance, texture_binding: Texture_Binding, texture: Texture) {
-    impl.set_material_instance_texture(material_instance, texture_binding, texture)
+set_material_instance_texture :: proc(material_instance: Material_Instance, texture: Texture, texture_binding: Texture_Binding) {
+    impl.set_material_instance_texture(material_instance, texture, texture_binding)
 }
 
 // ==============================================================================

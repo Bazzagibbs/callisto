@@ -1,5 +1,5 @@
 package callisto_config
 
-APP_NAME:       string:     "Callsito Application"
+APP_NAME        : string        : "Callsito Application"
 // In semantic versioning form Major, Minor, Patch. E.g. v1.0.3 -> {1, 0, 3}
-APP_VERSION:    [3]u32:     {0, 0, 1}
+APP_VERSION     : [3]u32        : {0, 0, 1}

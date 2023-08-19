@@ -13,7 +13,6 @@ CVK_Buffer :: struct {
 }
 
 CVK_Shader :: struct {
-    vertex_typeid           : typeid,
     uniform_buffer_typeid   : typeid,
     pipeline                : vk.Pipeline,
     pipeline_layout         : vk.PipelineLayout,
@@ -21,16 +20,18 @@ CVK_Shader :: struct {
 }
 
 CVK_Mesh :: struct {
-    vertex_buffer   : ^CVK_Buffer,
-    index_buffer    : ^CVK_Buffer,
-}
+    indices         : ^CVK_Buffer,
 
-CVK_Model :: struct {
-    // meshes,
-    // materials,
-    // textures,
-    // cameras,
-    // lights,
+    positions       : ^CVK_Buffer,
+    normals         : ^CVK_Buffer,
+    tex_coords_0    : ^CVK_Buffer,
+
+    // TODO: these should probably bind to a zero buffer
+    tex_coords_1    : Maybe(^CVK_Buffer),
+    tangents        : Maybe(^CVK_Buffer),
+    colors_0        : Maybe(^CVK_Buffer),
+    joints_0        : Maybe(^CVK_Buffer),
+    weights_0       : Maybe(^CVK_Buffer),
 }
 
 // CVK_Material_Master :: struct {

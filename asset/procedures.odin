@@ -3,12 +3,21 @@ package callisto_asset
 import "core:runtime"
 
 delete :: proc {
+    delete_meshes,
     delete_mesh,
+    delete_materials,
     delete_material,
 }
 
+delete_meshes :: proc(meshes: ^[]Mesh) {
+    for mesh in meshes {
+        delete_mesh(&mesh)
+    }
+    runtime.delete(meshes^)
+}
+
 delete_mesh :: proc(mesh: ^Mesh) {
-    runtime.delete(mesh.vertices)
+    runtime.delete(mesh.positions)
     runtime.delete(mesh.indices)
     runtime.delete(mesh.normals)
     runtime.delete(mesh.tex_coords_0)
@@ -29,6 +38,13 @@ delete_mesh :: proc(mesh: ^Mesh) {
         runtime.delete(weights_0)
     }
 
+}
+
+delete_materials :: proc(materials: ^[]Material) {
+    for material in materials {
+        delete_material(&material)
+    }
+    runtime.delete(materials^)
 }
 
 delete_material :: proc(material: ^Material) {
