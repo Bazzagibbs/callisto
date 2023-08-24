@@ -2,16 +2,16 @@ package callisto_config
 
 import "core:log"
 
-Debug_Level_Flag :: log.Level
+Debug_Log_Level_Flag    :: log.Level
 
-Build_Target_Flag :: enum {
+Build_Target_Flag       :: enum {
     Desktop,
     Android,    // Not implemented
     IOS,        // Not implemented
     Web,        // Not implemented
 }
 
-Renderer_Api_Flag :: enum {
+Renderer_Api_Flag       :: enum {
     Vulkan,
     WebGPU,     // Not implemented
 }

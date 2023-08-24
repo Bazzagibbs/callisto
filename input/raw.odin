@@ -1,6 +1,6 @@
 package callisto_input
 
-import "../util"
+import "../debug"
 
 input_accumulator := Input_Accumulator{}
 Scroll_Wheel_Step_Threshold :: 0.1
@@ -21,12 +21,12 @@ Input_Accumulator :: struct {
 
 
 init :: proc() -> (ok: bool) {
-    util.profile_scope()
+    debug.profile_scope()
     return _init()
 }
 
 shutdown:: proc() {
-    util.profile_scope()
+    debug.profile_scope()
     _shutdown()
 }
 

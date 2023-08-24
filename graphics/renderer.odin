@@ -5,7 +5,7 @@ import "core:intrinsics"
 import "common"
 import "../config"
 import "../asset"
-import "../util"
+import "../debug"
 
 // when config.RENDERER_API == .Vulkan {
 import impl "vulkan"
@@ -14,7 +14,7 @@ import impl "vulkan"
 built_in: Built_In
 
 init :: proc () -> (ok: bool) {
-    util.profile_scope()
+    debug.profile_scope()
     
     impl.init() or_return
     defer if !ok do impl.shutdown()
@@ -26,7 +26,7 @@ init :: proc () -> (ok: bool) {
 }
 
 shutdown :: proc() {
-    util.profile_scope()
+    debug.profile_scope()
 
     _destroy_built_ins()
     impl.shutdown()

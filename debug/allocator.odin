@@ -1,4 +1,4 @@
-package callisto_util
+package callisto_debug
 
 import "core:mem"
 import "core:log"

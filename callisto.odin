@@ -4,11 +4,11 @@ import "core:log"
 import "window"
 import "graphics"
 import "input"
-import "util"
+import "debug"
 
 // Initialize Callisto engine. If successful, call `engine.shutdown()` before exiting the program.
 init :: proc() -> (ok: bool) {
-    util.profile_scope()
+    debug.profile_scope()
     
     log.info("Initializing Callisto engine")
 
@@ -36,7 +36,7 @@ init :: proc() -> (ok: bool) {
 
 // Shut down Callisto engine, cleaning up internal allocations.
 shutdown :: proc() {
-    util.profile_scope()
+    debug.profile_scope()
     // The following cleanup methods are in the order in which they were initialized.
     // Deferring them executes in reverse order at the end of the procedure scope.
     
