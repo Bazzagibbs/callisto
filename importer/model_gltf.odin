@@ -84,5 +84,3 @@ import_gltf :: proc(model_path: string) -> (meshes: []asset.Mesh, materials: []a
     ok = true
     return
 }
-
-// gltf_accessor_to_slice

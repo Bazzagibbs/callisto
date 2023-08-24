@@ -16,7 +16,7 @@ init_logger :: proc() {
         .Terminal_Color,
     }
 
-    logger = log.create_console_logger(lowest=config.ENGINE_DEBUG_LEVEL, opt=renderer_logger_opts, ident="VK")
+    logger = log.create_console_logger(lowest=config.DEBUG_LEVEL, opt=renderer_logger_opts, ident="VK")
 }
 
 destroy_logger :: proc(logger: log.Logger) {
@@ -46,7 +46,7 @@ default_log_callback :: proc "contextless" (   messageSeverity: vk.DebugUtilsMes
     message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n | ", -1, context.temp_allocator);
 
     log.log(level, message)
-    when config.RENDERER_PANIC_ON_ERROR {
+    when config.DEBUG_PANIC_ON_RENDERER_ERROR {
         if level == .Error {
             panic("Renderer error")
         }
@@ -93,7 +93,7 @@ vk_severity_to_log_level :: proc(vk_severity: vk.DebugUtilsMessageSeverityFlagsE
 }
 
 set_debug_name :: proc(handle: u64, vk_type: vk.ObjectType, name: cstring) {
-    when config.ENGINE_DEBUG {
+    when config.DEBUG_ENABLED {
         obj_name_info := vk.DebugUtilsObjectNameInfoEXT {
             sType = .DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             objectType = vk_type,

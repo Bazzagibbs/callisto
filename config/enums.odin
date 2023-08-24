@@ -2,7 +2,7 @@ package callisto_config
 
 import "core:log"
 
-Engine_Debug_Level_Flag :: log.Level
+Debug_Level_Flag :: log.Level
 
 Build_Target_Flag :: enum {
     Desktop,

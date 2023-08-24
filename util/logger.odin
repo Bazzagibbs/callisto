@@ -13,7 +13,7 @@ create_logger :: proc() -> log.Logger {
         .Time,
     }
 
-    logger := log.create_console_logger(lowest=config.ENGINE_DEBUG_LEVEL, opt=console_logger_opts)
+    logger := log.create_console_logger(lowest=config.DEBUG_LEVEL, opt=console_logger_opts)
     return logger
 }
 

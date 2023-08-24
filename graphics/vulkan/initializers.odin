@@ -7,7 +7,8 @@ import "core:os"
 import "core:mem"
 import vk "vendor:vulkan"
 import "../../config"
-when config.BUILD_TARGET == .Desktop do import "vendor:glfw" // vk loader provided by glfw, might be worth moving vk loading to window init?
+// when config.BUILD_TARGET == .Desktop do import "vendor:glfw" // vk loader provided by glfw, might be worth moving vk loading to window init?
+import "vendor:glfw"
 import "../../window"
 
 validation_layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
@@ -30,7 +31,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
         window_exts := window.get_required_vk_extensions()
         append(&required_instance_extensions, ..window_exts)
     }
-    when config.ENGINE_DEBUG {
+    when config.DEBUG_ENABLED {
         append(&required_instance_extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
     }
 
@@ -51,7 +52,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
         ppEnabledExtensionNames = raw_data(required_instance_extensions),
     }
 
-    when config.ENGINE_DEBUG {
+    when config.DEBUG_ENABLED {
         init_logger()
         if check_validation_layer_support(validation_layers[:]) == false {
             log.fatal("Requested Vulkan validation layer not available")
@@ -80,7 +81,7 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
 create_debug_messenger :: proc(messenger: ^vk.DebugUtilsMessengerEXT) -> (ok: bool) {
     state := bound_state
 
-    when config.ENGINE_DEBUG {
+    when config.DEBUG_ENABLED {
         // create debug messenger
         debug_create_info := debug_messenger_create_info()
         res := vk.CreateDebugUtilsMessengerEXT(state.instance, &debug_create_info, nil, messenger); if res != .SUCCESS {
@@ -158,7 +159,7 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Sur
     vk.GetPhysicalDeviceProperties(physical_device, &props)
     vk.GetPhysicalDeviceFeatures(physical_device, &features)
 
-    defer when config.ENGINE_DEBUG {
+    defer when config.DEBUG_ENABLED {
         log.info(cstring(raw_data(props.deviceName[:])), "Score:", score)
     }
 
@@ -247,7 +248,7 @@ create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: 
         ppEnabledExtensionNames = raw_data(required_device_extensions),
     }
 
-    when config.ENGINE_DEBUG {
+    when config.DEBUG_ENABLED {
         device_create_info.enabledLayerCount = len(validation_layers)
         device_create_info.ppEnabledLayerNames = &validation_layers[0]
     }
