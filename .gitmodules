@@ -1,0 +1,3 @@
+[submodule "importer/gltf2"]
+	path = importer/gltf
+	url = git@github.com:Bazzagibbs/glTF2.git
