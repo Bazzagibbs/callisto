@@ -1,30 +1,57 @@
 package callisto_graphics
 
-// Expose "common" structs to user
-import "common"
+import "../common"
 
-Built_In            :: common.Built_In
+Built_In :: struct {
+    texture_white           : Texture,
+    texture_black           : Texture,
+    texture_transparent     : Texture,
+}
 
-Buffer 				:: common.Buffer
-Vertex_Buffer 		:: common.Vertex_Buffer
-Index_Buffer 		:: common.Index_Buffer
-Uniform_Buffer 		:: common.Uniform_Buffer
+Handle                  :: common.Handle
 
-Shader 				:: common.Shader
-Shader_Description 	:: common.Shader_Description
-Shader_Description_Cull_Mode :: common.Shader_Description_Cull_Mode
+Buffer                  :: distinct Handle
 
-// Material_Master     :: common.Material_Master
-// Material_Variant    :: common.Material_Variant
-Material_Instance   :: common.Material_Instance
+Vertex_Buffer           :: distinct Buffer
+Index_Buffer            :: distinct Buffer
+Uniform_Buffer          :: distinct Buffer
 
-Mesh 				:: common.Mesh
+Mesh                    :: common.Mesh
 
-Model               :: common.Model
-Model_Description   :: common.Model_Description
+// Contains bundled mesh/texture/material data
+Model                   :: distinct Handle
+Model_Description :: struct {
+    model_path              : string,
+}
 
-Texture             :: common.Texture
-Texture_Description :: common.Texture_Description
-Texture_Binding     :: common.Texture_Binding
+Shader                  :: distinct Handle
+Shader_Description :: struct {
+    uniform_buffer_typeid   : typeid,
+    vertex_shader_path      : string,
+    fragment_shader_path    : string,
+    cull_mode               : Shader_Description_Cull_Mode,
+}
 
-Image_Color_Space   :: common.Image_Color_Space
+Shader_Description_Cull_Mode :: enum {
+    BACK,
+    FRONT,
+    NONE,
+}
+
+
+// Material_Master         :: distinct Handle
+// Material_Variant        :: distinct Handle // Overrides uniforms from a material master
+Material_Instance       :: distinct Handle // Instantiated values from a material master or variant
+
+Texture                 :: distinct Handle
+Texture_Description :: struct {
+    image_path              : string,
+    color_space             : Image_Color_Space,
+}
+
+Image_Color_Space :: enum {
+    SRGB,
+    LINEAR,
+}
+
+Texture_Binding         :: distinct u32

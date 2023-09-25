@@ -1,8 +1,10 @@
-package callisto_graphics_vulkan
+//+build windows, linux, darwin
+//+private
+package callisto_graphics
 
 import "core:image"
 import vk "vendor:vulkan"
-import "../common"
+import "../asset"
 
 // Vulkan-specific structs
 CVK_Buffer :: struct {
@@ -19,23 +21,32 @@ CVK_Shader :: struct {
     descriptor_set_layout   : vk.DescriptorSetLayout,
 }
 
+// ===================================
+
+// ===================================
+
 CVK_Mesh :: struct {
-    indices         : ^CVK_Buffer,
+    vertex_groups       : []CVK_Vertex_Group,
+    asset               : ^asset.Mesh,
+}
 
-    positions       : ^CVK_Buffer,
-    normals         : ^CVK_Buffer,
-    tex_coords_0    : ^CVK_Buffer,
+CVK_Vertex_Group :: struct {
+    index           : ^CVK_Buffer,
 
-    // TODO: these should probably bind to a zero buffer
-    tex_coords_1    : Maybe(^CVK_Buffer),
-    tangents        : Maybe(^CVK_Buffer),
-    colors_0        : Maybe(^CVK_Buffer),
-    joints_0        : Maybe(^CVK_Buffer),
-    weights_0       : Maybe(^CVK_Buffer),
+    position        : ^CVK_Buffer,
+    normal          : ^CVK_Buffer,
+    tangent         : ^CVK_Buffer,
+    uv_0            : ^CVK_Buffer,
+
+//     // // TODO: these should probably bind to a zero buffer
+//     // uv_1    : Maybe(^CVK_Buffer),
+//     // colors_0        : Maybe(^CVK_Buffer),
+//     // joints_0        : Maybe(^CVK_Buffer),
+//     // weights_0       : Maybe(^CVK_Buffer),
 }
 
 // CVK_Material_Master :: struct {
-//     shared_instance     : common.Material_Instance,
+//     shared_instance     : Material_Instance,
 // }
 
 CVK_Material_Instance :: struct {

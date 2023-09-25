@@ -1,11 +1,12 @@
-package callisto_graphics_vulkan
+//+build windows, linux, darwin
+//+private
+package callisto_graphics
 
 import "core:log"
 import vk "vendor:vulkan"
-import "../../config"
-import "../common"
+import "../config"
 
-cmd_record :: proc() {
+_impl_cmd_record :: proc() {
     using bound_state
     vk.WaitForFences(device, 1, &in_flight_fences[flight_frame], true, max(u64))
 
@@ -16,7 +17,7 @@ cmd_record :: proc() {
                 fallthrough
             case res == .SUBOPTIMAL_KHR:
                 log.info("Image out of date, recreating swapchain...")
-                ok := recreate_swapchain(&swapchain, &swapchain_details, &image_views, &framebuffers); if !ok {
+                ok := _recreate_swapchain(&swapchain, &swapchain_details, &image_views, &framebuffers); if !ok {
                     log.fatal("Failed to recreate swapchain")
                 }
             return
@@ -25,25 +26,25 @@ cmd_record :: proc() {
     
     vk.ResetFences(device, 1, &in_flight_fences[flight_frame])
     vk.ResetCommandBuffer(command_buffers[flight_frame], {})
-    begin_command_buffer()
+    _begin_command_buffer()
 }
 
-cmd_begin_render_pass :: proc() {
-    begin_render_pass()
+_impl_cmd_begin_render_pass :: #force_inline proc() {
+    _begin_render_pass()
 }
 
-cmd_end_render_pass :: proc() {
-    end_render_pass()
+_impl_cmd_end_render_pass :: #force_inline proc() {
+    _end_render_pass()
 }
 
 
-// cmd_bind_shader :: proc(shader: common.Shader) {
+// _impl_cmd_bind_shader :: proc(shader: Shader) {
 //     using bound_state
 //     cvk_shader := transmute(^CVK_Shader)shader
 //     vk.CmdBindPipeline(command_buffers[flight_frame], .GRAPHICS, cvk_shader.pipeline)
 // }
 
-cmd_bind_material_instance :: proc(material_instance: common.Material_Instance) {
+_impl_cmd_bind_material_instance :: proc(material_instance: Material_Instance) {
     using bound_state
     cvk_material_instance := transmute(^CVK_Material_Instance)material_instance
     shader := cvk_material_instance.shader
@@ -54,34 +55,37 @@ cmd_bind_material_instance :: proc(material_instance: common.Material_Instance) 
     vk.CmdBindDescriptorSets(command_buffer, .GRAPHICS, shader.pipeline_layout, 0, 1, &descriptor_set, 0, nil)
 }
 
-cmd_draw :: proc(mesh: common.Mesh) {
-    using bound_state
+_impl_cmd_draw :: proc(mesh: Mesh) {
     cvk_mesh := transmute(^CVK_Mesh)mesh
-
-    command_buffer := command_buffers[flight_frame]
-
-    vert_buffers := []vk.Buffer {
-        cvk_mesh.positions.buffer,
-        cvk_mesh.normals.buffer,
-        cvk_mesh.tex_coords_0.buffer,
+        
+    // Individual draw for each primitive for now
+    // TODO: batched rendering
+    for _, i in cvk_mesh.vertex_groups {
+        _impl_cmd_draw_vert_group(&cvk_mesh.vertex_groups[i])
     }
-    
-    offsets := []vk.DeviceSize {
-        0, 
-        0, 
-        0,
-    }
-    
-    vk.CmdBindVertexBuffers(command_buffer, 0, u32(len(vert_buffers)), raw_data(vert_buffers), raw_data(offsets))
-    vk.CmdBindIndexBuffer(command_buffer, cvk_mesh.indices.buffer, 0, .UINT32) // TODO: get index size dynamically
-    vk.CmdDrawIndexed(command_buffer, u32(cvk_mesh.indices.length), 1, 0, 0, 0)
 }
 
-cmd_present :: proc() {
+_impl_cmd_draw_vert_group :: proc(vert_group: ^CVK_Vertex_Group) {
+    command_buffer := bound_state.command_buffers[bound_state.flight_frame]
+
+    vert_buffers := []vk.Buffer { 
+        vert_group.position.buffer,
+        vert_group.normal.buffer,
+        vert_group.tangent.buffer,
+        vert_group.uv_0.buffer,
+    }
+    offsets := []vk.DeviceSize { 0, 0, 0, 0 }
+
+    vk.CmdBindIndexBuffer(command_buffer, vert_group.index.buffer, 0, .UINT32)
+    vk.CmdBindVertexBuffers(command_buffer, 0, u32(len(vert_buffers)), raw_data(vert_buffers), raw_data(offsets))
+    vk.CmdDrawIndexed(command_buffer, u32(vert_group.index.length), 1, 0, 0, 0)
+}
+
+_impl_cmd_present :: proc() {
     using bound_state
-    end_command_buffer()
-    submit_command_buffer()
-    present()
+    _end_command_buffer()
+    _submit_command_buffer()
+    _present()
 
     flight_frame = (flight_frame + 1) % u32(config.RENDERER_FRAMES_IN_FLIGHT)
 }

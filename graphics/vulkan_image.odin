@@ -1,4 +1,6 @@
-package callisto_graphics_vulkan
+//+build windows, linux, darwin
+//+private
+package callisto_graphics
 
 import "core:os"
 import "core:log"
@@ -10,9 +12,8 @@ import "vendor:OpenEXRCore"
 
 import "core:mem"
 import vk "vendor:vulkan"
-import "../common"
 
-create_texture :: proc(texture_description: ^common.Texture_Description, texture: ^common.Texture) -> (ok: bool) {
+_impl_create_texture :: proc(texture_description: ^Texture_Description, texture: ^Texture) -> (ok: bool) {
 
     cvk_texture, err := new(CVK_Texture); if err != nil {
         log.error("Failed to allocate CVK_Texture:", err)
@@ -31,10 +32,10 @@ create_texture :: proc(texture_description: ^common.Texture_Description, texture
     
     pixels_size := u64(img.width * img.height * img.channels)
     staging_cvk_buffer := new(CVK_Buffer)
-    create_buffer(pixels_size, {.TRANSFER_SRC}, {.HOST_VISIBLE, .HOST_COHERENT}, staging_cvk_buffer) or_return
-    defer destroy_buffer(staging_cvk_buffer)
+    _create_buffer(pixels_size, {.TRANSFER_SRC}, {.HOST_VISIBLE, .HOST_COHERENT}, staging_cvk_buffer) or_return
+    defer _destroy_buffer(staging_cvk_buffer)
 
-    image_format := build_vk_format(img.channels, img.depth, texture_description.color_space)
+    image_format := _build_vk_format(img.channels, img.depth, texture_description.color_space)
 
     // Copy pixels to staging buffer
     mapped_memory: rawptr
@@ -45,25 +46,25 @@ create_texture :: proc(texture_description: ^common.Texture_Description, texture
     _create_vk_image(u32(img.width), u32(img.height), image_format, .OPTIMAL, {.TRANSFER_DST, .SAMPLED}, {.DEVICE_LOCAL}, &cvk_texture.image, &cvk_texture.memory) or_return
 
     _transition_vk_image_layout(cvk_texture.image, image_format, .UNDEFINED, .TRANSFER_DST_OPTIMAL)
-    copy_vk_buffer_to_vk_image(staging_cvk_buffer.buffer, cvk_texture.image, u32(img.width), u32(img.height))
+    _copy_vk_buffer_to_vk_image(staging_cvk_buffer.buffer, cvk_texture.image, u32(img.width), u32(img.height))
     _transition_vk_image_layout(cvk_texture.image, image_format, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL)
 
-    create_image_view(cvk_texture.image, image_format, {.COLOR}, &cvk_texture.image_view) or_return
-    defer if !ok do destroy_image_view(cvk_texture.image_view)
+    _create_image_view(cvk_texture.image, image_format, {.COLOR}, &cvk_texture.image_view) or_return
+    defer if !ok do _destroy_image_view(cvk_texture.image_view)
 
-    texture^ = transmute(common.Texture)cvk_texture
+    texture^ = transmute(Texture)cvk_texture
     return true
 }
 
-destroy_texture :: proc(texture: common.Texture) {
+_impl_destroy_texture :: proc(texture: Texture) {
     cvk_texture := transmute(^CVK_Texture)texture
-    destroy_image_view(cvk_texture.image_view)
+    _destroy_image_view(cvk_texture.image_view)
     vk.DestroyImage(bound_state.device, cvk_texture.image, nil)
     vk.FreeMemory(bound_state.device, cvk_texture.memory, nil)
     free(cvk_texture)
 }
 
-create_image_view :: proc(img: vk.Image, format: vk.Format, aspect: vk.ImageAspectFlags, img_view: ^vk.ImageView) -> (ok: bool) {
+_create_image_view :: proc(img: vk.Image, format: vk.Format, aspect: vk.ImageAspectFlags, img_view: ^vk.ImageView) -> (ok: bool) {
     image_view_create_info := vk.ImageViewCreateInfo {
         sType = .IMAGE_VIEW_CREATE_INFO,
         image = img,
@@ -87,12 +88,12 @@ create_image_view :: proc(img: vk.Image, format: vk.Format, aspect: vk.ImageAspe
     return true
 }
 
-destroy_image_view :: proc(image_view: vk.ImageView) {
+_destroy_image_view :: proc(image_view: vk.ImageView) {
     vk.DestroyImageView(bound_state.device, image_view, nil)
 }
 
 
-create_texture_sampler :: proc(sampler: ^vk.Sampler) -> (ok: bool) {
+_create_texture_sampler :: proc(sampler: ^vk.Sampler) -> (ok: bool) {
     properties: vk.PhysicalDeviceProperties
     vk.GetPhysicalDeviceProperties(bound_state.physical_device, &properties);
 
@@ -122,7 +123,7 @@ create_texture_sampler :: proc(sampler: ^vk.Sampler) -> (ok: bool) {
     return true
 }
 
-destroy_texture_sampler :: proc(sampler: vk.Sampler) {
+_destroy_texture_sampler :: proc(sampler: vk.Sampler) {
     vk.DestroySampler(bound_state.device,  sampler, nil)
 }
 
@@ -159,7 +160,7 @@ _create_vk_image :: proc(width, height: u32, format: vk.Format, tiling: vk.Image
     memory_alloc_info := vk.MemoryAllocateInfo {
         sType = .MEMORY_ALLOCATE_INFO,
         allocationSize = memory_requirements.size,
-        memoryTypeIndex = find_memory_type(memory_requirements.memoryTypeBits, properties),
+        memoryTypeIndex = _find_memory_type(memory_requirements.memoryTypeBits, properties),
     }
 
     res = vk.AllocateMemory(bound_state.device, &memory_alloc_info, nil, memory); if res != .SUCCESS {
@@ -178,8 +179,7 @@ _create_vk_image :: proc(width, height: u32, format: vk.Format, tiling: vk.Image
 
 _transition_vk_image_layout :: proc(img: vk.Image, format: vk.Format, old_layout, new_layout: vk.ImageLayout) {
     temp_command_buffer: vk.CommandBuffer
-    begin_one_shot_commands(&temp_command_buffer)
-    defer end_one_shot_commands(temp_command_buffer)
+    _begin_one_shot_commands(&temp_command_buffer)
 
     image_barrier := vk.ImageMemoryBarrier {
         sType = .IMAGE_MEMORY_BARRIER,
@@ -200,7 +200,7 @@ _transition_vk_image_layout :: proc(img: vk.Image, format: vk.Format, old_layout
     if new_layout == .DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
         image_barrier.subresourceRange.aspectMask = {.DEPTH}
 
-        if has_stencil_component(format) {
+        if _has_stencil_component(format) {
             image_barrier.subresourceRange.aspectMask += {.STENCIL}
         }
     }
@@ -237,10 +237,11 @@ _transition_vk_image_layout :: proc(img: vk.Image, format: vk.Format, old_layout
         0, nil, 
         1, &image_barrier,
     )
-
+    
+    _end_one_shot_commands(temp_command_buffer)
 }
 
-build_vk_format :: proc(channels, bit_depth: int, color_space: common.Image_Color_Space) -> vk.Format {
+_build_vk_format :: proc(channels, bit_depth: int, color_space: Image_Color_Space) -> vk.Format {
 
     switch color_space {
         case .SRGB:
@@ -271,7 +272,7 @@ build_vk_format :: proc(channels, bit_depth: int, color_space: common.Image_Colo
     return .UNDEFINED
 }
 
-has_stencil_component :: proc(format: vk.Format) -> bool {
+_has_stencil_component :: proc(format: vk.Format) -> bool {
     return  format == .D32_SFLOAT_S8_UINT ||
             format == .D24_UNORM_S8_UINT
 }

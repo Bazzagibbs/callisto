@@ -2,49 +2,33 @@ package callisto_asset
 
 import "core:runtime"
 
+make :: proc {
+    make_mesh,
+    make_material,
+}
+
 delete :: proc {
-    delete_meshes,
     delete_mesh,
-    delete_materials,
     delete_material,
 }
 
-delete_meshes :: proc(meshes: ^[]Mesh) {
-    for mesh in meshes {
-        delete_mesh(&mesh)
-    }
-    runtime.delete(meshes^)
+
+// Allocates using context allocator
+make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
+    mesh: Mesh
+    mesh.vertex_groups = runtime.make([]Vertex_Group, vertex_group_count)
+    mesh.buffer        = runtime.make([]u8, buffer_size)
+    return mesh
 }
 
 delete_mesh :: proc(mesh: ^Mesh) {
-    runtime.delete(mesh.positions)
-    runtime.delete(mesh.indices)
-    runtime.delete(mesh.normals)
-    runtime.delete(mesh.tex_coords_0)
-
-    if tex_coords_1, ok := mesh.tex_coords_1.?; ok {
-        runtime.delete(tex_coords_1)
-    }
-    if tangents, ok := mesh.tangents.?; ok {
-        runtime.delete(tangents)
-    }
-    if colors_0, ok := mesh.colors_0.?; ok {
-        runtime.delete(colors_0)
-    }
-    if joints_0, ok := mesh.joints_0.?; ok {
-        runtime.delete(joints_0)
-    }
-    if weights_0, ok := mesh.weights_0.?; ok {
-        runtime.delete(weights_0)
-    }
-
+    runtime.delete(mesh.vertex_groups)
+    runtime.delete(mesh.buffer)
 }
 
-delete_materials :: proc(materials: ^[]Material) {
-    for material in materials {
-        delete_material(&material)
-    }
-    runtime.delete(materials^)
+
+
+make_material :: proc() -> Material {
 }
 
 delete_material :: proc(material: ^Material) {

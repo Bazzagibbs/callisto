@@ -1,27 +1,48 @@
 package callisto_asset
 
-vec2        :: [2]f32
-vec3        :: [3]f32
-vec4        :: [4]f32
-vec4_u16    :: [4]u16
-mat4        :: matrix[4,4]f32
+import cc "../common"
 
-Mesh                :: struct {
-    // Mandatory
-    indices             : []u32,
-    
-    positions           : []vec3,
-    normals             : []vec3,
-    tex_coords_0        : []vec2,
-    // Optional
-    tex_coords_1        : Maybe([]vec2),
-    tangents            : Maybe([]vec4),
-    colors_0            : Maybe([]vec4),
-    joints_0            : Maybe([]vec4_u16),
-    weights_0           : Maybe([]vec4),
+Model               :: struct {
+    mesh        : ^Mesh,
+    materials   : []^Material,
 }
 
+// ###########################
+// ## MESH ###################
+// ###########################
+
+Mesh                :: struct {
+    bounds              : cc.Axis_Aligned_Bounding_Box,
+    vertex_groups       : []Vertex_Group,   // Each vertex group has its own draw call, and accesses a subset of the index/vertex buffers.
+    buffer              : []u8,
+}
+
+Vertex_Group        :: struct {
+    bounds              : cc.Axis_Aligned_Bounding_Box,
+    
+    // These are slices into the mesh buffer
+    index           : []u32,
+    position        : [][3]f32,
+    normal          : [][3]f32,
+    tangent         : [][4]f32,
+    uv              : [][][2]f32,
+    color           : [][][4]u8,
+    joints          : [][][4]u16,
+    weights         : [][][4]u16,
+}
+
+// ###########################
+// ## MATERIAL ###############
+// ###########################
 Material            :: struct {
     // style: pbr, npr
 }
 
+Texture             :: struct {
+    
+}
+
+// "prefab" or "actor", a fixed transform hierarchy. Can have hardpoints where reparenting is needed.
+Construct           :: struct {
+
+}

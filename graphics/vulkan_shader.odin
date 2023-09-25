@@ -1,14 +1,14 @@
-package callisto_graphics_vulkan
+//+build windows, linux, darwin
+//+private
+package callisto_graphics
 
 import "core:os"
 import "core:log"
 import "core:mem"
 import "core:runtime"
 import vk "vendor:vulkan"
-// Graphics common
-import "../common"
 
-create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^common.Shader) -> (ok: bool) {
+_impl_create_shader :: proc(shader_description: ^Shader_Description, shader: ^Shader) -> (ok: bool) {
     state := bound_state
     cvk_shader, err := mem.new(CVK_Shader); if err != nil {
         log.error("Failed to create shader:", err)
@@ -30,9 +30,9 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     }
     defer os.close(frag_file)
 
-    vert_module := create_shader_module(state.device, vert_file) or_return
+    vert_module := _create_shader_module(state.device, vert_file) or_return
     defer vk.DestroyShaderModule(state.device, vert_module, nil)
-    frag_module := create_shader_module(state.device, frag_file) or_return
+    frag_module := _create_shader_module(state.device, frag_file) or_return
     defer vk.DestroyShaderModule(state.device, frag_module, nil)
     
     cvk_shader.uniform_buffer_typeid = shader_description.uniform_buffer_typeid
@@ -139,8 +139,8 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
         pAttachments    = &color_blend_attachment_state,
     }
     
-    create_descriptor_set_layout(&cvk_shader.descriptor_set_layout) or_return
-    defer if !ok do destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
+    _create_descriptor_set_layout(&cvk_shader.descriptor_set_layout) or_return
+    defer if !ok do _destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
 
     pipeline_layout_create_info := vk.PipelineLayoutCreateInfo {
         sType = .PIPELINE_LAYOUT_CREATE_INFO,
@@ -191,11 +191,11 @@ create_shader :: proc(shader_description: ^common.Shader_Description, shader: ^c
     }
     cvk_shader.pipeline = pipeline
 
-    shader^ = transmute(common.Shader)cvk_shader
+    shader^ = transmute(Shader)cvk_shader
     return true
 }
 
-create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.ShaderModule, ok: bool) {
+_create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.ShaderModule, ok: bool) {
     module_source, ok1 := os.read_entire_file(file); if !ok1 {
         log.error("Failed to create shader module: Could not read file")
         return {}, false
@@ -217,34 +217,39 @@ create_shader_module :: proc(device: vk.Device, file: os.Handle) -> (module: vk.
     return
 }
 
-destroy_shader :: proc(shader: common.Shader) {
+_impl_destroy_shader :: proc(shader: Shader) {
     using bound_state
     cvk_shader := transmute(^CVK_Shader)shader
 
     vk.DeviceWaitIdle(device)
     vk.DestroyPipeline(device, cvk_shader.pipeline, nil)    
     vk.DestroyPipelineLayout(device, cvk_shader.pipeline_layout, nil)
-    destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
+    _destroy_descriptor_set_layout(&cvk_shader.descriptor_set_layout)
     mem.free(cvk_shader)
 }
 
 // TODO: calculate which attributes are used by the shaders at shader compile time
 _get_vertex_binding_descriptions :: proc() -> (binding_descs: []vk.VertexInputBindingDescription) {
 
-    binding_descs = make([]vk.VertexInputBindingDescription, 3)
-    binding_descs[0] = {   // Position (3 * f32)
+    binding_descs = make([]vk.VertexInputBindingDescription, 4)
+    binding_descs[0] = {   // Position (vec3)
         binding     = 0,
         stride      = u32(3 * 4),
         inputRate   = .VERTEX,
     }
-    binding_descs[1] = {   // Normal (3 * f32)
+    binding_descs[1] = {   // UV (vec2)
         binding     = 1,
+        stride      = u32(2 * 4),
+        inputRate   = .VERTEX,
+    }
+    binding_descs[2] = {   // Normal (vec3)
+        binding     = 2,
         stride      = u32(3 * 4),
         inputRate   = .VERTEX,
     }
-    binding_descs[2] = {   // Tex Coord (2 * f32)
-        binding     = 2,
-        stride      = u32(2 * 4),
+    binding_descs[3] = {   // Tangent (vec4)
+        binding     = 3,
+        stride      = u32(4 * 4),
         inputRate   = .VERTEX,
     }
    
@@ -253,26 +258,33 @@ _get_vertex_binding_descriptions :: proc() -> (binding_descs: []vk.VertexInputBi
 
 // TODO: get info from shader compile time
 _get_vertex_attribute_descriptions :: proc() -> (attribute_descs: []vk.VertexInputAttributeDescription) {
-    vec3, _ := _typeid_to_vk_format([3]f32)
     vec2, _ := _typeid_to_vk_format([2]f32)
+    vec3, _ := _typeid_to_vk_format([3]f32)
+    vec4, _ := _typeid_to_vk_format([4]f32)
 
-    attribute_descs = make([]vk.VertexInputAttributeDescription, 3)
+    attribute_descs = make([]vk.VertexInputAttributeDescription, 4)
     attribute_descs[0] = {   // Position
         binding     = 0,
         location    = 0,
         format      = vec3,
         offset      = 0,
     }
-    attribute_descs[1] = {   // Normal
+    attribute_descs[1] = {   // UV
         binding     = 1,
         location    = 1,
+        format      = vec2,
+        offset      = 0,
+    }
+    attribute_descs[2] = {   // Normal
+        binding     = 2,
+        location    = 2,
         format      = vec3,
         offset      = 0,
     }
-    attribute_descs[2] = {   // Tex Coord
-        binding     = 2,
-        location    = 2,
-        format      = vec2,
+    attribute_descs[3] = {   // Tangent
+        binding     = 3,
+        location    = 3,
+        format      = vec4,
         offset      = 0,
     }
     

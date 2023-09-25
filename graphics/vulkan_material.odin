@@ -1,19 +1,14 @@
-package callisto_graphics_vulkan
+//+build windows, linux, darwin
+//+private
+package callisto_graphics
 
 import "core:log"
 import "core:mem"
 import "core:runtime"
 import vk "vendor:vulkan"
-import "../common"
-import "../../config"
+import "../config"
 
-create_material_instance :: proc {
-    create_material_instance_from_shader,
-    // create_material_instance_from_master,
-    // create_material_instance_from_variant,
-}
-
-create_material_instance_from_shader :: proc(shader: common.Shader, material_instance: ^common.Material_Instance) -> (ok: bool) {  
+_impl_create_material_instance_from_shader :: proc(shader: Shader, material_instance: ^Material_Instance) -> (ok: bool) {  
     using bound_state
     // Get typeid from shader
     cvk_mat_instance, err := new(CVK_Material_Instance); if err != .None {
@@ -25,11 +20,11 @@ create_material_instance_from_shader :: proc(shader: common.Shader, material_ins
     cvk_shader := transmute(^CVK_Shader)shader
     cvk_mat_instance.shader = cvk_shader
 
-    cvk_white_tex := transmute(^CVK_Texture)common.built_in.texture_white
+    cvk_white_tex := transmute(^CVK_Texture)built_in.texture_white
 
-    create_material_uniform_buffers(cvk_shader.uniform_buffer_typeid, cvk_mat_instance) or_return
+    _create_material_uniform_buffers(cvk_shader.uniform_buffer_typeid, cvk_mat_instance) or_return
     
-    allocate_descriptor_sets(descriptor_pool, cvk_shader.descriptor_set_layout, &cvk_mat_instance.descriptor_sets) or_return
+    _allocate_descriptor_sets(descriptor_pool, cvk_shader.descriptor_set_layout, &cvk_mat_instance.descriptor_sets) or_return
 
     for desc_set, i in cvk_mat_instance.descriptor_sets {
         descriptor_buffer_info: vk.DescriptorBufferInfo = {
@@ -68,21 +63,21 @@ create_material_instance_from_shader :: proc(shader: common.Shader, material_ins
         vk.UpdateDescriptorSets(device, u32(len(write_descriptor_sets)), raw_data(write_descriptor_sets), 0, nil)
     }
 
-    material_instance^ = transmute(common.Material_Instance)cvk_mat_instance
+    material_instance^ = transmute(Material_Instance)cvk_mat_instance
     return true
 }
 
-// create_material_instance_from_master :: proc(master: common.Material_Master, instance: ^common.Material_Instance) -> (ok: bool) {
+// create_material_instance_from_master :: proc(master: Material_Master, instance: ^Material_Instance) -> (ok: bool) {
 
 // }
 
-// create_material_instance_from_variant :: proc(variant: common.Material_Variant, instance: ^common.Material_Instance) -> (ok: bool) {
+// create_material_instance_from_variant :: proc(variant: Material_Variant, instance: ^Material_Instance) -> (ok: bool) {
 
 // }
 
-destroy_material_instance :: proc(material_instance: common.Material_Instance) {
+_impl_destroy_material_instance :: proc(material_instance: Material_Instance) {
     using bound_state
-    destroy_material_uniform_buffers(material_instance)
+    _destroy_material_uniform_buffers(material_instance)
     cvk_mat_instance := transmute(^CVK_Material_Instance)material_instance
     // for buf in cvk_mat_instance.uniform_buffers {
     //     vk.DestroyBuffer(device, buf.buffer, nil)
@@ -94,7 +89,7 @@ destroy_material_instance :: proc(material_instance: common.Material_Instance) {
 }
 
 
-upload_material_uniforms :: proc(material_instance: common.Material_Instance, data: ^$T) {
+_impl_upload_material_uniforms :: proc(material_instance: Material_Instance, data: ^$T) {
     using bound_state
     cvk_mat_instance := transmute(^CVK_Material_Instance)material_instance
     
@@ -107,7 +102,7 @@ upload_material_uniforms :: proc(material_instance: common.Material_Instance, da
     mem.copy(mapped_buffer, data, uniform_buffer_data_size)
 }
 
-set_material_instance_texture :: proc(material_instance: common.Material_Instance, texture: common.Texture, texture_binding: common.Texture_Binding) {
+_impl_set_material_instance_texture :: proc(material_instance: Material_Instance, texture: Texture, texture_binding: Texture_Binding) {
     cvk_material_instance := transmute(^CVK_Material_Instance)material_instance
     cvk_texture := transmute(^CVK_Texture)texture
 

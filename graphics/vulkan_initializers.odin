@@ -1,4 +1,6 @@
-package callisto_graphics_vulkan
+//+build windows, linux, darwin
+//+private
+package callisto_graphics
 
 import "core:log"
 import "core:strings"
@@ -6,27 +8,27 @@ import "core:math"
 import "core:os"
 import "core:mem"
 import vk "vendor:vulkan"
-import "../../config"
+import "../config"
 // when config.BUILD_TARGET == .Desktop do import "vendor:glfw" // vk loader provided by glfw, might be worth moving vk loading to window init?
 import "vendor:glfw"
-import "../../window"
+import "../window"
 
 validation_layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
 required_instance_extensions: [dynamic]cstring = {/*vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME*/}
 required_device_extensions: [dynamic]cstring = {vk.KHR_SWAPCHAIN_EXTENSION_NAME}
 dynamic_states: [dynamic]vk.DynamicState = {.VIEWPORT, .SCISSOR}
 
-get_global_proc_address :: proc(p: rawptr, name: cstring) {
+_get_global_proc_address :: proc(p: rawptr, name: cstring) {
     when config.BUILD_TARGET == .Desktop {
         (^rawptr)(p)^ = glfw.GetInstanceProcAddress(nil, name)
     }
 }
 
-create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
+_create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
     res: vk.Result
     when config.BUILD_TARGET == .Desktop {
         // Add extensions required by glfw
-        vk.load_proc_addresses_custom(get_global_proc_address)
+        vk.load_proc_addresses_custom(_get_global_proc_address)
 
         window_exts := window.get_required_vk_extensions()
         append(&required_instance_extensions, ..window_exts)
@@ -53,8 +55,8 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
     }
 
     when config.DEBUG_LOG_ENABLED {
-        init_logger()
-        if check_validation_layer_support(validation_layers[:]) == false {
+        _init_logger()
+        if _check_validation_layer_support(validation_layers[:]) == false {
             log.fatal("Requested Vulkan validation layer not available")
             return false
         }
@@ -78,12 +80,12 @@ create_instance :: proc(instance: ^vk.Instance) -> (ok: bool) {
     return true
 }
 
-create_debug_messenger :: proc(messenger: ^vk.DebugUtilsMessengerEXT) -> (ok: bool) {
+_create_debug_messenger :: proc(messenger: ^vk.DebugUtilsMessengerEXT) -> (ok: bool) {
     state := bound_state
 
     when config.DEBUG_LOG_ENABLED {
         // create debug messenger
-        debug_create_info := debug_messenger_create_info()
+        debug_create_info := _debug_messenger_create_info()
         res := vk.CreateDebugUtilsMessengerEXT(state.instance, &debug_create_info, nil, messenger); if res != .SUCCESS {
             log.fatal("Error creating debug messenger:", res)
             return false
@@ -93,7 +95,7 @@ create_debug_messenger :: proc(messenger: ^vk.DebugUtilsMessengerEXT) -> (ok: bo
     return true
 }
 
-check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
+_check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
     layer_count: u32
     vk.EnumerateInstanceLayerProperties(&layer_count, nil)
     layers := make([]vk.LayerProperties, layer_count)
@@ -110,7 +112,7 @@ check_validation_layer_support :: proc(requested_layers: []cstring) -> bool {
     return true
 }
 
-create_surface :: proc(surface: ^vk.SurfaceKHR) -> (ok: bool) {
+_create_surface :: proc(surface: ^vk.SurfaceKHR) -> (ok: bool) {
     state := bound_state
     when config.BUILD_TARGET == .Desktop {
         res := glfw.CreateWindowSurface(state.instance, glfw.WindowHandle(window.handle), nil, surface); if res != .SUCCESS {
@@ -125,7 +127,7 @@ create_surface :: proc(surface: ^vk.SurfaceKHR) -> (ok: bool) {
     return false
 }
 
-select_physical_device :: proc(physical_device: ^vk.PhysicalDevice) -> (ok: bool) {
+_select_physical_device :: proc(physical_device: ^vk.PhysicalDevice) -> (ok: bool) {
     state := bound_state
     // TODO: Also allow user to specify desired GPU in graphics settings
     device_count: u32
@@ -137,7 +139,7 @@ select_physical_device :: proc(physical_device: ^vk.PhysicalDevice) -> (ok: bool
     highest_device: vk.PhysicalDevice = {}
     highest_score := -1
     for device in devices[:device_count] {
-        score := rank_physical_device(device, state.surface)
+        score := _rank_physical_device(device, state.surface)
         if score > highest_score {
             highest_score = score
             highest_device = device
@@ -153,7 +155,7 @@ select_physical_device :: proc(physical_device: ^vk.PhysicalDevice) -> (ok: bool
     return true
 }
 
-rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> (score: int) {
+_rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> (score: int) {
     props: vk.PhysicalDeviceProperties
     features: vk.PhysicalDeviceFeatures
     vk.GetPhysicalDeviceProperties(physical_device, &props)
@@ -163,7 +165,7 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Sur
         log.info(cstring(raw_data(props.deviceName[:])), "Score:", score)
     }
 
-    if is_physical_device_suitable(physical_device, surface) == false do return -1
+    if _is_physical_device_suitable(physical_device, surface) == false do return -1
     if features.geometryShader == false do return -1
     if props.deviceType == .DISCRETE_GPU do score += 1000
     score += int(props.limits.maxImageDimension2D)
@@ -171,18 +173,18 @@ rank_physical_device :: proc(physical_device: vk.PhysicalDevice, surface: vk.Sur
     return
 }
 
-is_physical_device_suitable :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> bool {
-    families := find_queue_family_indices(physical_device, surface)
+_is_physical_device_suitable :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> bool {
+    families := _find_queue_family_indices(physical_device, surface)
     features: vk.PhysicalDeviceFeatures
     vk.GetPhysicalDeviceFeatures(physical_device, &features)
 
-    ok := is_queue_families_complete(&families)
-    ok &= check_device_extension_support(physical_device)
+    ok := _is_queue_families_complete(&families)
+    ok &= _check_device_extension_support(physical_device)
     ok &= features.samplerAnisotropy == true
     return ok
 }
 
-find_queue_family_indices :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR,) -> (indices: Queue_Family_Indices) {
+_find_queue_family_indices :: proc(physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR,) -> (indices: Queue_Family_Indices) {
     family_count: u32
     vk.GetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count, nil)
     families := make([]vk.QueueFamilyProperties, family_count)
@@ -204,21 +206,21 @@ find_queue_family_indices :: proc(physical_device: vk.PhysicalDevice, surface: v
         }
 
 
-        if is_queue_families_complete(&indices) do break
+        if _is_queue_families_complete(&indices) do break
     }
 
     return
 }
 
-is_queue_families_complete :: proc(indices: ^Queue_Family_Indices) -> (is_complete: bool) {
+_is_queue_families_complete :: proc(indices: ^Queue_Family_Indices) -> (is_complete: bool) {
     _ = indices.graphics.? or_return
     _ = indices.present.? or_return
     return true
 }
 
-create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: ^Queue_Family_Indices, queue_handles: ^Queue_Handles) -> (ok: bool) {
+_create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: ^Queue_Family_Indices, queue_handles: ^Queue_Handles) -> (ok: bool) {
     state := bound_state
-    queue_family_indices^ = find_queue_family_indices(state.physical_device, state.surface)
+    queue_family_indices^ = _find_queue_family_indices(state.physical_device, state.surface)
 
     // Queue families may have the same index. Only create one queue in this case.
     unique_indices_set := make(map[u32]struct {})
@@ -231,7 +233,7 @@ create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: 
 
     queue_priority: f32 = 1.0
     for index in unique_indices_set {
-        append(&queue_create_infos, default_queue_create_info(index, &queue_priority))
+        append(&queue_create_infos, _default_queue_create_info(index, &queue_priority))
     }
 
 
@@ -264,7 +266,7 @@ create_logical_device :: proc(logical_device: ^vk.Device, queue_family_indices: 
     return true
 }
 
-default_queue_create_info :: proc(queue_family_index: u32, priority: ^f32) -> (info: vk.DeviceQueueCreateInfo) {
+_default_queue_create_info :: proc(queue_family_index: u32, priority: ^f32) -> (info: vk.DeviceQueueCreateInfo) {
     info.sType = .DEVICE_QUEUE_CREATE_INFO
     info.queueCount = 1
     info.queueFamilyIndex = queue_family_index
@@ -272,7 +274,7 @@ default_queue_create_info :: proc(queue_family_index: u32, priority: ^f32) -> (i
     return
 }
 
-check_device_extension_support :: proc(physical_device: vk.PhysicalDevice) -> (ok: bool) {
+_check_device_extension_support :: proc(physical_device: vk.PhysicalDevice) -> (ok: bool) {
     extension_count: u32
     vk.EnumerateDeviceExtensionProperties(physical_device, nil, &extension_count, nil)
     extension_props := make([]vk.ExtensionProperties, extension_count)
@@ -294,9 +296,9 @@ check_device_extension_support :: proc(physical_device: vk.PhysicalDevice) -> (o
     return true
 }
 
-create_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details) -> (ok: bool) {
+_create_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details) -> (ok: bool) {
     state := bound_state
-    ok = select_swapchain_details(swapchain_details); if !ok {
+    ok = _select_swapchain_details(swapchain_details); if !ok {
         log.fatal("Swapchain is not suitable")
         return false
     }
@@ -324,7 +326,7 @@ create_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapch
         clipped = true,
     }
 
-    indices := find_queue_family_indices(state.physical_device, state.surface)
+    indices := _find_queue_family_indices(state.physical_device, state.surface)
     indices_values := [?]u32{indices.graphics.?, indices.present.?}
     if indices.graphics.? == indices.present.? {
         swapchain_create_info.imageSharingMode = .EXCLUSIVE
@@ -342,7 +344,7 @@ create_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapch
     return true
 }
 
-select_swapchain_details :: proc(details: ^Swapchain_Details) -> (ok: bool) {
+_select_swapchain_details :: proc(details: ^Swapchain_Details) -> (ok: bool) {
     state := bound_state
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(state.physical_device, state.surface, &details.capabilities)
 
@@ -362,14 +364,14 @@ select_swapchain_details :: proc(details: ^Swapchain_Details) -> (ok: bool) {
 
     ok = len(formats) > 0 && len(present_modes) > 0
 
-    details.format = select_swapchain_format(formats[:])
-    details.present_mode = select_swapchain_present_mode(present_modes[:])
-    details.extent = select_swapchain_extent(&details.capabilities)
+    details.format = _select_swapchain_format(formats[:])
+    details.present_mode = _select_swapchain_present_mode(present_modes[:])
+    details.extent = _select_swapchain_extent(&details.capabilities)
 
     return
 }
 
-select_swapchain_format :: proc(available_formats: []vk.SurfaceFormatKHR) -> vk.SurfaceFormatKHR {
+_select_swapchain_format :: proc(available_formats: []vk.SurfaceFormatKHR) -> vk.SurfaceFormatKHR {
     for format in available_formats {
         if format.format == .B8G8R8A8_SRGB && format.colorSpace == .SRGB_NONLINEAR {
             return format
@@ -378,7 +380,7 @@ select_swapchain_format :: proc(available_formats: []vk.SurfaceFormatKHR) -> vk.
     return available_formats[0]
 }
 
-select_swapchain_present_mode :: proc(available_present_modes: []vk.PresentModeKHR) -> vk.PresentModeKHR {
+_select_swapchain_present_mode :: proc(available_present_modes: []vk.PresentModeKHR) -> vk.PresentModeKHR {
     for mode in available_present_modes {
         if mode == .MAILBOX {
             return mode
@@ -387,7 +389,7 @@ select_swapchain_present_mode :: proc(available_present_modes: []vk.PresentModeK
     return .FIFO
 }
 
-select_swapchain_extent :: proc(surface_capabilities: ^vk.SurfaceCapabilitiesKHR) -> (extent: vk.Extent2D) {
+_select_swapchain_extent :: proc(surface_capabilities: ^vk.SurfaceCapabilitiesKHR) -> (extent: vk.Extent2D) {
     if surface_capabilities.currentExtent.width != max(u32) {
         return surface_capabilities.currentExtent
     }
@@ -405,7 +407,7 @@ select_swapchain_extent :: proc(surface_capabilities: ^vk.SurfaceCapabilitiesKHR
     return surface_capabilities.currentExtent
 }
 
-get_images :: proc(images: ^[dynamic]vk.Image) {
+_get_images :: proc(images: ^[dynamic]vk.Image) {
     state := bound_state
     image_count: u32
     vk.GetSwapchainImagesKHR(state.device, state.swapchain, &image_count, nil)
@@ -413,13 +415,13 @@ get_images :: proc(images: ^[dynamic]vk.Image) {
     vk.GetSwapchainImagesKHR(state.device, state.swapchain, &image_count, raw_data(images^))
 }
 
-create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
+_create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
     // Create image view for every image we have acquired
     resize(image_views, len(bound_state.images))
     for image, i in bound_state.images {
-        ok = create_image_view(image, bound_state.swapchain_details.format.format, {.COLOR}, &image_views[i]); if !ok {
+        ok = _create_image_view(image, bound_state.swapchain_details.format.format, {.COLOR}, &image_views[i]); if !ok {
             for j in 0..<i {
-                destroy_image_view(image_views[j])
+                _destroy_image_view(image_views[j])
             }
             return false
         }
@@ -427,16 +429,16 @@ create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
     return true
 }
 
-destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
+_destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
     state := bound_state
     for image_view in image_views {
-        destroy_image_view(image_view)
+        _destroy_image_view(image_view)
     }
 
     clear(image_views)
 }
 
-create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
+_create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
     state := bound_state
     subpass_dependency := vk.SubpassDependency {
         srcSubpass = vk.SUBPASS_EXTERNAL,
@@ -464,7 +466,7 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
     }
 
     depth_attachment_desc := vk.AttachmentDescription {
-        format          = find_depth_format(),
+        format          = _find_depth_format(),
         samples         = {._1},
         loadOp          = .CLEAR,
         storeOp         = .DONT_CARE,
@@ -510,7 +512,7 @@ create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
 }
 
 
-create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+_create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
     resize(framebuffers, len(bound_state.image_views))
 
     for image_view, i in bound_state.image_views {
@@ -540,7 +542,7 @@ create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool
     return true
 }
 
-destroy_framebuffers :: proc(framebuffer_array: ^[dynamic]vk.Framebuffer) {
+_destroy_framebuffers :: proc(framebuffer_array: ^[dynamic]vk.Framebuffer) {
     state := bound_state
     for framebuffer in framebuffer_array {
         vk.DestroyFramebuffer(state.device, framebuffer, nil)
@@ -549,7 +551,7 @@ destroy_framebuffers :: proc(framebuffer_array: ^[dynamic]vk.Framebuffer) {
     resize(framebuffer_array, 0)
 }
 
-create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
+_create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
     state := bound_state
     command_pool_create_info := vk.CommandPoolCreateInfo {
         sType = .COMMAND_POOL_CREATE_INFO,
@@ -566,7 +568,7 @@ create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
     return
 }
 
-create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.CommandBuffer) -> (ok: bool) {
+_create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.CommandBuffer) -> (ok: bool) {
     state := bound_state
     resize(command_buffers, count)
     command_buffer_allocate_info := vk.CommandBufferAllocateInfo {
@@ -584,7 +586,7 @@ create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.Command
     return true
 }
 
-begin_command_buffer :: proc() -> (ok: bool) {
+_begin_command_buffer :: proc() -> (ok: bool) {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
     begin_info := vk.CommandBufferBeginInfo {
@@ -599,7 +601,7 @@ begin_command_buffer :: proc() -> (ok: bool) {
     return true
 }
 
-end_command_buffer :: proc() -> (ok: bool) {
+_end_command_buffer :: proc() -> (ok: bool) {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
     res := vk.EndCommandBuffer(command_buffer); if res != .SUCCESS {
@@ -609,7 +611,7 @@ end_command_buffer :: proc() -> (ok: bool) {
     return true
 }
 
-begin_render_pass :: proc() {
+_begin_render_pass :: proc() {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
     clear_values := []vk.ClearValue {
@@ -647,25 +649,25 @@ begin_render_pass :: proc() {
     vk.CmdSetScissor(command_buffer, 0, 1, &scissor)
 }
 
-end_render_pass :: proc() {
+_end_render_pass :: proc() {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
     vk.CmdEndRenderPass(command_buffer)
 }
 
-bind_shader :: proc(pipeline: vk.Pipeline) {
+_bind_shader :: proc(pipeline: vk.Pipeline) {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
     vk.CmdBindPipeline(command_buffer, .GRAPHICS, pipeline)
 }
 
-draw :: proc(/* vertex_buffer: */) {
+_draw :: proc(/* vertex_buffer: */) {
     state := bound_state
     command_buffer := state.command_buffers[state.flight_frame]
     vk.CmdDraw(command_buffer, 3, 1, 0, 0)
 }
 
-create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok: bool) {
+_create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok: bool) {
     state := bound_state
     resize(semaphores, count)
     
@@ -686,7 +688,7 @@ create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok
     return true
 }
 
-create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
+_create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
     state := bound_state
     resize(fences, int(count))
 
@@ -708,7 +710,7 @@ create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
     return
 }
 
-destroy_semaphores :: proc(semaphores: ^[dynamic]vk.Semaphore) {
+_destroy_semaphores :: proc(semaphores: ^[dynamic]vk.Semaphore) {
     state := bound_state
     for semaphore in semaphores^ {
         vk.DestroySemaphore(state.device, semaphore, nil)
@@ -717,7 +719,7 @@ destroy_semaphores :: proc(semaphores: ^[dynamic]vk.Semaphore) {
     resize(semaphores, 0)
 }
 
-destroy_fences :: proc(fences: ^[dynamic]vk.Fence) {
+_destroy_fences :: proc(fences: ^[dynamic]vk.Fence) {
     state := bound_state
     for fence in fences^ {
         vk.DestroyFence(state.device, fence, nil)
@@ -727,7 +729,7 @@ destroy_fences :: proc(fences: ^[dynamic]vk.Fence) {
 }
 
 
-submit_command_buffer :: proc() -> (ok: bool) {
+_submit_command_buffer :: proc() -> (ok: bool) {
     state := bound_state
     // Replace with arrays if required
     image_available_semaphore := state.image_available_semaphores[state.flight_frame]
@@ -757,7 +759,7 @@ submit_command_buffer :: proc() -> (ok: bool) {
     return true
 }
 
-present :: proc() -> (ok: bool) {
+_present :: proc() -> (ok: bool) {
     state := bound_state
     render_finished_semaphore := state.render_finished_semaphores[state.flight_frame]
     present_info := vk.PresentInfoKHR {
@@ -774,7 +776,7 @@ present :: proc() -> (ok: bool) {
         case res == .ERROR_OUT_OF_DATE_KHR:
             fallthrough
         case res == .SUBOPTIMAL_KHR:
-            ok = recreate_swapchain(&state.swapchain, &state.swapchain_details, &state.image_views, &state.framebuffers); if !ok {
+            ok = _recreate_swapchain(&state.swapchain, &state.swapchain_details, &state.image_views, &state.framebuffers); if !ok {
                 log.fatal("Failed to recreate swapchain after attempted present:", res)
                 return false
             }
@@ -787,28 +789,28 @@ present :: proc() -> (ok: bool) {
     return true
 }
 
-recreate_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+_recreate_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
     vk.DeviceWaitIdle(bound_state.device)
 
-    destroy_depth_image(bound_state.depth_image, bound_state.depth_image_memory, bound_state.depth_image_view)
-    destroy_framebuffers(framebuffers)
-    destroy_image_views(image_views)
+    _destroy_depth_image(bound_state.depth_image, bound_state.depth_image_memory, bound_state.depth_image_view)
+    _destroy_framebuffers(framebuffers)
+    _destroy_image_views(image_views)
     vk.DestroySwapchainKHR(bound_state.device, swapchain^, nil)
 
-    create_swapchain(swapchain, swapchain_details) or_return
+    _create_swapchain(swapchain, swapchain_details) or_return
     defer if !ok do vk.DestroySwapchainKHR(bound_state.device, swapchain^, nil)
-    create_image_views(image_views) or_return
-    defer if !ok do destroy_image_views(image_views)
-    create_depth_image(&bound_state.depth_image, &bound_state.depth_image_memory, &bound_state.depth_image_view)
-    create_framebuffers(framebuffers) or_return
-    defer if !ok do destroy_framebuffers(framebuffers)
+    _create_image_views(image_views) or_return
+    defer if !ok do _destroy_image_views(image_views)
+    _create_depth_image(&bound_state.depth_image, &bound_state.depth_image_memory, &bound_state.depth_image_view)
+    _create_framebuffers(framebuffers) or_return
+    defer if !ok do _destroy_framebuffers(framebuffers)
 
     ok = true
     return
 }
 
 
-find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -> u32 {
+_find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -> u32 {
     state := bound_state
     mem_properties: vk.PhysicalDeviceMemoryProperties
     vk.GetPhysicalDeviceMemoryProperties(state.physical_device, &mem_properties)
@@ -822,8 +824,8 @@ find_memory_type :: proc(type_filter: u32, properties: vk.MemoryPropertyFlags) -
 }
 
 
-create_depth_image :: proc(depth_image: ^vk.Image, depth_image_memory: ^vk.DeviceMemory, depth_image_view: ^vk.ImageView) -> (ok: bool) {
-    depth_format := find_depth_format()
+_create_depth_image :: proc(depth_image: ^vk.Image, depth_image_memory: ^vk.DeviceMemory, depth_image_view: ^vk.ImageView) -> (ok: bool) {
+    depth_format := _find_depth_format()
     if depth_format == .UNDEFINED do return false
 
     extents := bound_state.swapchain_details.extent
@@ -831,21 +833,21 @@ create_depth_image :: proc(depth_image: ^vk.Image, depth_image_memory: ^vk.Devic
     defer if !ok do vk.FreeMemory(bound_state.device, depth_image_memory^, nil)
     defer if !ok do vk.DestroyImage(bound_state.device, depth_image^, nil)
 
-    create_image_view(depth_image^, depth_format, {.DEPTH}, depth_image_view) or_return
+    _create_image_view(depth_image^, depth_format, {.DEPTH}, depth_image_view) or_return
     
     _transition_vk_image_layout(depth_image^, depth_format, .UNDEFINED ,.DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 
     return true
 }
 
-destroy_depth_image :: proc(depth_image: vk.Image, depth_image_memory: vk.DeviceMemory, depth_image_view: vk.ImageView) {
+_destroy_depth_image :: proc(depth_image: vk.Image, depth_image_memory: vk.DeviceMemory, depth_image_view: vk.ImageView) {
     vk.DestroyImageView(bound_state.device, depth_image_view, nil)
     vk.DestroyImage(bound_state.device, depth_image, nil)
     vk.FreeMemory(bound_state.device, depth_image_memory, nil)
 }
 
 
-find_supported_format :: proc(candidates: []vk.Format, tiling: vk.ImageTiling, required_features: vk.FormatFeatureFlags) -> vk.Format {
+_find_supported_format :: proc(candidates: []vk.Format, tiling: vk.ImageTiling, required_features: vk.FormatFeatureFlags) -> vk.Format {
     for format in candidates {
         props : vk.FormatProperties
         vk.GetPhysicalDeviceFormatProperties(bound_state.physical_device, format, &props)
@@ -866,8 +868,8 @@ find_supported_format :: proc(candidates: []vk.Format, tiling: vk.ImageTiling, r
     return .UNDEFINED
 }
 
-find_depth_format :: proc() -> vk.Format {
-    return find_supported_format(
+_find_depth_format :: proc() -> vk.Format {
+    return _find_supported_format(
         {.D32_SFLOAT_S8_UINT, .D24_UNORM_S8_UINT, .D32_SFLOAT}, 
         .OPTIMAL, 
         {.DEPTH_STENCIL_ATTACHMENT})

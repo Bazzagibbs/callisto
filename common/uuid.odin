@@ -16,14 +16,14 @@ Uuid :: u128be
 generate_uuid :: proc(r: ^rand.Rand = nil) -> Uuid {
     // Algorithm from https://datatracker.ietf.org/doc/html/rfc4122#section-4.4
 
-    out_uuid := transmute(Uuid)rand.uint128(r)
-                    
-                    //  version         v4 type
-                    //  ____            __
-    out_uuid &= ~Uuid(0b111100000000000011 << 62) // clear bits
-    out_uuid |=       0b010000000000000010 << 62  // set bits
+    out_uuid := transmute([16]byte)rand.uint128(r)
+    // Little endian representation in memory
 
-    return out_uuid
+    // Big endian string output
+    out_uuid[6] = (out_uuid[6] & 0b00001111) | 0b01000000
+    out_uuid[8] = (out_uuid[8] & 0b00111111) | 0b10000000
+
+    return transmute(Uuid)out_uuid
 }
 
 
@@ -62,7 +62,9 @@ _parse_uuid_contiguous :: proc(id_string: string) -> (value: Uuid, ok: bool){
     return cast(Uuid)value_le, ok1
 }
 
-// Returns the UUID as a string in `8-4-4-4-12` hexadecimal form.
+// Returns the UUID as a string in hexadecimal form.
+// 
+// Hex digits are formatted as `8-4-4-4-12` when `hyphenated` is true, otherwise as a 32-character string of only hexadecimal digits.
 // 
 // Allocates using provided allocator.
 //
@@ -86,7 +88,6 @@ uuid_to_string :: proc(id: Uuid, hyphenated := true, allocator := context.alloca
     return string(ascii)
 }
 
-
 @(private)
 _HEX_LOOKUP := [16]byte {
     '0', '1', '2', '3', 
@@ -103,22 +104,29 @@ _byte_to_hex_octet :: proc(val: byte) -> [2]byte {
     return [2]byte {_HEX_LOOKUP[most_significant], _HEX_LOOKUP[least_significant]}
 }
 
-
+/*
 main :: proc() {
         // Generate UUID
         generated_uuid := generate_uuid()
+        fmt.printf("generated binary: %32x\n", generated_uuid)
         generated_uuid_str := uuid_to_string(generated_uuid)
         defer delete(generated_uuid_str)
         fmt.printf("generated string: %v\n", generated_uuid_str)
 
         // Parse and serialize existing UUID
-        // example_uuid_str := "cb4a1d16-7243-4f80-bbdd-c85e9ba20dfc"
-        example_uuid_str_cont := "cb4a1d1672434f80bbddc85e9ba20dfc"
+        example_uuid_str_hyph := "D952EB9F-7AD2-4B1B-B3CE-386735205990"
         fmt.printf("example string:   %v\n", example_uuid_str_cont)
-
-        parsed_uuid, ok := parse_uuid(example_uuid_str_cont)
-        fmt.printf("parsed binary:    %128b\n", parsed_uuid)
+        parsed_uuid, ok1 := parse_uuid(example_uuid_str_cont)
+        fmt.printf("parsed binary:    %32x\n", parsed_uuid)
+        parsed_uuid_str := uuid_to_string(parsed_uuid)
+        defer delete(parsed_uuid_str)
+        fmt.printf("parsed string:    %v\n", parsed_uuid_str)
+        
+        example_uuid_str_cont := "cb4a1d1672434f80bbddc85e9ba20dfc"
+        parsed_uuid, ok2 := parse_uuid(example_uuid_str_cont)
+        fmt.printf("parsed binary:    %32x\n", parsed_uuid)
         parsed_uuid_str := uuid_to_string(parsed_uuid)
         defer delete(parsed_uuid_str)
         fmt.printf("parsed string:    %v\n", parsed_uuid_str)
 }
+*/
