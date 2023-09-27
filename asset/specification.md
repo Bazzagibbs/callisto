@@ -10,6 +10,12 @@ Info structs are referenced by index into their respective array of structs.
 
 Buffers are referenced by byte index. `*_slice_begin` determines the first byte in the struct, and `*_slice_size` determines how many bytes the slice should span.
 
+```odin
+Galileo_Asset_File :: struct {
+    header: File_Header,
+    body:   File_Body,
+}
+```
 
 ## File header
 
@@ -35,7 +41,13 @@ buffer:
 [ indices | vert_position | vert_normal | vert_tangent | uv_0 | uv_1 | color_0 | joints_0 | weights_0 | ext_0 ]
 ```
 
-
+```odin
+File_Body_Mesh :: struct {
+    manifest:               Mesh_Manifest,
+    vertex_group_infos:     []Vertex_Group_Info,    // count provided in manifest
+    extension_infos:        []Extension_Info,       // count provided in manifest
+}
+```
 
 ### Manifest
 ```odin
