@@ -2,6 +2,7 @@ package callisto_asset
 
 import cc "../common"
 
+
 Model               :: struct {
     mesh        : ^Mesh,
     materials   : []^Material,

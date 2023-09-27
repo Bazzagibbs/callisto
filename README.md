@@ -70,6 +70,8 @@ main :: proc() {
 
 - Renderer abstraction
   - Vulkan implementation
+  - WebGL implementation
+- Asset file format "Galileo" (.gali)
 
 ## Project Plan
 
