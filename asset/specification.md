@@ -28,7 +28,7 @@ File_Header :: struct {
     checksum:               u64,        // xxhash XXH3 of the file, EXCLUDING file header.
 }
 ```
-see also: ([Cyan4973/xxhash](https://github.com/Cyan4973/xxHash)
+see also: [Cyan4973/xxhash](https://github.com/Cyan4973/xxHash)
 
 ## File Body: Mesh
 

@@ -1,6 +1,24 @@
 package mikktspace
 
 import "core:math/linalg"
+import "core:c"
+
+when ODIN_OS == .Windows {
+    foreign import mikktspace "windows/mikktspace.lib"
+} else when ODIN_OS == .Linux {
+    foreign import mikktspace "linux/mikktspace.a"
+} else when ODIN_OS == .Darwin {
+    when ODIN_ARCH == .arm64 {
+        foreign import mikktspace "macos-arm64/mikktspace.a"
+    } else {
+        foreign import mikktspace "macos/mikktspace.a"        
+    }
+} else {
+    // TODO: figure out way to use host platform's import for emscripten builds
+    foreign import mikktspace "windows/mikktspace.lib"
+}
+
+
 
 vec2 :: [2]f32
 vec3 :: [3]f32

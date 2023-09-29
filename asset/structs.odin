@@ -1,5 +1,6 @@
 package callisto_asset
 
+import "core:mem"
 import cc "../common"
 
 
@@ -19,7 +20,8 @@ Mesh                :: struct {
 }
 
 Vertex_Group        :: struct {
-    bounds              : cc.Axis_Aligned_Bounding_Box,
+    bounds          : cc.Axis_Aligned_Bounding_Box,
+    buffer_slice    : []u8,
     
     // These are slices into the mesh buffer
     index           : []u32,
@@ -28,7 +30,7 @@ Vertex_Group        :: struct {
     tangent         : [][4]f32,
     uv              : [][][2]f32,
     color           : [][][4]u8,
-    joints          : [][][4]u16,
+    joints          : [][][4]u16, 
     weights         : [][][4]u16,
 }
 
