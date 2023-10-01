@@ -8,6 +8,7 @@ layout(location=0) out vec4 outColor;
 void main() {
     vec2 uv = fragNormal.xy;
     // uv.y *= -1;
+    uv *= -1;
     uv += 1;
     uv *= 0.5;
 

@@ -74,6 +74,7 @@ _impl_cmd_draw_vert_group :: proc(vert_group: ^CVK_Vertex_Group) {
         vert_group.tangent.buffer,
         vert_group.uv_0.buffer,
     }
+    // offsets := []vk.DeviceSize { 0, 0, 0 }
     offsets := []vk.DeviceSize { 0, 0, 0, 0 }
 
     vk.CmdBindIndexBuffer(command_buffer, vert_group.index.buffer, 0, .UINT32)

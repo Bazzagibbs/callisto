@@ -232,24 +232,25 @@ _impl_destroy_shader :: proc(shader: Shader) {
 _get_vertex_binding_descriptions :: proc() -> (binding_descs: []vk.VertexInputBindingDescription) {
 
     binding_descs = make([]vk.VertexInputBindingDescription, 4)
+    // binding_descs = make([]vk.VertexInputBindingDescription, 3)
     binding_descs[0] = {   // Position (vec3)
         binding     = 0,
         stride      = u32(3 * 4),
         inputRate   = .VERTEX,
     }
-    binding_descs[1] = {   // UV (vec2)
+    binding_descs[1] = {   // Normal (vec3)
         binding     = 1,
-        stride      = u32(2 * 4),
-        inputRate   = .VERTEX,
-    }
-    binding_descs[2] = {   // Normal (vec3)
-        binding     = 2,
         stride      = u32(3 * 4),
         inputRate   = .VERTEX,
     }
-    binding_descs[3] = {   // Tangent (vec4)
-        binding     = 3,
+    binding_descs[2] = {   // Tangent (vec4)
+        binding     = 2,
         stride      = u32(4 * 4),
+        inputRate   = .VERTEX,
+    }
+    binding_descs[3] = {   // UV (vec2)
+        binding     = 3,
+        stride      = u32(2 * 4),
         inputRate   = .VERTEX,
     }
    
@@ -263,28 +264,29 @@ _get_vertex_attribute_descriptions :: proc() -> (attribute_descs: []vk.VertexInp
     vec4, _ := _typeid_to_vk_format([4]f32)
 
     attribute_descs = make([]vk.VertexInputAttributeDescription, 4)
+    // attribute_descs = make([]vk.VertexInputAttributeDescription, 3)
     attribute_descs[0] = {   // Position
         binding     = 0,
         location    = 0,
         format      = vec3,
         offset      = 0,
     }
-    attribute_descs[1] = {   // UV
+    attribute_descs[1] = {   // Normal
         binding     = 1,
         location    = 1,
-        format      = vec2,
-        offset      = 0,
-    }
-    attribute_descs[2] = {   // Normal
-        binding     = 2,
-        location    = 2,
         format      = vec3,
         offset      = 0,
     }
-    attribute_descs[3] = {   // Tangent
+    attribute_descs[2] = {   // Tangent
+        binding     = 2,
+        location    = 2,
+        format      = vec4,
+        offset      = 0,
+    }
+    attribute_descs[3] = {   // UV
         binding     = 3,
         location    = 3,
-        format      = vec4,
+        format      = vec2,
         offset      = 0,
     }
     

@@ -159,19 +159,20 @@ _impl_create_static_mesh :: proc(mesh_asset: ^asset.Mesh, mesh: ^Mesh) -> (ok: b
     cvk_mesh.vertex_groups = make([]CVK_Vertex_Group, len(mesh_asset.vertex_groups))
     defer if !ok do delete(cvk_mesh.vertex_groups)
 
-    ok_idx := -1
-    defer if !ok do for i in 0..=ok_idx {
-        
-    }
+    defer if !ok do _impl_destroy_static_mesh(transmute(Mesh)&cvk_mesh)
 
     for asset_vert_group, i in mesh_asset.vertex_groups {
         cvk_vertex_group := &cvk_mesh.vertex_groups[i]
-        _create_index_buffer(asset_vert_group.index, &cvk_vertex_group.index)
+        _create_index_buffer(asset_vert_group.index, &cvk_vertex_group.index) or_return
         
-        _create_vertex_attribute_buffer(asset_vert_group.position,  &cvk_vertex_group.position)
-        _create_vertex_attribute_buffer(asset_vert_group.normal,    &cvk_vertex_group.normal)
-        _create_vertex_attribute_buffer(asset_vert_group.tangent,   &cvk_vertex_group.tangent)
-        _create_vertex_attribute_buffer(asset_vert_group.uv[0],     &cvk_vertex_group.uv_0)
+        _create_vertex_attribute_buffer(asset_vert_group.position,  &cvk_vertex_group.position) or_return
+        _create_vertex_attribute_buffer(asset_vert_group.normal,    &cvk_vertex_group.normal)   or_return
+        _create_vertex_attribute_buffer(asset_vert_group.tangent,   &cvk_vertex_group.tangent)  or_return
+        // if len(asset_vert_group.uv) > 0 {
+        _create_vertex_attribute_buffer(asset_vert_group.uv[0],     &cvk_vertex_group.uv_0)     or_return
+        // } else {
+        //     _create_empty_buffer(&cvk_vertex_group.uv_0)
+        // }
     }
     
     mesh^ = transmute(Mesh)cvk_mesh
@@ -183,9 +184,12 @@ _impl_destroy_static_mesh :: proc(mesh: Mesh) {
     cvk_mesh := transmute(^CVK_Mesh)mesh
     
     for cvk_vert_group in cvk_mesh.vertex_groups {
-    // destroy index buffers
-    // destroy attribute buffers
-    
+        _destroy_buffer(cvk_vert_group.index)
+        
+        _destroy_buffer(cvk_vert_group.position)
+        _destroy_buffer(cvk_vert_group.normal)
+        _destroy_buffer(cvk_vert_group.tangent)
+        _destroy_buffer(cvk_vert_group.uv_0)
     }
     delete(cvk_mesh.vertex_groups)
     free(mesh)
@@ -226,12 +230,13 @@ _create_buffer :: proc(size: u64, usage: vk.BufferUsageFlags, properties: vk.Mem
     return true
 }
 
-
 _destroy_buffer :: proc(buffer: ^CVK_Buffer) {
     using bound_state
-    vk.DeviceWaitIdle(device)
-    vk.DestroyBuffer(device, buffer.buffer, nil)
-    vk.FreeMemory(device, vk.DeviceMemory(buffer.memory), nil)
+    if buffer.buffer != 0 {
+        vk.DeviceWaitIdle(device)
+        vk.DestroyBuffer(device, buffer.buffer, nil)
+        vk.FreeMemory(device, vk.DeviceMemory(buffer.memory), nil)
+    }
     free(buffer)
 }
 
