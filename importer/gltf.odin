@@ -46,6 +46,9 @@ import_gltf :: proc(model_path: string) -> (
             Prim_Temp_Info :: struct {
                 bounds_center:              [3]f32,
                 bounds_extents:             [3]f32,
+                bound_min:                  [3]f32,
+                bounds_max:                 [3]f32,
+
                 buffer_slice_size:          int,
 
                 index_count:                int,
@@ -92,8 +95,8 @@ import_gltf :: proc(model_path: string) -> (
                         prim_info.n_joint_weight_channels = math.max(prim_info.n_joint_weight_channels, u64(attribute.index) + 1)
                         prim_info.element_size += size_of([4]u16) * 2 // Joints and weights channels are 1:1
 
-                    case .custom: // TODO: support custom attributes
-
+                    case .custom: // TODO: support custom attributes as an extension
+                        log.warn("[Importer: glTF] Custom attributes not implemented:", attribute.name)
                     }
                     
                 }
@@ -118,6 +121,8 @@ import_gltf :: proc(model_path: string) -> (
 
             meshes[mesh_idx] = asset.make_mesh(vertex_group_count, total_buf_size)
             mesh := &meshes[mesh_idx]
+            mesh_min := [3]f32{max(f32), max(f32), max(f32)}
+            mesh_max := [3]f32{min(f32), min(f32), min(f32)}
             slice_begin := 0
            
             for primitive, vert_group_idx in src_mesh.primitives {
@@ -161,6 +166,16 @@ import_gltf :: proc(model_path: string) -> (
                     // Copy buffers
                     #partial switch attribute.type {
                     case .position:
+                        min := [3]f32{attribute.data.min[0], attribute.data.min[1], attribute.data.min[2]}
+                        max := [3]f32{attribute.data.max[0], attribute.data.max[1], attribute.data.max[2]}
+                        mesh_min.x = math.min(min.x, mesh_min.x)
+                        mesh_min.y = math.min(min.y, mesh_min.y)
+                        mesh_min.z = math.min(min.z, mesh_min.z)
+                        mesh_max.x = math.max(max.x, mesh_max.x)
+                        mesh_max.y = math.max(max.y, mesh_max.y)
+                        mesh_max.z = math.max(max.z, mesh_max.z)
+
+                        vert_group.bounds.center, vert_group.bounds.extents = min_max_to_center_extents(min, max)
                         ok = gltf_unpack_attribute([3]f32, attribute.data, vert_group.position); if !ok {
                             log.error("Importer [glTF]: Error unpacking vertex positions")
                         }
@@ -194,6 +209,7 @@ import_gltf :: proc(model_path: string) -> (
                     }
                 }
             }
+            mesh.bounds.center, mesh.bounds.extents = min_max_to_center_extents(mesh_min, mesh_max)
         }
 
         // TODO: make models from mesh/material pairs
@@ -201,30 +217,6 @@ import_gltf :: proc(model_path: string) -> (
 
         return meshes, {}, {}, {}, {}, true
     }
-
-// gltf_get_accessor_attribute_size :: proc(accessor: ^cgltf.accessor) -> int {
-//     custom_attr_size: int
-//     
-//     switch accessor.component_type {
-//         case .r_8, .r_8u, .invalid: custom_attr_size = 1
-//         case .r_16, .r_16u:         custom_attr_size = 2
-//         case .r_32f, .r_32u:        custom_attr_size = 4
-//     }
-//     
-//     switch accessor.type {
-//         // TODO: some accessor types are aligned strangely
-//         case .invalid:
-//         case .scalar:   // custom_attr_size *= 1
-//         case .vec2:     custom_attr_size *= 2
-//         case .vec3:     custom_attr_size *= 3
-//         case .vec4:     custom_attr_size *= 4
-//         case .mat2:     custom_attr_size *= 4
-//         case .mat3:     custom_attr_size *= 9
-//         case .mat4:     custom_attr_size *= 12
-//     }
-//
-//     return custom_attr_size
-// }
 
 
 gltf_unpack_attribute :: proc($T: typeid/[$N]$E, accessor: ^cgltf.accessor, out_data: []T) -> (ok: bool) {
@@ -289,4 +281,10 @@ make_subslice_of_type :: proc($T: typeid, data_buffer: []u8, offset, length: int
     stride := size_of(T)
     subslice = transmute([]T) mem.Raw_Slice{&data_buffer[offset], length}
     return subslice, (offset + stride * length)
+}
+
+min_max_to_center_extents :: proc(min, max: [3]f32) -> (center, extents: [3]f32) {
+    center  = 0.5 * (max + min)
+    extents = 0.5 * (max - min)
+    return
 }
