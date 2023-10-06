@@ -3,6 +3,22 @@ package callisto_asset
 import "core:mem"
 import cc "../common"
 
+// TODO: Explicitly set enum values
+Asset_Type :: enum(u32) {
+    invalid = 0,
+    // Primitives
+    mesh,
+    image,
+    audio,
+    shader,
+    // Aggregates
+    archive,
+    material,
+    model,
+    construct,
+
+    custom,
+}
 
 Model               :: struct {
     mesh        : ^Mesh,
@@ -28,8 +44,8 @@ Vertex_Group        :: struct {
     position        : [][3]f32,
     normal          : [][3]f32,
     tangent         : [][4]f32,
-    uv              : [][][2]f32,
-    color           : [][][4]u8,
+    texcoords       : [][][2]f32,
+    colors          : [][][4]u8,
     joints          : [][][4]u16, 
     weights         : [][][4]u16,
 }

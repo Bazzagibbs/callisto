@@ -165,11 +165,11 @@ _impl_create_static_mesh :: proc(mesh_asset: ^asset.Mesh, mesh: ^Mesh) -> (ok: b
         cvk_vertex_group := &cvk_mesh.vertex_groups[i]
         _create_index_buffer(asset_vert_group.index, &cvk_vertex_group.index) or_return
         
-        _create_vertex_attribute_buffer(asset_vert_group.position,  &cvk_vertex_group.position) or_return
-        _create_vertex_attribute_buffer(asset_vert_group.normal,    &cvk_vertex_group.normal)   or_return
-        _create_vertex_attribute_buffer(asset_vert_group.tangent,   &cvk_vertex_group.tangent)  or_return
-        // if len(asset_vert_group.uv) > 0 {
-        _create_vertex_attribute_buffer(asset_vert_group.uv[0],     &cvk_vertex_group.uv_0)     or_return
+        _create_vertex_attribute_buffer(asset_vert_group.position,      &cvk_vertex_group.position) or_return
+        _create_vertex_attribute_buffer(asset_vert_group.normal,        &cvk_vertex_group.normal)   or_return
+        _create_vertex_attribute_buffer(asset_vert_group.tangent,       &cvk_vertex_group.tangent)  or_return
+        // if len(asset_vert_group.texcoords) > 0 {
+        _create_vertex_attribute_buffer(asset_vert_group.texcoords[0],  &cvk_vertex_group.uv_0)     or_return
         // } else {
         //     _create_empty_buffer(&cvk_vertex_group.uv_0)
         // }

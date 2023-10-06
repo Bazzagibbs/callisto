@@ -24,10 +24,10 @@ make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
 
 delete_mesh :: proc(mesh: ^Mesh) {
     for vert_group in mesh.vertex_groups {
-        if len(vert_group.uv) > 0       do runtime.delete(vert_group.uv)
-        if len(vert_group.color) > 0    do runtime.delete(vert_group.color)
-        if len(vert_group.joints) > 0   do runtime.delete(vert_group.joints)
-        if len(vert_group.weights) > 0  do runtime.delete(vert_group.weights)
+        if len(vert_group.texcoords) > 0    do runtime.delete(vert_group.texcoords)
+        if len(vert_group.colors) > 0       do runtime.delete(vert_group.colors)
+        if len(vert_group.joints) > 0       do runtime.delete(vert_group.joints)
+        if len(vert_group.weights) > 0      do runtime.delete(vert_group.weights)
     }
     runtime.delete(mesh.vertex_groups)
     runtime.delete(mesh.buffer)
