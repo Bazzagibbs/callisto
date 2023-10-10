@@ -6,11 +6,11 @@ import cc "../common"
 Asset :: struct {
     name: string,
     uuid: cc.Uuid,
-    type: Asset_Type,
+    type: Type,
 }
 
 // TODO: Explicitly set enum values
-Asset_Type :: enum(u32) {
+Type :: enum(u32) {
     invalid = 0,
     // Primitives
     mesh,
@@ -24,6 +24,13 @@ Asset_Type :: enum(u32) {
     construct,
 
     custom,
+}
+
+Galileo_Extension_Info :: struct #packed {
+    name                : [16]u8,
+    version             : u32,
+    data_begin_index    : u64,
+    next                : u32,
 }
 
 

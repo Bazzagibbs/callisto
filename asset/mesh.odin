@@ -1,5 +1,33 @@
 package callisto_asset
+
+import "core:bufio"
+import "core:mem"
+
 import cc "../common"
+
+Galileo_Mesh_Manifest :: struct #packed {
+    bounds              : cc.Axis_Aligned_Bounding_Box,
+    vertex_group_count  : u32,
+    extension_count     : u32,
+    buffer_size         : u64,
+    next_mesh_extension : u32,
+}
+
+Galileo_Vertex_Group_Info :: struct #packed {
+    bounds                      : cc.Axis_Aligned_Bounding_Box,
+    buffer_slice_begin          : u64,
+    buffer_slice_size           : u64,
+    
+    index_count                 : u32,
+    vertex_count                : u32,
+
+    texcoord_channel_count      : u8,
+    color_channel_count         : u8,
+    joint_weight_channel_count  : u8,
+
+    next_vertex_group_extension : u32,
+}
+
 
 Mesh                :: struct {
     using asset         : Asset,
@@ -44,11 +72,55 @@ delete_mesh :: proc(mesh: ^Mesh) {
     }
     delete(mesh.vertex_groups)
     delete(mesh.buffer)
+    delete(mesh.name)
 }
 
 // Convert a mesh struct to a Galileo Mesh buffer, which can be written to a file.
 // 
 // Allocates using provided allocator
-serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> []u8 {
-    return {}
+serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []u8) {
+    file_buf_size := size_of(Galileo_Mesh_Manifest) + 
+                     len(mesh.vertex_groups) * size_of(Galileo_Vertex_Group_Info) + 
+                     // n_extensions * size_of(Galileo_Extension_Info) +
+                     len(mesh.buffer)
+
+    data = make([]u8, file_buf_size)
+    cursor := 0
+    
+    // Populate mesh manifest
+    manifest := new_struct_in_buffer(Galileo_Mesh_Manifest, data, &cursor)
+    manifest.bounds = mesh.bounds
+    manifest.vertex_group_count = u32(len(mesh.vertex_groups))
+    manifest.extension_count = 0
+    manifest.buffer_size = u64(len(mesh.buffer))
+
+    // Populate vertex group infos
+    for vg in mesh.vertex_groups {
+        vg_info := new_struct_in_buffer(Galileo_Vertex_Group_Info, data, &cursor)
+        vg_info.bounds = vg.bounds
+        vg_info.buffer_slice_begin = u64(get_subslice_offset(mesh.buffer, vg.buffer_slice))
+        vg_info.buffer_slice_size = u64(len(vg.buffer_slice))
+        vg_info.index_count = u32(len(vg.index))
+        vg_info.vertex_count = u32(len(vg.position))
+        vg_info.texcoord_channel_count = u8(len(vg.texcoords))
+        vg_info.color_channel_count = u8(len(vg.colors))
+        vg_info.joint_weight_channel_count = u8(len(vg.joints))
+    }
+
+    // TODO: populate extension info
+
+    // Copy mesh buffer
+    mem.copy(&data[cursor], raw_data(mesh.buffer), len(mesh.buffer))
+
+    return 
+}
+
+new_struct_in_buffer :: proc($T: typeid, buffer: []u8, cursor: ^int) -> (new_struct: ^T) {
+    new_struct = transmute(^T) &buffer[cursor^] 
+    cursor^ += size_of(T)
+    return
+}
+
+get_subslice_offset :: proc(base, subslice: []u8) -> int {
+    return mem.ptr_sub(raw_data(subslice), raw_data(base))
 }
