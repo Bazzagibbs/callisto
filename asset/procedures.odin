@@ -8,24 +8,16 @@ import "core:io"
 import "core:mem"
 import cc "../common"
 
-read_metadata :: proc(file_reader: io.Reader, asset: ^Asset) -> (ok: bool) {
+read_header :: proc(file_reader: io.Reader, asset: ^Asset) -> (ok: bool) {
 
-    // Magic (4 bytes) should be "GALI"
-    temp_magic: [4]u8
-    io.read(file_reader, temp_magic[:])
-    // if temp_magic != {'G', 'A', 'L', 'I'} {
-    if temp_magic != "GALI" {
+    header_data: Galileo_Header
+    _, err := io.read_ptr(file_reader, &header_data, size_of(Galileo_Header))
+    if err != .None || header_data.magic != "GALI" {
         return false
     }
 
-    spec_ver: u32
-    io.read_ptr(file_reader, &spec_ver, 4)
-
-    io.read_ptr(file_reader, &asset.uuid, 16)
-    io.read_ptr(file_reader, &asset.type, 4)
-    
-    checksum: u64
-    io.read_ptr(file_reader, &checksum, 4)
+    asset.type = header_data.asset_type
+    asset.uuid = header_data.asset_uuid
 
     return true
 }
