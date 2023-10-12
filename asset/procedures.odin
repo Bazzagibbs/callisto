@@ -8,26 +8,26 @@ import "core:io"
 import "core:mem"
 import cc "../common"
 
-read_metadata :: proc(file_reader: io.Reader) -> (metadata: Asset, ok: bool) {
+read_metadata :: proc(file_reader: io.Reader, asset: ^Asset) -> (ok: bool) {
 
     // Magic (4 bytes) should be "GALI"
     temp_magic: [4]u8
     io.read(file_reader, temp_magic[:])
     // if temp_magic != {'G', 'A', 'L', 'I'} {
     if temp_magic != "GALI" {
-        return {}, false
+        return false
     }
 
     spec_ver: u32
     io.read_ptr(file_reader, &spec_ver, 4)
 
-    io.read_ptr(file_reader, &metadata.uuid, 16)
-    io.read_ptr(file_reader, &metadata.type, 4)
+    io.read_ptr(file_reader, &asset.uuid, 16)
+    io.read_ptr(file_reader, &asset.type, 4)
     
     checksum: u64
     io.read_ptr(file_reader, &checksum, 4)
 
-    return metadata, true
+    return true
 }
 
 load :: proc($T: typeid, file_path: string) -> (loaded_asset: T, ok: bool)
@@ -42,8 +42,9 @@ load :: proc($T: typeid, file_path: string) -> (loaded_asset: T, ok: bool)
 
     file_reader := io.to_reader(os.stream_from_handle(file))
 
+
     ok_header: bool
-    loaded_asset.metadata, ok_header = read_metadata(file_reader)
+    loaded_asset, ok_header = read_metadata(T, file_reader)
     if ok_header == false {
         log.error("Could not load asset because of bad header:", file_path)
         return {}, false
