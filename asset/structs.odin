@@ -26,6 +26,16 @@ Type :: enum(u32) {
     custom,
 }
 
+Galileo_Header         :: struct #packed {
+    magic                   : [4]u8,
+    spec_version_major      : u8,
+    spec_version_minor      : u8,
+    spec_version_patch      : u16,
+    asset_uuid              : cc.Uuid,
+    asset_type              : Type,
+    body_checksum           : u64,
+}
+
 Galileo_Extension_Info :: struct #packed {
     name                : [16]u8,
     version             : u32,
