@@ -6,20 +6,18 @@ import "core:intrinsics"
 import "core:log"
 import "core:io"
 import "core:mem"
+import "core:path/filepath"
+import "core:strings"
 import cc "../common"
 
-read_header :: proc(file_reader: io.Reader, asset: ^Asset) -> (ok: bool) {
+read_header :: proc(file_reader: io.Reader) -> (header: Galileo_Header, ok: bool) {
 
-    header_data: Galileo_Header
-    _, err := io.read_ptr(file_reader, &header_data, size_of(Galileo_Header))
-    if err != .None || header_data.magic != "GALI" {
-        return false
+    _, err := io.read_ptr(file_reader, &header, size_of(Galileo_Header))
+    if err != .None || header.magic != "GALI" {
+        return {}, false
     }
 
-    asset.type = header_data.asset_type
-    asset.uuid = header_data.asset_uuid
-
-    return true
+    return header, true
 }
 
 load :: proc($T: typeid, file_path: string) -> (loaded_asset: T, ok: bool)
@@ -34,13 +32,14 @@ load :: proc($T: typeid, file_path: string) -> (loaded_asset: T, ok: bool)
 
     file_reader := io.to_reader(os.stream_from_handle(file))
 
-
-    ok_header: bool
-    loaded_asset, ok_header = read_metadata(T, file_reader)
+    header, ok_header := read_header(file_reader)
     if ok_header == false {
         log.error("Could not load asset because of bad header:", file_path)
         return {}, false
     }
+
+    loaded_asset.uuid = header.asset_uuid
+    loaded_asset.type = header.asset_type
 
     switch typeid_of(T) {
         case Mesh:
