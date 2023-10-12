@@ -113,16 +113,16 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
 
 
 // // Allocates using context allocator
-// make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
-//     mesh := Mesh {
-//         type          = .mesh,
-//         vertex_groups = make([]Vertex_Group, vertex_group_count),
-//         buffer        = make([]u8, buffer_size),
-//     }
-//
-//     return mesh
-// }
-//
+make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
+    mesh := Mesh {
+        type          = .mesh,
+        vertex_groups = make([]Vertex_Group, vertex_group_count),
+        buffer        = make([]u8, buffer_size),
+    }
+
+    return mesh
+}
+
 
 delete_mesh :: proc(mesh: ^Mesh) {
     for vert_group in mesh.vertex_groups {
