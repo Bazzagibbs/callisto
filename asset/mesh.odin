@@ -5,6 +5,8 @@ import "core:mem"
 
 import cc "../common"
 
+// Galileo file layout
+// ///////////////////
 Galileo_Mesh_Manifest :: struct #packed {
     bounds              : cc.Axis_Aligned_Bounding_Box,
     vertex_group_count  : u32,
@@ -27,6 +29,7 @@ Galileo_Vertex_Group_Info :: struct #packed {
 
     next_vertex_group_extension : u32,
 }
+// ///////////////////
 
 
 Mesh                :: struct {
@@ -112,7 +115,7 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
 }
 
 
-// // Allocates using context allocator
+// Allocates using context allocator
 make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
     mesh := Mesh {
         type          = .mesh,

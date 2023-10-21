@@ -31,8 +31,8 @@ Galileo_Header         :: struct #packed {
     spec_version_major      : u8,
     spec_version_minor      : u8,
     spec_version_patch      : u16,
-    asset_uuid              : cc.Uuid,
-    asset_type              : Type,
+    uuid              : cc.Uuid,
+    type              : Type,
     body_checksum           : u64,
 }
 
@@ -44,15 +44,3 @@ Galileo_Extension_Info :: struct #packed {
 }
 
 
-Material            :: struct {
-    // style: pbr, npr
-}
-
-Texture             :: struct {
-    
-}
-
-// "prefab" or "actor", a fixed transform hierarchy. Can have hardpoints where reparenting is needed.
-Construct           :: struct {
-
-}

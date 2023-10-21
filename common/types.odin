@@ -22,25 +22,27 @@ mat4        :: matrix[4,4]f32
 color32     :: [4]u8
 quat        :: quaternion128
 
-// uuid        :: u128be
-
 Vertex_Buffer   :: []u8
 Index_Buffer    :: []u32
 
 
 // Structs
+// ///////
 
 Axis_Aligned_Bounding_Box :: struct {
     center     : vec3,
     extents    : vec3, // half of width/breadth/height
 }
 
-Transform   :: struct {
+Transform :: struct {
     translation     : vec3,
     rotation        : quat,
     scale           : [3]f32,
-    // parent           : Transform,
-    // children         : []Transform,
-    // descendents      : []Transform,
 }
 
+// Node :: struct {
+//     transform:   int,
+//     parent:      int,
+//     children:    []int,
+//     descendents: []int,
+// }

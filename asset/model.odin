@@ -1,6 +1,6 @@
 package callisto_asset
 
-Model               :: struct {
+Model :: struct {
     mesh        : ^Mesh,
     materials   : []^Material,
 }
