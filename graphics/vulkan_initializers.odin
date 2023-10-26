@@ -16,7 +16,7 @@ import "../window"
 validation_layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
 required_instance_extensions: [dynamic]cstring = {/*vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME*/}
 required_device_extensions: [dynamic]cstring = {vk.KHR_SWAPCHAIN_EXTENSION_NAME}
-dynamic_states: [dynamic]vk.DynamicState = {.VIEWPORT, .SCISSOR}
+dynamic_states: []vk.DynamicState = {.VIEWPORT, .SCISSOR}
 
 _get_global_proc_address :: proc(p: rawptr, name: cstring) {
     when config.BUILD_TARGET == .Desktop {
@@ -407,17 +407,17 @@ _select_swapchain_extent :: proc(surface_capabilities: ^vk.SurfaceCapabilitiesKH
     return surface_capabilities.currentExtent
 }
 
-_get_images :: proc(images: ^[dynamic]vk.Image) {
+_get_images :: proc(images: ^[]vk.Image) {
     state := bound_state
     image_count: u32
     vk.GetSwapchainImagesKHR(state.device, state.swapchain, &image_count, nil)
-    resize(images, int(image_count))
+    images^ = make([]vk.Image, image_count)
     vk.GetSwapchainImagesKHR(state.device, state.swapchain, &image_count, raw_data(images^))
 }
 
-_create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
+_create_image_views :: proc(image_views: ^[]vk.ImageView) -> (ok: bool) {
     // Create image view for every image we have acquired
-    resize(image_views, len(bound_state.images))
+    image_views^ = make([]vk.ImageView, len(bound_state.images))
     for image, i in bound_state.images {
         ok = _create_image_view(image, bound_state.swapchain_details.format.format, {.COLOR}, &image_views[i]); if !ok {
             for j in 0..<i {
@@ -429,13 +429,13 @@ _create_image_views :: proc(image_views: ^[dynamic]vk.ImageView) -> (ok: bool) {
     return true
 }
 
-_destroy_image_views :: proc(image_views: ^[dynamic]vk.ImageView) {
+_destroy_image_views :: proc(image_views: []vk.ImageView) {
     state := bound_state
     for image_view in image_views {
         _destroy_image_view(image_view)
     }
 
-    clear(image_views)
+    delete(image_views)
 }
 
 _create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
@@ -512,8 +512,8 @@ _create_render_pass :: proc(render_pass: ^vk.RenderPass) -> (ok: bool) {
 }
 
 
-_create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
-    resize(framebuffers, len(bound_state.image_views))
+_create_framebuffers :: proc(framebuffers: ^[]vk.Framebuffer) -> (ok: bool) {
+    framebuffers^ = make([]vk.Framebuffer, len(bound_state.image_views))
 
     for image_view, i in bound_state.image_views {
         attachments := []vk.ImageView {
@@ -542,13 +542,13 @@ _create_framebuffers :: proc(framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: boo
     return true
 }
 
-_destroy_framebuffers :: proc(framebuffer_array: ^[dynamic]vk.Framebuffer) {
+_destroy_framebuffers :: proc(framebuffer_array: []vk.Framebuffer) {
     state := bound_state
     for framebuffer in framebuffer_array {
         vk.DestroyFramebuffer(state.device, framebuffer, nil)
     }
 
-    resize(framebuffer_array, 0)
+    delete(framebuffer_array)
 }
 
 _create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
@@ -568,9 +568,9 @@ _create_command_pool :: proc(command_pool: ^vk.CommandPool) -> (ok: bool) {
     return
 }
 
-_create_command_buffers :: proc(count: int, command_buffers: ^[dynamic]vk.CommandBuffer) -> (ok: bool) {
+_create_command_buffers :: proc(count: int, command_buffers: ^[]vk.CommandBuffer) -> (ok: bool) {
     state := bound_state
-    resize(command_buffers, count)
+    command_buffers^ = make([]vk.CommandBuffer, count)
     command_buffer_allocate_info := vk.CommandBufferAllocateInfo {
         sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
         commandPool        = state.command_pool,
@@ -667,9 +667,9 @@ _draw :: proc(/* vertex_buffer: */) {
     vk.CmdDraw(command_buffer, 3, 1, 0, 0)
 }
 
-_create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (ok: bool) {
+_create_semaphores :: proc(count: int, semaphores: ^[]vk.Semaphore) -> (ok: bool) {
     state := bound_state
-    resize(semaphores, count)
+    semaphores^ = make([]vk.Semaphore, count)
     
     semaphore_create_info := vk.SemaphoreCreateInfo {
         sType = .SEMAPHORE_CREATE_INFO,
@@ -688,9 +688,9 @@ _create_semaphores :: proc(count: int, semaphores: ^[dynamic]vk.Semaphore) -> (o
     return true
 }
 
-_create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
+_create_fences :: proc(count: int, fences: ^[]vk.Fence) -> (ok: bool) {
     state := bound_state
-    resize(fences, int(count))
+    fences^ = make([]vk.Fence, count)
 
     fence_create_info := vk.FenceCreateInfo {
         sType = .FENCE_CREATE_INFO,
@@ -710,22 +710,22 @@ _create_fences :: proc(count: int, fences: ^[dynamic]vk.Fence) -> (ok: bool) {
     return
 }
 
-_destroy_semaphores :: proc(semaphores: ^[dynamic]vk.Semaphore) {
+_destroy_semaphores :: proc(semaphores: []vk.Semaphore) {
     state := bound_state
-    for semaphore in semaphores^ {
+    for semaphore in semaphores {
         vk.DestroySemaphore(state.device, semaphore, nil)
     }
 
-    resize(semaphores, 0)
+    delete(semaphores)
 }
 
-_destroy_fences :: proc(fences: ^[dynamic]vk.Fence) {
+_destroy_fences :: proc(fences: []vk.Fence) {
     state := bound_state
-    for fence in fences^ {
+    for fence in fences {
         vk.DestroyFence(state.device, fence, nil)
     }
 
-    resize(fences, 0)
+    delete(fences)
 }
 
 
@@ -789,21 +789,21 @@ _present :: proc() -> (ok: bool) {
     return true
 }
 
-_recreate_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[dynamic]vk.ImageView, framebuffers: ^[dynamic]vk.Framebuffer) -> (ok: bool) {
+_recreate_swapchain :: proc(swapchain: ^vk.SwapchainKHR, swapchain_details: ^Swapchain_Details, image_views: ^[]vk.ImageView, framebuffers: ^[]vk.Framebuffer) -> (ok: bool) {
     vk.DeviceWaitIdle(bound_state.device)
 
     _destroy_depth_image(bound_state.depth_image, bound_state.depth_image_memory, bound_state.depth_image_view)
-    _destroy_framebuffers(framebuffers)
-    _destroy_image_views(image_views)
+    _destroy_framebuffers(framebuffers^)
+    _destroy_image_views(image_views^)
     vk.DestroySwapchainKHR(bound_state.device, swapchain^, nil)
 
     _create_swapchain(swapchain, swapchain_details) or_return
     defer if !ok do vk.DestroySwapchainKHR(bound_state.device, swapchain^, nil)
     _create_image_views(image_views) or_return
-    defer if !ok do _destroy_image_views(image_views)
+    defer if !ok do _destroy_image_views(image_views^)
     _create_depth_image(&bound_state.depth_image, &bound_state.depth_image_memory, &bound_state.depth_image_view)
     _create_framebuffers(framebuffers) or_return
-    defer if !ok do _destroy_framebuffers(framebuffers)
+    defer if !ok do _destroy_framebuffers(framebuffers^)
 
     ok = true
     return

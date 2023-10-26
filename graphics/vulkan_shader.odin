@@ -37,7 +37,7 @@ _impl_create_shader :: proc(shader_description: ^Shader_Description, shader: ^Sh
     
     cvk_shader.uniform_buffer_typeid = shader_description.uniform_buffer_typeid
 
-    shader_stages := [?]vk.PipelineShaderStageCreateInfo {
+    shader_stages := []vk.PipelineShaderStageCreateInfo {
         // Vertex
         {
             sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -170,7 +170,7 @@ _impl_create_shader :: proc(shader_description: ^Shader_Description, shader: ^Sh
     pipeline_create_info := vk.GraphicsPipelineCreateInfo {
         sType               = .GRAPHICS_PIPELINE_CREATE_INFO,
         stageCount          = 2,
-        pStages             = &shader_stages[0],
+        pStages             = raw_data(shader_stages),
         pVertexInputState   = &vertex_input_state_create_info,
         pInputAssemblyState = &input_assembly_state_create_info,
         pViewportState      = &viewport_state_create_info,
