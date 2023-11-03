@@ -1,6 +1,11 @@
 package callisto
 
 import cc "common"
+import cg "graphics"
+
+Callisto_Context :: struct {
+    renderer: cg.Renderer_Context,
+}
 
 Handle :: distinct rawptr
 

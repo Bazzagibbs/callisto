@@ -10,6 +10,7 @@ import "renderer_vulkan"
 when config.RENDERER_API == .Vulkan {
     Renderer_Context :: renderer_vulkan.Renderer_Context
 } else {
+    Renderer_Context :: rawptr
     _ :: renderer_vulkan // suppress vet unused imports
 }
 
