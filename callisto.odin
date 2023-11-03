@@ -24,11 +24,11 @@ init :: proc() -> (ok: bool) {
     }
     defer if !ok do input.shutdown()
 
-    ok = graphics.init(); if ok == false {
-        log.fatal("Renderer could not be initialized")
-        return
-    }
-    defer if !ok do graphics.shutdown()
+    // ok = graphics.init(); if ok == false {
+    //     log.fatal("Renderer could not be initialized")
+    //     return
+    // }
+    // defer if !ok do graphics.shutdown()
 
     return
 }
@@ -42,7 +42,7 @@ shutdown :: proc() {
     
     defer window.shutdown()
     defer input.shutdown()
-    defer graphics.shutdown()
+    // defer graphics.shutdown()
 }
 
 
@@ -54,7 +54,7 @@ should_loop :: proc() -> bool {
         return true
     }
 
-    graphics.wait_until_idle() // Wait until renderer resources are not in use before starting shutdown
+    // graphics.wait_until_idle() // Wait until renderer resources are not in use before starting shutdown
     return false
 }
 

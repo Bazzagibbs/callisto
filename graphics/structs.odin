@@ -41,7 +41,7 @@ Shader_Description_Cull_Mode :: enum {
 
 // Material_Master         :: distinct Handle
 // Material_Variant        :: distinct Handle // Overrides uniforms from a material master
-Material_Instance       :: distinct Handle // Instantiated values from a material master or variant
+Material                :: distinct Handle // Instantiated values from a material master or variant
 
 Texture                 :: distinct Handle
 Texture_Description :: struct {

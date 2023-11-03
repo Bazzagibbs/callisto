@@ -1,7 +1,7 @@
 //+build windows, linux, darwin
 //+private
 package callisto_graphics
-
+/*
 import "core:log"
 import "core:runtime"
 import "core:fmt"
@@ -107,3 +107,4 @@ _set_debug_name :: proc(handle: u64, vk_type: vk.ObjectType, name: cstring) {
         }
     }
 }
+*/
