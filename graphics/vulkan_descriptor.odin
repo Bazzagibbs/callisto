@@ -39,8 +39,29 @@ _create_descriptor_pool :: proc(descriptor_pool: ^vk.DescriptorPool) -> (ok: boo
 
 _create_descriptor_set_layout :: proc(descriptor_set_layout: ^vk.DescriptorSetLayout) -> (ok: bool) {
     using bound_state
+    scene_layout_binding := vk.DescriptorSetLayoutBinding {
+        binding = 0,
+        descriptorType = .UNIFORM_BUFFER,
+        descriptorCount = 1,
+        stageFlags = {.VERTEX},
+        pImmutableSamplers = nil,
 
-    ubo_layout_binding := vk.DescriptorSetLayoutBinding {
+    }
+    pass_layout_binding := vk.DescriptorSetLayoutBinding {
+        binding = 0,
+        descriptorType = .UNIFORM_BUFFER,
+        descriptorCount = 1,
+        stageFlags = {.VERTEX},
+        pImmutableSamplers = nil,
+    }
+    material_layout_binding := vk.DescriptorSetLayoutBinding {
+        binding = 0,
+        descriptorType = .UNIFORM_BUFFER,
+        descriptorCount = 1,
+        stageFlags = {.VERTEX},
+        pImmutableSamplers = nil,
+    }
+    model_layout_binding := vk.DescriptorSetLayoutBinding {
         binding = 0,
         descriptorType = .UNIFORM_BUFFER,
         descriptorCount = 1,
@@ -57,7 +78,11 @@ _create_descriptor_set_layout :: proc(descriptor_set_layout: ^vk.DescriptorSetLa
     }
 
     bindings := []vk.DescriptorSetLayoutBinding {
-        ubo_layout_binding,
+        scene_layout_binding,
+        pass_layout_binding,
+        material_layout_binding,
+        model_layout_binding,
+
         sampler_layout_binding,
     }
 
@@ -83,9 +108,9 @@ _destroy_descriptor_set_layout :: proc(layout: ^vk.DescriptorSetLayout) {
 }
 
 // Handles do not need to be destroyed, automatically freed when corresponding descriptor pool is destroyed
-_allocate_descriptor_sets :: proc(descriptor_pool: vk.DescriptorPool, descriptor_set_layout: vk.DescriptorSetLayout, descriptor_sets: ^[dynamic]vk.DescriptorSet) -> (ok: bool) {
+_allocate_descriptor_sets :: proc(descriptor_pool: vk.DescriptorPool, descriptor_set_layout: vk.DescriptorSetLayout, descriptor_sets: ^[]vk.DescriptorSet) -> (ok: bool) {
     using bound_state
-    resize(descriptor_sets, config.RENDERER_FRAMES_IN_FLIGHT)
+    descriptor_sets^ = make([]vk.DescriptorSet, config.RENDERER_FRAMES_IN_FLIGHT)
    
     descriptor_set_layouts := make([]vk.DescriptorSetLayout, config.RENDERER_FRAMES_IN_FLIGHT)
     defer delete(descriptor_set_layouts)

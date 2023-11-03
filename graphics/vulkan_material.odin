@@ -22,7 +22,7 @@ _impl_create_material_instance_from_shader :: proc(shader: Shader, material_inst
 
     cvk_white_tex := transmute(^CVK_Texture)built_in.texture_white
 
-    _create_material_uniform_buffers(cvk_shader.uniform_buffer_typeid, cvk_mat_instance) or_return
+    _create_material_uniform_buffers(cvk_shader.material_buffer_typeid, cvk_mat_instance) or_return
     
     _allocate_descriptor_sets(descriptor_pool, cvk_shader.descriptor_set_layout, &cvk_mat_instance.descriptor_sets) or_return
 

@@ -35,7 +35,7 @@ _impl_create_shader :: proc(shader_description: ^Shader_Description, shader: ^Sh
     frag_module := _create_shader_module(state.device, frag_file) or_return
     defer vk.DestroyShaderModule(state.device, frag_module, nil)
     
-    cvk_shader.uniform_buffer_typeid = shader_description.uniform_buffer_typeid
+    // cvk_shader.uniform_buffer_typeid = shader_description.uniform_buffer_typeid
 
     shader_stages := []vk.PipelineShaderStageCreateInfo {
         // Vertex

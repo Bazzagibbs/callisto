@@ -20,7 +20,13 @@ mat2        :: cc.mat2
 mat3        :: cc.mat3
 mat4        :: cc.mat4
 
-quat        :: quaternion128
+MAT2_IDENTITY :: cc.MAT2_IDENTITY
+MAT3_IDENTITY :: cc.MAT3_IDENTITY
+MAT4_IDENTITY :: cc.MAT4_IDENTITY
+
+color32     :: cc.color32
+
+quat        :: cc.quat
 
 Vertex_Buffer   :: cc.Vertex_Buffer
 Index_Buffer    :: cc.Index_Buffer

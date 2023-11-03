@@ -93,25 +93,26 @@ _destroy_index_buffer :: proc(buffer: ^CVK_Buffer) {
     _destroy_buffer(buffer)
 }
 
-_create_material_uniform_buffers :: proc(uniform_buffer_typeid: typeid, material_instance: ^CVK_Material_Instance) -> (ok: bool) {
+_create_material_uniform_buffers :: proc(material_buffer_typeid: typeid, material_instance: ^CVK_Material_Instance) -> (ok: bool) {
     ok = true
     using bound_state
     
-    ubo_type_info := type_info_of(uniform_buffer_typeid)
+    ubo_type_info := type_info_of(material_buffer_typeid)
     #partial switch v in ubo_type_info.variant {
         case runtime.Type_Info_Struct:
         case runtime.Type_Info_Named:
             ubo_type_info = v.base
         case:
-            log.error("Unsupported uniform buffer type")
-            return false
+            log.warn("Unsupported uniform buffer type")
+            return true
     }
     buf_size := ubo_type_info.size
 
     usage: vk.BufferUsageFlags = {.UNIFORM_BUFFER}
     properties: vk.MemoryPropertyFlags = {.HOST_VISIBLE, .HOST_COHERENT}
-    resize(&material_instance.uniform_buffers, config.RENDERER_FRAMES_IN_FLIGHT)
-    resize(&material_instance.uniform_buffers_mapped, config.RENDERER_FRAMES_IN_FLIGHT)
+
+    material_instance.uniform_buffers = make([]^CVK_Buffer, config.RENDERER_FRAMES_IN_FLIGHT)
+    material_instance.uniform_buffers_mapped = make([]rawptr, config.RENDERER_FRAMES_IN_FLIGHT)
 
     for i in 0..<config.RENDERER_FRAMES_IN_FLIGHT {
         cvk_buffer, err := new(CVK_Buffer); if err != .None {

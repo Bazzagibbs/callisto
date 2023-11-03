@@ -38,8 +38,8 @@ load :: proc($T: typeid, file_path: string) -> (loaded_asset: T, ok: bool)
         return {}, false
     }
 
-    loaded_asset.uuid = header.asset_uuid
-    loaded_asset.type = header.asset_type
+    loaded_asset.uuid = header.uuid
+    loaded_asset.type = header.type
 
     switch typeid_of(T) {
         case Mesh:

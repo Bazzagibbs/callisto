@@ -26,7 +26,7 @@ Model_Description :: struct {
 
 Shader                  :: distinct Handle
 Shader_Description :: struct {
-    uniform_buffer_typeid   : typeid,
+    material_buffer_typeid  : typeid,
     vertex_shader_path      : string,
     fragment_shader_path    : string,
     cull_mode               : Shader_Description_Cull_Mode,

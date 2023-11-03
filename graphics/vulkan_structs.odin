@@ -15,7 +15,7 @@ CVK_Buffer :: struct {
 }
 
 CVK_Shader :: struct {
-    uniform_buffer_typeid   : typeid,
+    material_buffer_typeid  : typeid,
     pipeline                : vk.Pipeline,
     pipeline_layout         : vk.PipelineLayout,
     descriptor_set_layout   : vk.DescriptorSetLayout,
@@ -51,9 +51,9 @@ CVK_Vertex_Group :: struct {
 
 CVK_Material_Instance :: struct {
     shader                  : ^CVK_Shader,
-    uniform_buffers         : [dynamic]^CVK_Buffer,
-    uniform_buffers_mapped  : [dynamic]rawptr,
-    descriptor_sets         : [dynamic]vk.DescriptorSet,
+    uniform_buffers         : []^CVK_Buffer,
+    uniform_buffers_mapped  : []rawptr,
+    descriptor_sets         : []vk.DescriptorSet,
 }
 
 CVK_Texture :: struct {
