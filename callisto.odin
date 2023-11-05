@@ -6,43 +6,38 @@ import "graphics"
 import "input"
 import "debug"
 
+bound_ctx: ^Engine_Context
+
 // Initialize Callisto engine. If successful, call `engine.shutdown()` before exiting the program.
-init :: proc() -> (ok: bool) {
+init :: proc(engine_ctx: ^Engine_Context) -> (ok: bool) {
     debug.profile_scope()
     
     log.info("Initializing Callisto engine")
-
-    ok = window.init(); if ok == false {
+    
+    ok = window.init(&engine_ctx.window); if ok == false {
         log.fatal("Window could not be initialized")
-        return
+        return false
     }
-    defer if !ok do window.shutdown()
+    defer if !ok do window.shutdown(&engine_ctx.window)
 
-    ok = input.init(); if ok == false {
-        log.fatal("Input could not be initialized")
-        return
+    ok = graphics.init(&engine_ctx.graphics); if ok == false {
+        log.fatal("Renderer could not be initialized")
+        return false
     }
-    defer if !ok do input.shutdown()
+    defer if !ok do graphics.shutdown(&engine_ctx.graphics)
 
-    // ok = graphics.init(); if ok == false {
-    //     log.fatal("Renderer could not be initialized")
-    //     return
-    // }
-    // defer if !ok do graphics.shutdown()
+    bind_context(engine_ctx)
 
     return
 }
 
 
 // Shut down Callisto engine, cleaning up internal allocations.
-shutdown :: proc() {
+shutdown :: proc(engine_ctx: ^Engine_Context) {
     debug.profile_scope()
-    // The following cleanup methods are in the order in which they were initialized.
-    // Deferring them executes in reverse order at the end of the procedure scope.
     
-    defer window.shutdown()
-    defer input.shutdown()
-    // defer graphics.shutdown()
+    graphics.shutdown(&engine_ctx.graphics)
+    window.shutdown(&engine_ctx.window)
 }
 
 
@@ -58,3 +53,8 @@ should_loop :: proc() -> bool {
     return false
 }
 
+bind_context :: proc(engine_ctx: ^Engine_Context) {
+    window.bind_context(&engine_ctx.window)
+    input.bind_context(&engine_ctx.input)
+    graphics.bind_context(&engine_ctx.graphics)
+}

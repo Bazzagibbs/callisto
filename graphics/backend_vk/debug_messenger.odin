@@ -1,6 +1,5 @@
-//+build windows, linux, darwin
 //+private
-package callisto_graphics
+package callisto_graphics_backend_vk
 /*
 import "core:log"
 import "core:runtime"

@@ -2,9 +2,13 @@ package callisto
 
 import cc "common"
 import cg "graphics"
+import "input"
+import "window"
 
-Callisto_Context :: struct {
-    renderer: cg.Renderer_Context,
+Engine_Context :: struct {
+    window:     window.Window_Context,
+    graphics:   cg.Graphics_Context,
+    input:      input.Input_Context,
 }
 
 Handle :: distinct rawptr

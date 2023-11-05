@@ -4,7 +4,7 @@ import "core:log"
 
 Debug_Log_Level_Flag    :: log.Level
 
-Build_Target_Flag       :: enum {
+Build_Platform_Flag       :: enum {
     Desktop,
     Android,    // Not implemented
     IOS,        // Not implemented
