@@ -1,5 +1,5 @@
 //+private
-package callisto_graphics_backend_vk
+package callisto_graphics_vkb
 /*
 import "core:log"
 import "core:runtime"

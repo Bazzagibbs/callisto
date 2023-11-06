@@ -1,20 +1,15 @@
 //+build windows, linux, darwin
-package callisto_window
+package callisto_platform
 import "core:log"
 import "core:c"
 import "vendor:glfw"
 import "../config"
+import "../platform"
 import "core:strings"
 
 when config.BUILD_PLATFORM == .Desktop {
     global_user_count: int = 0 // Keeps track of the number of active windows in use. Only disables GLFW when zero.
     
-    Window_Context :: struct {
-        handle: Window_Handle,
-        input: Input_Context,
-    }
-
-    Window_Handle :: glfw.WindowHandle
 
 
     init :: proc(window_ctx: ^Window_Context) -> (ok: bool) {

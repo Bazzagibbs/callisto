@@ -1,20 +1,20 @@
 package callisto_input
 
 // Types are defined in Window as callbacks are implemented per-platform there.
-import "../window"
+import "../platform"
 
-Input_Context       :: window.Input_Context
+Input_Context       :: platform.Input_Context
 
-KBM_State           :: window.KBM_State
+KBM_State           :: platform.KBM_State
 
-Cursor_Lock_Mode    :: window.Cursor_Lock_Mode
+Cursor_Lock_Mode    :: platform.Cursor_Lock_Mode
 
-Button_Action       :: window.Button_Action
+Button_Action       :: platform.Button_Action
 
-Gamepad_Button      :: window.Gamepad_Button
+Gamepad_Button      :: platform.Gamepad_Button
 
-Gamepad_Axis        :: window.Gamepad_Axis
+Gamepad_Axis        :: platform.Gamepad_Axis
 
-Key_Code            :: window.Key_Code
+Key_Code            :: platform.Key_Code
 
-Mouse_Button        :: window.Mouse_Button
+Mouse_Button        :: platform.Mouse_Button

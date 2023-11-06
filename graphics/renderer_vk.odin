@@ -5,17 +5,19 @@ import "core:intrinsics"
 import "../config"
 import "../asset"
 import "../debug"
-import "backend_vk"
+import vkb "backend_vk"
 
 when config.RENDERER_API == .Vulkan {
-    Graphics_Context :: backend_vk.Graphics_Context
+    Graphics_Context :: vkb.Graphics_Context
     cg_ctx: ^Graphics_Context
 
     bind_context :: proc(ctx: ^Graphics_Context) {
+        vkb.create_instance
         cg_ctx = ctx
     }
 
     init :: proc(graphics_ctx: ^Graphics_Context) -> (ok: bool) {
+        
         return true
     }
 

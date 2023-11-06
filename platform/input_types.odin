@@ -1,4 +1,4 @@
-package callisto_window
+package callisto_platform
 import "core:c"
 
 Input_Context :: struct {

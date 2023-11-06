@@ -1,5 +1,5 @@
 //+private
-package callisto_window
+package callisto_platform
 
 import "../config"
 import "vendor:glfw"
