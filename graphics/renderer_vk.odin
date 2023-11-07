@@ -12,12 +12,11 @@ when config.RENDERER_API == .Vulkan {
     cg_ctx: ^Graphics_Context
 
     bind_context :: proc(ctx: ^Graphics_Context) {
-        vkb.create_instance
         cg_ctx = ctx
     }
 
     init :: proc(graphics_ctx: ^Graphics_Context) -> (ok: bool) {
-        
+        // vkb.create_instance
         return true
     }
 

@@ -1,6 +1,7 @@
 package callisto
 
 import "core:log"
+import "platform"
 import "window"
 import "graphics"
 import "input"
@@ -14,13 +15,21 @@ init :: proc(engine_ctx: ^Engine_Context) -> (ok: bool) {
     
     log.info("Initializing Callisto engine")
     
-    ok = window.init(&engine_ctx.window); if ok == false {
+    ok = platform.init(); if !ok {
+        log.fatal("Platform could not be initialized")
+        return false
+    }
+    defer if !ok do platform.shutdown()
+
+    ok = window.init(&engine_ctx.window); if !ok {
         log.fatal("Window could not be initialized")
         return false
     }
     defer if !ok do window.shutdown(&engine_ctx.window)
 
-    ok = graphics.init(&engine_ctx.graphics); if ok == false {
+    platform.set_input_sink(&engine_ctx.window, &engine_ctx.input)
+
+    ok = graphics.init(&engine_ctx.graphics); if !ok {
         log.fatal("Renderer could not be initialized")
         return false
     }
@@ -30,8 +39,6 @@ init :: proc(engine_ctx: ^Engine_Context) -> (ok: bool) {
 
     return
 }
-
-
 // Shut down Callisto engine, cleaning up internal allocations.
 shutdown :: proc(engine_ctx: ^Engine_Context) {
     debug.profile_scope()
@@ -44,7 +51,7 @@ shutdown :: proc(engine_ctx: ^Engine_Context) {
 
 should_loop :: proc() -> bool {
     input.flush()
-    window.poll_events()
+    platform.poll_events()
     if window.should_close() == false {
         return true
     }

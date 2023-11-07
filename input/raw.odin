@@ -2,6 +2,7 @@ package callisto_input
 
 import "../debug"
 import "../window"
+import "../platform"
 
 @(private)
 input_ctx: ^Input_Context

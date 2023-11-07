@@ -7,8 +7,8 @@ import "window"
 
 Engine_Context :: struct {
     window:     window.Window_Context,
-    graphics:   cg.Graphics_Context,
     input:      input.Input_Context,
+    graphics:   cg.Graphics_Context,
 }
 
 Handle :: distinct rawptr
