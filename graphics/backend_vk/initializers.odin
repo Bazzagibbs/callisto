@@ -7,14 +7,17 @@ import "core:log"
 import "../../config"
 import "../../platform"
 
+
 create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    vk.load_proc_addresses(rawptr(platform.get_vk_proc_address))
+
     application_info := vk.ApplicationInfo {
         sType               = .APPLICATION_INFO,
         pApplicationName    = strings.unsafe_string_to_cstring(config.APP_NAME),
         applicationVersion  = vk.MAKE_VERSION(config.APP_VERSION.x, config.APP_VERSION.y, config.APP_VERSION.z),
         pEngineName         = strings.unsafe_string_to_cstring(config.ENGINE_NAME),
         engineVersion       = vk.MAKE_VERSION(config.ENGINE_VERSION.x, config.ENGINE_VERSION.y, config.ENGINE_VERSION.z),
-        apiVersion          = vk.MAKE_VERSION(1, 1, 0),
+        apiVersion          = vk.MAKE_VERSION(1, 3, 0),
     }
 
     validation_layers :: []cstring {
@@ -61,6 +64,8 @@ create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
         log.fatal("Failed to create Vulkan instance:", res)
         return false
     }
+
+    vk.load_proc_addresses(cg_ctx.instance)
 
     when ODIN_DEBUG {
         res = vk.CreateDebugUtilsMessengerEXT(cg_ctx.instance, &debug_create_info, nil, &cg_ctx.debug_messenger); if res != .SUCCESS {

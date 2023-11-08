@@ -14,7 +14,7 @@ when config.BUILD_PLATFORM == .Desktop {
     }
 
     init :: proc() -> (ok: bool) {
-        log.info("Initializing window: GLFW Windows")
+        log.info("Initializing platform: GLFW Windows")
 
         if global_user_count <= 0 {
             ok = bool(glfw.Init())
@@ -26,7 +26,7 @@ when config.BUILD_PLATFORM == .Desktop {
     }
 
     shutdown :: proc() {
-        log.info("Shutting down window")
+        log.info("Shutting down platform")
         
         global_user_count -= 1
         if global_user_count <= 0 {
@@ -34,4 +34,5 @@ when config.BUILD_PLATFORM == .Desktop {
         }
     }
 
+    get_vk_proc_address :: glfw.GetInstanceProcAddress
 }

@@ -6,6 +6,7 @@ import "../config"
 import "../asset"
 import "../debug"
 import vkb "backend_vk"
+import vk "vendor:vulkan"
 
 when config.RENDERER_API == .Vulkan {
     Graphics_Context :: vkb.Graphics_Context
@@ -18,7 +19,6 @@ when config.RENDERER_API == .Vulkan {
     init :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
         vkb.create_instance(cg_ctx) or_return
         defer if !ok do vkb.destroy_instance(cg_ctx)
-
 
         return true
     }

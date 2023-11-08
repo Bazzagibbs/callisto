@@ -10,6 +10,7 @@ import "debug"
 bound_ctx: ^Engine_Context
 
 // Initialize Callisto engine. If successful, call `engine.shutdown()` before exiting the program.
+// Note: engine context will be bound automatically upon initialization.
 init :: proc(engine_ctx: ^Engine_Context) -> (ok: bool) {
     debug.profile_scope()
     
