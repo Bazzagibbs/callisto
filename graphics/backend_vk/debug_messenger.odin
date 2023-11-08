@@ -1,48 +1,47 @@
 //+private
 package callisto_graphics_vkb
-/*
+
 import "core:log"
 import "core:runtime"
 import "core:fmt"
 import "core:strings"
-import "../config"
+import "../../config"
 import vk "vendor:vulkan"
 
-logger: log.Logger = {}
-
-_init_logger :: proc() {
+_create_vk_logger :: proc() -> log.Logger {
     renderer_logger_opts: log.Options = {
         .Level,
         .Terminal_Color,
     }
 
-    logger = log.create_console_logger(lowest=config.DEBUG_LOG_LEVEL, opt=renderer_logger_opts, ident="VK")
+    return log.create_console_logger(lowest=config.DEBUG_LOG_LEVEL, opt=renderer_logger_opts, ident="VK")
 }
 
-_destroy_logger :: proc(logger: log.Logger) {
+_destroy_vk_logger :: proc(logger: log.Logger) {
     log.destroy_console_logger(logger)
 }
 
 // Debug messenger that forwards validation layer messages to the engine's internal logger
-_debug_messenger_create_info :: proc() -> (messenger_info: vk.DebugUtilsMessengerCreateInfoEXT) {    
+_debug_messenger_create_info :: proc(logger: ^log.Logger) -> (messenger_info: vk.DebugUtilsMessengerCreateInfoEXT) {    
     messenger_info = {
         sType = .DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
         messageSeverity = _log_level_to_vk_severity(context.logger.lowest_level),
         messageType = {.GENERAL, .VALIDATION, .PERFORMANCE},
         pfnUserCallback = vk.ProcDebugUtilsMessengerCallbackEXT(_default_log_callback),
+        pUserData = logger,
     }
     return
 }
 
-_default_log_callback :: proc "contextless" (   messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT,
+_default_log_callback :: proc "contextless" (messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT,
                                         messageType: vk.DebugUtilsMessageTypeFlagsEXT,
                                         pCallbackData: vk.DebugUtilsMessengerCallbackDataEXT,
+                                        pUserData: rawptr,
                                     ) -> b32 {
 
     context = runtime.default_context()
-    context.logger = logger
+    context.logger = ((^log.Logger)(pUserData))^
     level := _vk_severity_to_log_level(messageSeverity)
-
     message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n | ", -1, context.temp_allocator);
 
     log.log(level, message)
@@ -92,7 +91,7 @@ _vk_severity_to_log_level :: proc(vk_severity: vk.DebugUtilsMessageSeverityFlags
     
 }
 
-_set_debug_name :: proc(handle: u64, vk_type: vk.ObjectType, name: cstring) {
+_set_debug_name :: proc(cg_ctx: ^Graphics_Context, handle: u64, vk_type: vk.ObjectType, name: cstring) {
     when config.DEBUG_LOG_ENABLED {
         obj_name_info := vk.DebugUtilsObjectNameInfoEXT {
             sType = .DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
@@ -101,9 +100,9 @@ _set_debug_name :: proc(handle: u64, vk_type: vk.ObjectType, name: cstring) {
             pObjectName = name,
         }
 
-        res := vk.SetDebugUtilsObjectNameEXT(bound_state.device, &obj_name_info); if res != .SUCCESS {
+        res := vk.SetDebugUtilsObjectNameEXT(cg_ctx.device, &obj_name_info); if res != .SUCCESS {
             log.error("Failed to set VK object debug name", name, ":", res)
         }
     }
 }
-*/
+

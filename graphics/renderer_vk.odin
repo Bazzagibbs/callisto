@@ -15,12 +15,17 @@ when config.RENDERER_API == .Vulkan {
         cg_ctx = ctx
     }
 
-    init :: proc(graphics_ctx: ^Graphics_Context) -> (ok: bool) {
-        // vkb.create_instance
+    init :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+        vkb.create_instance(cg_ctx) or_return
+        defer if !ok do vkb.destroy_instance(cg_ctx)
+
+
         return true
     }
 
-    shutdown :: proc(graphics_ctx: ^Graphics_Context) {
+    shutdown :: proc(cg_ctx: ^Graphics_Context) {
+        // wait until idle?
+        vkb.destroy_instance(cg_ctx)
     }
     
     wait_until_idle :: proc() {
