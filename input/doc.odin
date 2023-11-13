@@ -1,6 +1,4 @@
 /*
-    TODO: Input documentation
-
     Future plans:
     - Input abstraction/keybinds
     - Input events

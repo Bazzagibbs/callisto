@@ -1,13 +1,11 @@
 package callisto_window
 import "../platform"
 
+Window_Context      :: platform.Window_Context
+Fullscreen_Mode     :: platform.Fullscreen_Mode
+Cursor_Lock_Mode    :: platform.Cursor_Lock_Mode
+
 window_ctx: ^Window_Context
-
-Window_Context :: platform.Window_Context
-
-Fullscreen_Mode :: platform.Fullscreen_Mode
-
-Cursor_Lock_Mode :: platform.Cursor_Lock_Mode
 
 
 bind_context :: proc(ctx: ^Window_Context) {

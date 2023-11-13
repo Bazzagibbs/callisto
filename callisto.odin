@@ -30,7 +30,7 @@ init :: proc(engine_ctx: ^Engine_Context) -> (ok: bool) {
 
     platform.set_input_sink(&engine_ctx.window, &engine_ctx.input)
 
-    ok = graphics.init(&engine_ctx.graphics); if !ok {
+    ok = graphics.init(&engine_ctx.graphics, &engine_ctx.window); if !ok {
         log.fatal("Renderer could not be initialized")
         return false
     }

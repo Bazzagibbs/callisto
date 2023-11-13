@@ -5,6 +5,7 @@ import "core:intrinsics"
 import "../config"
 import "../asset"
 import "../debug"
+import "../platform"
 import vkb "backend_vk"
 import vk "vendor:vulkan"
 
@@ -16,20 +17,29 @@ when config.RENDERER_API == .Vulkan {
         cg_ctx = ctx
     }
 
-    init :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    init :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window_Context) -> (ok: bool) {
         vkb.create_instance(cg_ctx) or_return
         defer if !ok do vkb.destroy_instance(cg_ctx)
+
+        // TODO: check if running headless in case we need to skip this
+        vkb.create_surface(cg_ctx, window_ctx) or_return
+        defer if !ok do vkb.destroy_surface(cg_ctx)
+
+        vkb.select_physical_device(cg_ctx) or_return
+
+        vkb.create_swapchain(cg_ctx) or_return
+        defer if !ok do vkb.destroy_swapchain(cg_ctx)
 
         return true
     }
 
     shutdown :: proc(cg_ctx: ^Graphics_Context) {
         // wait until idle?
+        vkb.destroy_surface(cg_ctx)
         vkb.destroy_instance(cg_ctx)
     }
     
-    wait_until_idle :: proc() {
-    }
+    wait_until_idle :: proc() 
 
     create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool)
 

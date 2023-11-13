@@ -35,4 +35,6 @@ when config.BUILD_PLATFORM == .Desktop {
     }
 
     get_vk_proc_address :: glfw.GetInstanceProcAddress
+
+    create_vk_window_surface :: glfw.CreateWindowSurface
 }
