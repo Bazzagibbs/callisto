@@ -725,4 +725,5 @@ destroy_sync_structures :: proc(cg_ctx: ^Graphics_Context) {
         vk.DestroySemaphore(cg_ctx.device, syncs.sem_render_finished, nil)
         vk.DestroyFence(cg_ctx.device, syncs.fence_in_flight, nil)
     }
+    delete(cg_ctx.sync_structures)
 }

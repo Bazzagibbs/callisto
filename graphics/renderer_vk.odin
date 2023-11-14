@@ -45,12 +45,16 @@ when config.RENDERER_API == .Vulkan {
         cg_ctx.render_pass_framebuffers = vkb.create_framebuffers(cg_ctx, cg_ctx.render_pass) or_return
         defer if !ok do vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
 
+        vkb.create_sync_structures(cg_ctx) or_return
+        defer if !ok do vkb.destroy_sync_structures(cg_ctx)
+
         return true
     }
 
     shutdown :: proc(cg_ctx: ^Graphics_Context) {
         vk.DeviceWaitIdle(cg_ctx.device)
 
+        vkb.destroy_sync_structures(cg_ctx)
         vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
         vkb.destroy_builtin_render_pass(cg_ctx)
         vkb.destroy_builtin_command_buffers(cg_ctx)
