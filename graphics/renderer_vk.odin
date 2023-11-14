@@ -27,7 +27,10 @@ when config.RENDERER_API == .Vulkan {
 
         vkb.select_physical_device(cg_ctx) or_return
 
-        vkb.create_swapchain(cg_ctx) or_return
+        vkb.create_device(cg_ctx) or_return
+        defer if !ok do vkb.destroy_device(cg_ctx)
+
+        vkb.create_swapchain(cg_ctx, window_ctx) or_return
         defer if !ok do vkb.destroy_swapchain(cg_ctx)
 
         return true
@@ -35,6 +38,8 @@ when config.RENDERER_API == .Vulkan {
 
     shutdown :: proc(cg_ctx: ^Graphics_Context) {
         // wait until idle?
+        vkb.destroy_swapchain(cg_ctx)
+        vkb.destroy_device(cg_ctx)
         vkb.destroy_surface(cg_ctx)
         vkb.destroy_instance(cg_ctx)
     }

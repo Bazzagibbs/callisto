@@ -4,7 +4,7 @@ import "core:log"
 
 Debug_Log_Level_Flag    :: log.Level
 
-Build_Platform_Flag       :: enum {
+Build_Platform_Flag     :: enum {
     Desktop,
     Android,    // Not implemented
     IOS,        // Not implemented
@@ -14,4 +14,10 @@ Build_Platform_Flag       :: enum {
 Renderer_Api_Flag       :: enum {
     Vulkan,
     WebGPU,     // Not implemented
+}
+
+Renderer_Vsync_Flag     :: enum {
+    Triple_Buffer,
+    Vsync,
+    Off,
 }

@@ -12,9 +12,16 @@ Graphics_Context :: struct {
 
     physical_device:    vk.PhysicalDevice,
     device:             vk.Device,
+    graphics_queue:     vk.Queue,
+    transfer_queue:     vk.Queue,
+    compute_queue:      vk.Queue,
+    graphics_queue_family_idx: u32,
+    transfer_queue_family_idx: u32,
+    compute_queue_family_idx:  u32,
 
     swapchain:          vk.SwapchainKHR,
     swapchain_format:   vk.Format,
+    swapchain_extents:  vk.Extent2D,
     swapchain_images:   []vk.Image,
     swapchain_views:    []vk.ImageView,
 }

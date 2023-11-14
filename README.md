@@ -2,6 +2,9 @@
 
 Desktop game engine written in [Odin](https://odin-lang.org).
 
+[Engine documentation](https://docs.bazzagibbs.com/callisto) (WIP)
+[Galileo asset format documentation](https://docs.bazzagibbs.com/galileo)
+
 ## Creating an application
 
 An example application can be found at [Bazzas-Personal-Stuff/callisto-sandbox](https://github.com/bazzas-personal-stuff/callisto-sandbox).
@@ -57,6 +60,12 @@ main :: proc() {
 }
 ```
 
+## Importing assets
+
+Callisto loads assets using the [Galileo file format](https://docs.bazzagibbs.com/galileo).
+
+Source assets such as glTF, png, etc. can be imported to the Galileo format using the [Callisto Editor](https://github.com/Bazzagibbs/callisto-editor) (WIP),
+or using a custom implementation of the format specification.
 
 ## Implemented features
 

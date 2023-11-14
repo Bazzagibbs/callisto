@@ -1,7 +1,7 @@
 package callisto_config
 
 DEBUG_LOG_ENABLED                   : bool                  : true
-DEBUG_LOG_LEVEL                     : Debug_Log_Level_Flag  : .Debug
+DEBUG_LOG_LEVEL                     : Debug_Log_Level_Flag  : .Info
 DEBUG_BREAKPOINT_ON_RENDERER_ERROR  : bool                  : true
 
 DEBUG_PROFILER_ENABLED              : bool                  : false

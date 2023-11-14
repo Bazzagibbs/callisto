@@ -6,10 +6,16 @@ import "core:strings"
 import "core:slice"
 import "core:log"
 import "core:math"
+import "core:runtime"
 import "../../config"
 import "../../platform"
 
 INSTANCE_EXTS :: []cstring {}
+
+ENABLE_VALIDATION_LAYERS :: ODIN_DEBUG
+VALIDATION_LAYERS :: []cstring {
+    "VK_LAYER_KHRONOS_validation",
+}
 
 DEVICE_EXTS :: []cstring {
     vk.KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -17,7 +23,7 @@ DEVICE_EXTS :: []cstring {
 
 DEVICE_FEATURES :: vk.PhysicalDeviceFeatures {}
 
-ENABLE_VALIDATION_LAYERS :: ODIN_DEBUG
+
 
 // Helpers
 // ///////
@@ -36,6 +42,8 @@ check_result :: proc(res: vk.Result, loc := #caller_location) -> (ok: bool) {
 create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     vk.load_proc_addresses(rawptr(platform.get_vk_proc_address))
 
+    check_validation_layer_support() or_return
+
     application_info := vk.ApplicationInfo {
         sType               = .APPLICATION_INFO,
         pApplicationName    = strings.unsafe_string_to_cstring(config.APP_NAME),
@@ -45,9 +53,6 @@ create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
         apiVersion          = vk.MAKE_VERSION(1, 3, 0),
     }
 
-    validation_layers :: []cstring {
-        "VK_LAYER_KHRONOS_validation",
-    }
 
     required_extensions := make([dynamic]cstring)
     defer delete(required_extensions)
@@ -78,6 +83,8 @@ create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     //     append(&required_extensions, "VK_KHR_pipeline_library")
     //     append(&required_extensions, "VK_KHR_deferred_host_operations")
     // }
+
+    validation_layers := VALIDATION_LAYERS
     
     instance_create_info := vk.InstanceCreateInfo {
         sType                   = .INSTANCE_CREATE_INFO,
@@ -116,6 +123,38 @@ destroy_instance :: proc(cg_ctx: ^Graphics_Context) {
     }
 
     vk.DestroyInstance(cg_ctx.instance, nil)
+}
+
+
+check_validation_layer_support :: proc() -> (ok: bool) {
+    when ENABLE_VALIDATION_LAYERS {
+        layer_count: u32
+        vk.EnumerateInstanceLayerProperties(&layer_count, nil)
+
+        available_layers := make([]vk.LayerProperties, layer_count)
+        defer delete(available_layers)
+        vk.EnumerateInstanceLayerProperties(&layer_count, raw_data(available_layers))
+
+        available_layer_names := make([]cstring, layer_count)
+        defer delete(available_layer_names)
+        for &layer, i in available_layers {
+            available_layer_names[i] = transmute(cstring)&(layer.layerName)
+        }
+
+        outer: for requested_layer in VALIDATION_LAYERS {
+            for avail_layer in available_layer_names {
+                if runtime.cstring_cmp(avail_layer, requested_layer) == 0 {
+                    continue outer
+                }
+            }
+
+            // requested validation layer not in available layers
+            log.error("Missing Vulkan validation layer:", requested_layer, "\n  Available layers:", available_layer_names)
+            return false
+        }
+    }
+
+    return true
 }
 
 
@@ -166,19 +205,22 @@ is_physical_device_suitable :: proc(cg_ctx: ^Graphics_Context, phys_device: vk.P
     vk.GetPhysicalDeviceFeatures(phys_device, &feats)
 
     families := find_queue_families(phys_device)
-    families_adequate := families.has_compute && families.has_transfer
-    // when !HEADLESS {
-    families_adequate &= families.has_graphics
-    // }
+    families_adequate := is_family_complete(&families)
 
     swap_details := query_swapchain_support(phys_device, cg_ctx.surface)
+    defer delete_swapchain_support(&swap_details)
     swap_adequate := len(swap_details.formats) > 0 && len(swap_details.present_modes) > 0
 
-    return  check_device_extension_support(phys_device, DEVICE_EXTS) &&
-            families_adequate &&
-            swap_adequate &&
-            props.deviceType == .DISCRETE_GPU && 
-            props.apiVersion >= vk.MAKE_VERSION(1, 3, 0)
+    suitable := check_device_extension_support(phys_device, DEVICE_EXTS) &&
+                families_adequate &&
+                swap_adequate &&
+                props.apiVersion >= vk.MAKE_VERSION(1, 3, 0)
+
+    when !config.RENDERER_HEADLESS {
+        suitable &= (props.deviceType == .DISCRETE_GPU)
+    }
+
+    return suitable
 }
 
 
@@ -193,7 +235,7 @@ check_device_extension_support :: proc(phys_device: vk.PhysicalDevice, required_
     outer: for req_ext in required_exts {
         for avail_ext in avail_exts {
             avail_ext := avail_ext
-            if cstring(&(avail_ext.extensionName[0])) == req_ext {
+            if transmute(cstring)&(avail_ext.extensionName) == req_ext {
                 continue outer
             }
         }
@@ -215,45 +257,91 @@ find_queue_families :: proc(phys_device: vk.PhysicalDevice) -> Queue_Families {
     families: Queue_Families
 
     for family, i in queue_family_props {
-        if .COMPUTE in family.queueFlags {
-            families.has_compute = true
-            families.compute = u32(i)
-        }
         if .GRAPHICS in family.queueFlags {
             families.has_graphics = true
             families.graphics = u32(i)
         }
+        if .COMPUTE in family.queueFlags {
+            families.has_compute = true
+            families.compute = u32(i)
+        }
         if .TRANSFER in family.queueFlags {
             families.has_transfer = true
             families.transfer = u32(i)
+        }
+
+        if is_family_complete(&families) {
+            break
         }
     }
 
     return families
 }
 
+is_family_complete :: proc(families: ^Queue_Families) -> bool {
+    is_complete :=  families.has_compute && 
+                    families.has_transfer
+
+    when !config.RENDERER_HEADLESS {
+        is_complete &= families.has_graphics
+    }
+
+    return is_complete
+}
+
 
 create_device :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     families := find_queue_families(cg_ctx.physical_device)
 
-    queue_create_info := vk.DeviceQueueCreateInfo {
-        sType = .DEVICE_QUEUE_CREATE_INFO,
-        queueFamilyIndex = families.graphics,
-        queueCount = 1,
+    unique_family_idx_and_queue_counts:= make(map[u32]u32)
+    defer delete(unique_family_idx_and_queue_counts)
+
+    // TODO(headless): don't create graphics queue if running headless
+    unique_family_idx_and_queue_counts[families.compute]  += 1
+    unique_family_idx_and_queue_counts[families.transfer] += 1
+    unique_family_idx_and_queue_counts[families.graphics] += 1
+
+    cg_ctx.compute_queue_family_idx  = families.compute
+    cg_ctx.transfer_queue_family_idx = families.transfer
+    cg_ctx.graphics_queue_family_idx = families.graphics
+
+    queue_priorities := []f32 { 1, 1, 1, }
+
+    queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo)
+    defer delete(queue_create_infos)
+
+    for fam_idx, queue_count in unique_family_idx_and_queue_counts {
+        append(&queue_create_infos, vk.DeviceQueueCreateInfo{
+            sType               = .DEVICE_QUEUE_CREATE_INFO,
+            queueFamilyIndex    = fam_idx,
+            queueCount          = queue_count,
+            pQueuePriorities    = raw_data(queue_priorities),
+        })
     }
 
-    device_features := DEVICE_FEATURES
+    device_features     := DEVICE_FEATURES
+    device_exts         := DEVICE_EXTS
+    validation_layers   := VALIDATION_LAYERS
+
     device_create_info := vk.DeviceCreateInfo {
-        sType = .DEVICE_CREATE_INFO,
-        queueCreateInfoCount = 1,
-        pQueueCreateInfos = &queue_create_info,
-        pEnabledFeatures = &device_features,
+        sType                   = .DEVICE_CREATE_INFO,
+        queueCreateInfoCount    = u32(len(queue_create_infos)),
+        pQueueCreateInfos       = raw_data(queue_create_infos),
+        pEnabledFeatures        = &device_features,
+        enabledLayerCount       = ENABLE_VALIDATION_LAYERS ? u32(len(validation_layers)) : 0,
+        ppEnabledLayerNames     = raw_data(validation_layers),
+        enabledExtensionCount   = u32(len(device_exts)),
+        ppEnabledExtensionNames = raw_data(device_exts),
     }
+
+    res := vk.CreateDevice(cg_ctx.physical_device, &device_create_info, nil, &cg_ctx.device)
+    return check_result(res)
 }
 
 destroy_device :: proc(cg_ctx: ^Graphics_Context) {
-
+    vk.DestroyDevice(cg_ctx.device, nil)
 }
+
 
 // SWAPCHAIN
 // /////////
@@ -264,6 +352,11 @@ Swapchain_Support_Details :: struct {
 }
 
 create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window_Context, old_swapchain: vk.SwapchainKHR = {}) -> (ok: bool) {
+    if old_swapchain != {} {
+        delete(cg_ctx.swapchain_images)
+        delete(cg_ctx.swapchain_views)
+    }
+
     swapchain_support := query_swapchain_support(cg_ctx.physical_device, cg_ctx.surface)
     defer delete_swapchain_support(&swapchain_support)
 
@@ -272,14 +365,26 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
     for available_fmt in swapchain_support.formats {
         if available_fmt.format == .B8G8R8A8_SRGB && available_fmt.colorSpace == .SRGB_NONLINEAR {
             swap_surface_fmt = available_fmt
+            cg_ctx.swapchain_format = available_fmt.format
             break
         }
     }
 
-    // use mailbox present mode if availabe, otherwise FIFO
+    // use requested present mode if availabe, otherwise FIFO as it's the only one guaranteed to be implemented
     swap_present_mode := vk.PresentModeKHR.FIFO
+    wish_present_mode: vk.PresentModeKHR
+
+    switch config.WINDOW_VSYNC {
+    case .Triple_Buffer:
+        wish_present_mode = .MAILBOX
+    case .Vsync:
+        wish_present_mode = .FIFO
+    case .Off:
+        wish_present_mode = .IMMEDIATE
+    }
+
     for available_present_mode in swapchain_support.present_modes {
-        if available_present_mode == .MAILBOX {
+        if available_present_mode == wish_present_mode {
             swap_present_mode = available_present_mode
             break
         }
@@ -297,6 +402,8 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
         swap_extent.height = math.clamp(u32(window_size.y), minImageExtent.height, maxImageExtent.height)
     }
 
+    cg_ctx.swapchain_extents = swap_extent
+
     // prefer triple buffered if supported, otherwise use as many swap images as we can
     image_count := math.clamp(3, swapchain_support.capabilities.minImageCount, swapchain_support.capabilities.maxImageCount)
 
@@ -312,6 +419,7 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
         imageSharingMode    = .EXCLUSIVE,
         preTransform        = swapchain_support.capabilities.currentTransform,
         presentMode         = swap_present_mode,
+        compositeAlpha      = {.OPAQUE},
         clipped             = true,
         oldSwapchain        = old_swapchain,
     }
@@ -325,12 +433,46 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
     res := vk.CreateSwapchainKHR(cg_ctx.device, &swap_create_info, nil, &cg_ctx.swapchain)
     check_result(res) or_return
 
+    actual_image_count: u32
+    res = vk.GetSwapchainImagesKHR(cg_ctx.device, cg_ctx.swapchain, &actual_image_count, nil)
+    check_result(res) or_return
 
+    cg_ctx.swapchain_images = make([]vk.Image, actual_image_count)
+    cg_ctx.swapchain_views  = make([]vk.ImageView, actual_image_count)
+    res = vk.GetSwapchainImagesKHR(cg_ctx.device, cg_ctx.swapchain, &actual_image_count, raw_data(cg_ctx.swapchain_images))
+    check_result(res) or_return
+
+    for swap_img, i in cg_ctx.swapchain_images {
+        view_create_info := vk.ImageViewCreateInfo {
+            sType               = .IMAGE_VIEW_CREATE_INFO,
+            image               = swap_img,
+            viewType            = .D2,
+            format              = cg_ctx.swapchain_format,
+            components          = {}, // RGBA Identity by default
+            subresourceRange    = {
+                aspectMask      = {.COLOR},
+                baseMipLevel    = 0,
+                levelCount      = 1,
+                baseArrayLayer  = 0,
+                layerCount      = 1,
+            }
+        }
+
+        res = vk.CreateImageView(cg_ctx.device, &view_create_info, nil, &(cg_ctx.swapchain_views[i]))
+        check_result(res) or_return
+    }
+    
     return true
 }
 
 
 destroy_swapchain :: proc(cg_ctx: ^Graphics_Context) {
+    for img_view in cg_ctx.swapchain_views {
+        vk.DestroyImageView(cg_ctx.device, img_view, nil)
+    }
+
+    delete(cg_ctx.swapchain_images)
+    delete(cg_ctx.swapchain_views)
     vk.DestroySwapchainKHR(cg_ctx.device, cg_ctx.swapchain, nil)
 }
 
