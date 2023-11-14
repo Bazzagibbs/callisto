@@ -98,8 +98,11 @@ create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     when ODIN_DEBUG {
         cg_ctx.logger = _create_vk_logger()
         debug_create_info := _debug_messenger_create_info(&cg_ctx.logger)
-
-        instance_create_info.pNext = &debug_create_info
+       
+        when config.DEBUG_LOG_LEVEL == .Debug {
+            // Instance creation logging is very verbose, only enable it if we need it.
+            instance_create_info.pNext = &debug_create_info
+        }
     }
 
     res := vk.CreateInstance(&instance_create_info, nil, &cg_ctx.instance)
@@ -162,6 +165,7 @@ check_validation_layer_support :: proc() -> (ok: bool) {
 // ///////
 
 create_surface :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window_Context) -> (ok: bool) {
+    // TODO(headless): noop if running headless
     res := platform.create_vk_window_surface(cg_ctx.instance, window_ctx.handle, nil, &cg_ctx.surface)
     return check_result(res)
 }
@@ -296,14 +300,16 @@ create_device :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     unique_family_idx_and_queue_counts:= make(map[u32]u32)
     defer delete(unique_family_idx_and_queue_counts)
 
-    // TODO(headless): don't create graphics queue if running headless
     unique_family_idx_and_queue_counts[families.compute]  += 1
     unique_family_idx_and_queue_counts[families.transfer] += 1
-    unique_family_idx_and_queue_counts[families.graphics] += 1
 
     cg_ctx.compute_queue_family_idx  = families.compute
     cg_ctx.transfer_queue_family_idx = families.transfer
-    cg_ctx.graphics_queue_family_idx = families.graphics
+    
+    when !config.RENDERER_HEADLESS {
+        unique_family_idx_and_queue_counts[families.graphics] += 1
+        cg_ctx.graphics_queue_family_idx = families.graphics
+    }
 
     queue_priorities := []f32 { 1, 1, 1, }
 
@@ -499,4 +505,224 @@ query_swapchain_support :: proc(phys_device: vk.PhysicalDevice, surface: vk.Surf
 delete_swapchain_support :: proc(details: ^Swapchain_Support_Details) {
     delete(details.formats)
     delete(details.present_modes)
+}
+
+
+// COMMAND RESOURCES
+// /////////////////
+
+create_command_pools :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    pool_create_info := vk.CommandPoolCreateInfo {
+        sType               = .COMMAND_POOL_CREATE_INFO,
+        flags               = {.RESET_COMMAND_BUFFER},
+    }
+    
+    // Transfer
+    pool_create_info.queueFamilyIndex = cg_ctx.transfer_queue_family_idx
+    res := vk.CreateCommandPool(cg_ctx.device, &pool_create_info, nil, &cg_ctx.transfer_pool)
+    check_result(res) or_return
+
+    // Compute
+    pool_create_info.queueFamilyIndex = cg_ctx.compute_queue_family_idx
+    res = vk.CreateCommandPool(cg_ctx.device, &pool_create_info, nil, &cg_ctx.compute_pool)
+    check_result(res) or_return
+
+    // Graphics
+    when !config.RENDERER_HEADLESS {
+        pool_create_info.queueFamilyIndex = cg_ctx.graphics_queue_family_idx
+        res = vk.CreateCommandPool(cg_ctx.device, &pool_create_info, nil, &cg_ctx.graphics_pool)
+        check_result(res) or_return
+    }
+
+    return true
+}
+
+
+destroy_command_pools :: proc(cg_ctx: ^Graphics_Context) {
+    vk.DestroyCommandPool(cg_ctx.device, cg_ctx.transfer_pool, nil)
+    vk.DestroyCommandPool(cg_ctx.device, cg_ctx.compute_pool, nil)
+    when !config.RENDERER_HEADLESS {
+        vk.DestroyCommandPool(cg_ctx.device, cg_ctx.graphics_pool, nil)
+    }
+}
+
+
+create_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    // Transfer
+    cb_transfer_allocate_info := vk.CommandBufferAllocateInfo {
+        sType = .COMMAND_BUFFER_ALLOCATE_INFO,
+        commandPool = cg_ctx.transfer_pool,
+        level = .PRIMARY,
+        commandBufferCount = 1,
+    }
+
+    res := vk.AllocateCommandBuffers(cg_ctx.device, &cb_transfer_allocate_info, &cg_ctx.transfer_command_buffer)
+    check_result(res) or_return
+        
+    // Graphics
+    when !config.RENDERER_HEADLESS {
+        cb_graphics_allocate_info := vk.CommandBufferAllocateInfo {
+            sType = .COMMAND_BUFFER_ALLOCATE_INFO,
+            commandPool = cg_ctx.graphics_pool,
+            level = .PRIMARY,
+            commandBufferCount = u32(config.RENDERER_FRAMES_IN_FLIGHT),
+        }
+
+        cg_ctx.graphics_command_buffers = make([]vk.CommandBuffer, config.RENDERER_FRAMES_IN_FLIGHT)
+        res = vk.AllocateCommandBuffers(cg_ctx.device, &cb_graphics_allocate_info, raw_data(cg_ctx.graphics_command_buffers))
+        check_result(res) or_return
+    }
+
+    return true
+}
+
+destroy_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) {
+    // Transfer
+    vk.FreeCommandBuffers(cg_ctx.device, cg_ctx.transfer_pool, 1, &cg_ctx.transfer_command_buffer)
+
+    // Graphics
+    when !config.RENDERER_HEADLESS {
+        vk.FreeCommandBuffers(cg_ctx.device, cg_ctx.graphics_pool, u32(len(cg_ctx.graphics_command_buffers)), raw_data(cg_ctx.graphics_command_buffers))
+        delete(cg_ctx.graphics_command_buffers)
+    }
+}
+
+
+// RENDER PASS
+// ///////////
+
+create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    // TODO(headless): noop if running in headless
+
+    // All attachments used in the entire render pass
+    attachment_descs := []vk.AttachmentDescription {
+        {
+            format          = cg_ctx.swapchain_format,
+            samples         = {._1}, // TODO: Antialiasing
+            loadOp          = .CLEAR,
+            storeOp         = .STORE,
+            stencilLoadOp   = .DONT_CARE,
+            stencilStoreOp  = .DONT_CARE,
+            initialLayout   = .UNDEFINED,
+            finalLayout     = .PRESENT_SRC_KHR,
+        },
+    }
+
+    // References attachments to be used in a subpass and describes how they're used
+    // One of these slices may be made per subpass
+    color_refs := []vk.AttachmentReference {
+        {
+            attachment  = 0,
+            layout      = .COLOR_ATTACHMENT_OPTIMAL,
+        },
+    }
+
+
+    // Describes all subpasses used in the render pass
+    subpass_descs := []vk.SubpassDescription {
+        {
+            pipelineBindPoint       = .GRAPHICS,
+            colorAttachmentCount    = u32(len(color_refs)),
+            pColorAttachments       = raw_data(color_refs),
+        },
+    }
+    
+    // Describes the flow of subpasses
+    subpass_depends := []vk.SubpassDependency {
+        {
+            srcSubpass      = vk.SUBPASS_EXTERNAL,          // Subpass entry point
+            dstSubpass      = 0,                            // Subpass index 0
+            srcStageMask    = {.COLOR_ATTACHMENT_OUTPUT},
+            srcAccessMask   = {},
+            dstStageMask    = {.COLOR_ATTACHMENT_OUTPUT},
+            dstAccessMask   = {.COLOR_ATTACHMENT_WRITE},
+        },
+    }
+
+    render_pass_create_info := vk.RenderPassCreateInfo {
+        sType           = .RENDER_PASS_CREATE_INFO,
+        attachmentCount = u32(len(attachment_descs)),
+        pAttachments    = raw_data(attachment_descs),
+        subpassCount    = u32(len(subpass_descs)),
+        pSubpasses      = raw_data(subpass_descs),
+        dependencyCount = u32(len(subpass_depends)),
+        pDependencies   = raw_data(subpass_depends),
+    }
+
+    res := vk.CreateRenderPass(cg_ctx.device, &render_pass_create_info, nil, &cg_ctx.render_pass)
+    check_result(res) or_return
+
+    return true
+}
+
+
+destroy_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) {
+    vk.DestroyRenderPass(cg_ctx.device, cg_ctx.render_pass, nil)
+}
+
+
+create_framebuffers :: proc(cg_ctx: ^Graphics_Context, render_pass: vk.RenderPass) -> (framebuffers: []vk.Framebuffer, ok: bool) {
+    framebuffers = make([]vk.Framebuffer, len(cg_ctx.swapchain_images))
+
+    fb_create_info := vk.FramebufferCreateInfo {
+        sType           = .FRAMEBUFFER_CREATE_INFO,
+        renderPass      = render_pass,
+        attachmentCount = 1,
+        width           = cg_ctx.swapchain_extents.width,
+        height          = cg_ctx.swapchain_extents.height,
+        layers          = 1,
+    }
+
+    for _, i in framebuffers {
+        fb_create_info.pAttachments = &cg_ctx.swapchain_views[i]
+        res := vk.CreateFramebuffer(cg_ctx.device, &fb_create_info, nil, &framebuffers[i])
+        check_result(res) or_return
+    } 
+
+    return framebuffers, true
+}
+
+
+destroy_framebuffers :: proc(cg_ctx: ^Graphics_Context, framebuffers: []vk.Framebuffer) {
+    for framebuffer in framebuffers {
+        vk.DestroyFramebuffer(cg_ctx.device, framebuffer, nil)
+    }
+
+    delete(framebuffers)
+}
+
+
+// SYNC STRUCTURES
+// ///////////////
+
+create_sync_structures :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    cg_ctx.sync_structures = make([]Sync_Structures, config.RENDERER_FRAMES_IN_FLIGHT)
+
+    sem_info := vk.SemaphoreCreateInfo {
+        sType = .SEMAPHORE_CREATE_INFO,
+    }
+
+    fence_info := vk.FenceCreateInfo {
+        sType = .FENCE_CREATE_INFO,
+        flags = {.SIGNALED},
+    }
+
+    for &syncs in cg_ctx.sync_structures {
+        res := vk.CreateSemaphore(cg_ctx.device, &sem_info, nil, &syncs.sem_image_available)
+        check_result(res) or_return
+        res  = vk.CreateSemaphore(cg_ctx.device, &sem_info, nil, &syncs.sem_render_finished)
+        check_result(res) or_return
+        res  = vk.CreateFence(cg_ctx.device, &fence_info, nil, &syncs.fence_in_flight)
+        check_result(res) or_return
+    }
+
+    return true
+}
+
+destroy_sync_structures :: proc(cg_ctx: ^Graphics_Context) {
+    for &syncs in cg_ctx.sync_structures {
+        vk.DestroySemaphore(cg_ctx.device, syncs.sem_image_available, nil)
+        vk.DestroySemaphore(cg_ctx.device, syncs.sem_render_finished, nil)
+        vk.DestroyFence(cg_ctx.device, syncs.fence_in_flight, nil)
+    }
 }

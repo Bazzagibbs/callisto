@@ -4,34 +4,55 @@ import vk "vendor:vulkan"
 import "core:log"
 
 Graphics_Context :: struct {
-    instance:           vk.Instance,
-    logger:             log.Logger,
-    debug_messenger:    vk.DebugUtilsMessengerEXT,
-    
-    surface:            vk.SurfaceKHR,
+    instance:                   vk.Instance,
+    logger:                     log.Logger,
+    debug_messenger:            vk.DebugUtilsMessengerEXT,
+                              
+    surface:                    vk.SurfaceKHR,
+                              
+    physical_device:            vk.PhysicalDevice,
+    device:                     vk.Device,
+                              
+    graphics_queue:             vk.Queue,
+    transfer_queue:             vk.Queue,
+    compute_queue:              vk.Queue,
 
-    physical_device:    vk.PhysicalDevice,
-    device:             vk.Device,
-    graphics_queue:     vk.Queue,
-    transfer_queue:     vk.Queue,
-    compute_queue:      vk.Queue,
-    graphics_queue_family_idx: u32,
-    transfer_queue_family_idx: u32,
-    compute_queue_family_idx:  u32,
+    graphics_queue_family_idx:  u32,
+    transfer_queue_family_idx:  u32,
+    compute_queue_family_idx:   u32,
 
-    swapchain:          vk.SwapchainKHR,
-    swapchain_format:   vk.Format,
-    swapchain_extents:  vk.Extent2D,
-    swapchain_images:   []vk.Image,
-    swapchain_views:    []vk.ImageView,
+    graphics_pool:              vk.CommandPool,
+    transfer_pool:              vk.CommandPool,
+    compute_pool:               vk.CommandPool,
+
+    graphics_command_buffers:   []vk.CommandBuffer, // One per frame in flight
+    transfer_command_buffer:    vk.CommandBuffer,
+
+    swapchain:                  vk.SwapchainKHR,
+    swapchain_format:           vk.Format,
+    swapchain_extents:          vk.Extent2D,
+    swapchain_images:           []vk.Image,
+    swapchain_views:            []vk.ImageView,
+
+    render_pass:                vk.RenderPass,
+    render_pass_framebuffers:   []vk.Framebuffer,
+
+    sync_structures:            []Sync_Structures,
+    current_frame:              u32,
 }
 
 Queue_Families :: struct {
-    has_compute: bool,
-    has_graphics: bool,
-    has_transfer: bool,
+    has_compute:    bool,
+    has_graphics:   bool,
+    has_transfer:   bool,
 
-    compute: u32,
-    graphics: u32,
-    transfer: u32,
+    compute:        u32,
+    graphics:       u32,
+    transfer:       u32,
+}
+
+Sync_Structures :: struct {
+    sem_image_available:    vk.Semaphore,
+    sem_render_finished:    vk.Semaphore,
+    fence_in_flight:        vk.Fence,
 }
