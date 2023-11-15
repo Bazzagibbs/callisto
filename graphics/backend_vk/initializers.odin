@@ -341,7 +341,23 @@ create_device :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     }
 
     res := vk.CreateDevice(cg_ctx.physical_device, &device_create_info, nil, &cg_ctx.device)
-    return check_result(res)
+    check_result(res) or_return
+
+    unique_family_idx_and_queue_counts[families.transfer] -= 1
+    queue_idx := unique_family_idx_and_queue_counts[families.transfer]
+    vk.GetDeviceQueue(cg_ctx.device, cg_ctx.transfer_queue_family_idx, queue_idx, &cg_ctx.transfer_queue)
+    
+    unique_family_idx_and_queue_counts[families.compute] -= 1
+    queue_idx = unique_family_idx_and_queue_counts[families.compute]
+    vk.GetDeviceQueue(cg_ctx.device, cg_ctx.compute_queue_family_idx, queue_idx, &cg_ctx.compute_queue)
+   
+    when !config.RENDERER_HEADLESS {
+        unique_family_idx_and_queue_counts[families.graphics] -= 1
+        queue_idx = unique_family_idx_and_queue_counts[families.graphics]
+        vk.GetDeviceQueue(cg_ctx.device, cg_ctx.graphics_queue_family_idx, queue_idx, &cg_ctx.graphics_queue)
+    }
+
+    return true
 }
 
 destroy_device :: proc(cg_ctx: ^Graphics_Context) {
@@ -349,7 +365,7 @@ destroy_device :: proc(cg_ctx: ^Graphics_Context) {
 }
 
 
-// SWAPCHAIN
+// SWAPCHA
 // /////////
 Swapchain_Support_Details :: struct {
     capabilities:   vk.SurfaceCapabilitiesKHR,

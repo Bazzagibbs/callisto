@@ -13,11 +13,11 @@ when config.RENDERER_API == .Vulkan {
     Graphics_Context :: vkb.Graphics_Context
     cg_ctx: ^Graphics_Context
 
-    bind_context :: proc(ctx: ^Graphics_Context) {
+    cvk_bind_context :: proc(ctx: ^Graphics_Context) {
         cg_ctx = ctx
     }
 
-    init :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window_Context) -> (ok: bool) {
+    cvk_init :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window_Context) -> (ok: bool) {
         vkb.create_instance(cg_ctx) or_return
         defer if !ok do vkb.destroy_instance(cg_ctx)
 
@@ -51,7 +51,7 @@ when config.RENDERER_API == .Vulkan {
         return true
     }
 
-    shutdown :: proc(cg_ctx: ^Graphics_Context) {
+    cvk_shutdown :: proc(cg_ctx: ^Graphics_Context) {
         vk.DeviceWaitIdle(cg_ctx.device)
 
         vkb.destroy_sync_structures(cg_ctx)
@@ -65,38 +65,61 @@ when config.RENDERER_API == .Vulkan {
         vkb.destroy_instance(cg_ctx)
     }
 
-    wait_until_idle :: proc() 
+    cvk_wait_until_idle :: proc() {}
 
-    create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool)
+    cvk_create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool) { return {}, false }
 
-    destroy_shader :: proc(shader: Shader) 
+    cvk_destroy_shader :: proc(shader: Shader) {}
 
-    create_material_from_shader :: proc(shader: Shader) -> (material: Material, ok: bool)
+    cvk_create_material_from_shader :: proc(shader: Shader) -> (material: Material, ok: bool) { return {}, false }
 
-    destroy_material :: proc(material: Material)
+    cvk_destroy_material :: proc(material: Material) {}
 
-    create_static_mesh :: proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool)
+    cvk_create_static_mesh :: proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool) { return {}, false }
 
-    destroy_static_mesh :: proc(mesh: Mesh) 
+    cvk_destroy_static_mesh :: proc(mesh: Mesh) {}
 
-    create_texture :: proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool)
+    cvk_create_texture :: proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool) { return {}, false }
 
-    destroy_texture :: proc(texture: Texture) 
+    cvk_destroy_texture :: proc(texture: Texture) {}
+
+    cvk_set_clear_color :: proc(color: [4]f32) {
+        cg_ctx.clear_color = color
+    }
 
 
     // ==============================================================================
 
-    cmd_begin_graphics :: proc() {
-        
-    }
-
-    cmd_end_graphics  :: proc() {
-
-    }
-
-    cmd_submit_graphics :: proc() {
-        // TODO(headless): Noop this command
+    cvk_cmd_begin_graphics :: proc() {
         sync_structures := &cg_ctx.sync_structures[cg_ctx.current_frame]
+
+        vk.WaitForFences(cg_ctx.device, 1, &sync_structures.fence_in_flight, true, max(u64))
+        vk.ResetFences(cg_ctx.device, 1, &sync_structures.fence_in_flight)
+
+        vk.AcquireNextImageKHR(cg_ctx.device, cg_ctx.swapchain, max(u64), sync_structures.sem_image_available, {}, &cg_ctx.current_image_index)
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        vk.ResetCommandBuffer(graphics_buffer, {})
+
+        begin_info := vk.CommandBufferBeginInfo {
+            sType = .COMMAND_BUFFER_BEGIN_INFO,
+            
+        }
+
+        vk.BeginCommandBuffer(graphics_buffer, &begin_info)
+    }
+
+    cvk_cmd_end_graphics  :: proc() {
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        vk.EndCommandBuffer(graphics_buffer)
+    }
+
+
+    cvk_cmd_submit_graphics :: proc() {
+        // TODO(headless): Noop this command
+
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        sync_structures := &cg_ctx.sync_structures[cg_ctx.current_frame]
+        
 
         wait_semaphores := []vk.Semaphore { 
             sync_structures.sem_image_available,
@@ -114,46 +137,139 @@ when config.RENDERER_API == .Vulkan {
             pWaitSemaphores         = raw_data(wait_semaphores),
             pWaitDstStageMask       = &wait_stages,
             commandBufferCount      = 1,
-            pCommandBuffers         = &cg_ctx.graphics_command_buffers[cg_ctx.current_frame],
+            pCommandBuffers         = &graphics_buffer,
             signalSemaphoreCount    = u32(len(signal_semaphores)),
             pSignalSemaphores       = raw_data(signal_semaphores),
         }
 
-        vk.QueueSubmit(cg_ctx.graphics_queue, 1, &submit_info, sync_structures.fence_in_flight)
+        res := vk.QueueSubmit(cg_ctx.graphics_queue, 1, &submit_info, sync_structures.fence_in_flight)
+        vkb.check_result(res)
     }
     
-    cmd_begin_transfer :: proc()
-    cmd_end_transfer :: proc()
-    cmd_submit_transfer :: proc()
+    cvk_cmd_begin_transfer :: proc() {}
+    cvk_cmd_end_transfer :: proc() {}
+    cvk_cmd_submit_transfer :: proc() {}
     
-    cmd_begin_compute :: proc()
-    cmd_end_compute :: proc()
-    cmd_submit_compute :: proc()
+    cvk_cmd_begin_compute :: proc() {}
+    cvk_cmd_end_compute :: proc() {}
+    cvk_cmd_submit_compute :: proc() {}
 
-    cmd_begin_render_pass :: proc() 
-    cmd_end_render_pass :: proc() 
+    cvk_cmd_begin_render_pass :: proc() {
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        framebuffer := cg_ctx.render_pass_framebuffers[cg_ctx.current_image_index]
 
-    cmd_bind_uniforms_scene :: proc()
-    cmd_bind_uniforms_pass :: proc()
-    cmd_bind_uniforms_material :: proc(material: Material) 
-    cmd_bind_uniforms_model :: proc()
+        clear_values := []vk.ClearValue {
+            {color = {float32 = cg_ctx.clear_color}},
+        }
 
-    cmd_draw :: proc(mesh: Mesh) 
+        begin_info := vk.RenderPassBeginInfo {
+            sType = .RENDER_PASS_BEGIN_INFO,
+            renderPass = cg_ctx.render_pass,
+            framebuffer = framebuffer,
+            clearValueCount = u32(len(clear_values)),
+            pClearValues = raw_data(clear_values),
+            renderArea = vk.Rect2D{
+                offset = {0, 0},
+                extent = cg_ctx.swapchain_extents,
+            },
+        }
+        vk.CmdBeginRenderPass(graphics_buffer, &begin_info, .INLINE)
+    }
 
-    cmd_present :: proc() {
+    cvk_cmd_end_render_pass :: proc() {
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        vk.CmdEndRenderPass(graphics_buffer)
+    }
+
+    cvk_cmd_bind_shader :: proc(shader: Shader) {
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        pipeline := _as_vk_pipeline(shader)
+        vk.CmdBindPipeline(graphics_buffer, .GRAPHICS, pipeline)
+    }
+
+    cvk_cmd_bind_uniforms_scene :: proc() {}
+    cvk_cmd_bind_uniforms_pass :: proc() {}
+    cvk_cmd_bind_uniforms_material :: proc(material: Material) {}
+    cvk_cmd_bind_uniforms_model :: proc() {}
+
+    cvk_cmd_draw :: proc(mesh: Mesh) {}
+
+    cvk_cmd_present :: proc() {
         // TODO(headless): Noop this command
         wait_semaphores := []vk.Semaphore {
             cg_ctx.sync_structures[cg_ctx.current_frame].sem_render_finished,
+        }
+
+        swapchains := []vk.SwapchainKHR {
+            cg_ctx.swapchain,
         }
 
         present_info := vk.PresentInfoKHR {
             sType               = .PRESENT_INFO_KHR,
             waitSemaphoreCount  = u32(len(wait_semaphores)),
             pWaitSemaphores     = raw_data(wait_semaphores),
+            swapchainCount      = u32(len(swapchains)),
+            pSwapchains         = raw_data(swapchains),
+            pImageIndices       = &cg_ctx.current_image_index,
         }
 
         vk.QueuePresentKHR(cg_ctx.graphics_queue, &present_info)
+
+        cg_ctx.current_image_index = (cg_ctx.current_image_index + 1) % u32(config.RENDERER_FRAMES_IN_FLIGHT)
     }
 
-    // Also need some commands for compute and upload
+
+    // ==============================================================================
+
+    @(private)
+    _as_vk_pipeline :: #force_inline proc(shader: Shader) -> vk.Pipeline {
+        return transmute(vk.Pipeline)shader
+    }
+
+    @(private)
+    _as_shader :: #force_inline proc(pipeline: vk.Pipeline) -> Shader {
+        return transmute(Shader)pipeline
+    }
+
+
+    // ==============================================================================
+    @(init)
+    _load_cvk_procs :: proc() {
+        bind_context                = cvk_bind_context                   
+        init                        = cvk_init
+        shutdown                    = cvk_shutdown
+        wait_until_idle             = cvk_wait_until_idle
+        create_shader               = cvk_create_shader
+        destroy_shader              = cvk_destroy_shader
+        create_material_from_shader = cvk_create_material_from_shader
+        destroy_material            = cvk_destroy_material
+        create_static_mesh          = cvk_create_static_mesh
+        destroy_static_mesh         = cvk_destroy_static_mesh
+        create_texture              = cvk_create_texture
+        destroy_texture             = cvk_destroy_texture
+        set_clear_color             = cvk_set_clear_color
+                                     
+        cmd_begin_graphics          = cvk_cmd_begin_graphics
+        cmd_end_graphics            = cvk_cmd_end_graphics
+        cmd_submit_graphics         = cvk_cmd_submit_graphics
+        cmd_begin_transfer          = cvk_cmd_begin_transfer
+        cmd_end_transfer            = cvk_cmd_end_transfer
+        cmd_submit_transfer         = cvk_cmd_submit_transfer
+        cmd_begin_compute           = cvk_cmd_begin_compute
+        cmd_end_compute             = cvk_cmd_end_compute
+        cmd_submit_compute          = cvk_cmd_submit_compute
+                                                                   
+        cmd_begin_render_pass       = cvk_cmd_begin_render_pass
+        cmd_end_render_pass         = cvk_cmd_end_render_pass
+                                                                   
+        cmd_bind_shader             = cvk_cmd_bind_shader
+                                                                   
+        cmd_bind_uniforms_scene     = cvk_cmd_bind_uniforms_scene
+        cmd_bind_uniforms_pass      = cvk_cmd_bind_uniforms_pass
+        cmd_bind_uniforms_material  = cvk_cmd_bind_uniforms_material
+        cmd_bind_uniforms_model     = cvk_cmd_bind_uniforms_model
+                                                                   
+        cmd_draw                    = cvk_cmd_draw
+        cmd_present                 = cvk_cmd_present
+    }
 }

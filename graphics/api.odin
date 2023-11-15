@@ -1,46 +1,59 @@
 package callisto_graphics
 
-/*
 import "../asset"
+import "../platform"
 
-init :: proc() -> (ok: bool) 
+bind_context : proc(^Graphics_Context)
 
-shutdown :: proc()
+init : proc(^Graphics_Context, ^platform.Window_Context) -> (ok: bool) 
 
-wait_until_idle :: proc() 
+shutdown : proc(^Graphics_Context)
 
-create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool)
+wait_until_idle : proc() 
 
-destroy_shader :: proc(shader: Shader) 
+create_shader : proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool)
 
-create_material_from_shader :: proc(shader: Shader) -> (material: Material, ok: bool)
+destroy_shader : proc(shader: Shader) 
 
-destroy_material :: proc(material: Material)
+create_material_from_shader : proc(shader: Shader) -> (material: Material, ok: bool)
 
-create_static_mesh :: proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool)
+destroy_material : proc(material: Material)
 
-destroy_static_mesh :: proc(mesh: Mesh) 
+create_static_mesh : proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool)
 
-create_texture :: proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool)
+destroy_static_mesh : proc(mesh: Mesh) 
 
-destroy_texture :: proc(texture: Texture) 
+create_texture : proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool)
+
+destroy_texture : proc(texture: Texture) 
+
+set_clear_color : proc(color: [4]f32)
 
 // ==============================================================================
 
-cmd_record :: proc() 
-cmd_submit :: proc()
+cmd_begin_graphics : proc()
+cmd_end_graphics : proc()
+cmd_submit_graphics : proc()
 
-cmd_begin_render_pass :: proc() 
-cmd_end_render_pass :: proc() 
+cmd_begin_transfer : proc()
+cmd_end_transfer : proc()
+cmd_submit_transfer : proc()
 
-cmd_bind_uniforms_scene :: proc()
-cmd_bind_uniforms_pass :: proc()
-cmd_bind_uniforms_material :: proc(material: Material) 
-cmd_bind_uniforms_model :: proc()
+cmd_begin_compute : proc()
+cmd_end_compute : proc()
+cmd_submit_compute : proc()
 
-cmd_draw :: proc(mesh: Mesh) 
+cmd_begin_render_pass : proc() 
+cmd_end_render_pass : proc() 
 
-cmd_present :: proc()
+cmd_bind_shader: proc(shader: Shader)
 
-// Also need some commands for compute and upload
-*/
+cmd_bind_uniforms_scene : proc()
+cmd_bind_uniforms_pass : proc()
+cmd_bind_uniforms_material : proc(material: Material) 
+cmd_bind_uniforms_model : proc()
+
+cmd_draw : proc(mesh: Mesh) 
+
+cmd_present : proc()
+

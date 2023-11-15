@@ -37,8 +37,13 @@ Graphics_Context :: struct {
     render_pass:                vk.RenderPass,
     render_pass_framebuffers:   []vk.Framebuffer,
 
+    descriptor_layout_pass:     vk.DescriptorSetLayout,
+
     sync_structures:            []Sync_Structures,
     current_frame:              u32,
+    current_image_index:        u32,
+    
+    clear_color:                [4]f32,
 }
 
 Queue_Families :: struct {
