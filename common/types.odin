@@ -32,6 +32,7 @@ Vertex_Buffer   :: []u8
 Index_Buffer    :: []u32
 
 Mesh :: distinct Handle
+
 // Structs
 // ///////
 
@@ -47,3 +48,15 @@ Transform :: struct {
 }
 
 
+Shader_Description :: struct {
+    // material_buffer_typeid  : typeid,
+    vertex_shader_data      : []u8,
+    fragment_shader_data    : []u8,
+    cull_mode               : Shader_Description_Cull_Mode,
+}
+
+Shader_Description_Cull_Mode :: enum {
+    BACK,
+    FRONT,
+    NONE,
+}

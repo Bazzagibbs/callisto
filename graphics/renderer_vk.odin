@@ -2,6 +2,7 @@ package callisto_graphics
 
 import "core:log"
 import "core:intrinsics"
+import "core:os"
 import "../config"
 import "../asset"
 import "../debug"
@@ -65,21 +66,38 @@ when config.RENDERER_API == .Vulkan {
         vkb.destroy_instance(cg_ctx)
     }
 
-    cvk_wait_until_idle :: proc() {}
+    cvk_wait_until_idle :: proc() {
+        vk.DeviceWaitIdle(cg_ctx.device)
+    }
 
-    cvk_create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool) { return {}, false }
+    cvk_create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool) { 
+        cvk_shader: ^vkb.CVK_Shader
+        cvk_shader, ok = vkb.create_graphics_pipeline(cg_ctx, shader_description)
+        if !ok {
+            log.error("Failed to create shader")
+        }
 
-    cvk_destroy_shader :: proc(shader: Shader) {}
+        return _as_shader(cvk_shader), ok
+    }
+
+    cvk_destroy_shader :: proc(shader: Shader) {
+        cvk_shader := _as_cvk_shader(shader)
+        vkb.destroy_pipeline(cg_ctx, cvk_shader)
+    }
 
     cvk_create_material_from_shader :: proc(shader: Shader) -> (material: Material, ok: bool) { return {}, false }
 
     cvk_destroy_material :: proc(material: Material) {}
 
-    cvk_create_static_mesh :: proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool) { return {}, false }
+    cvk_create_static_mesh :: proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool) { 
+        return {}, false 
+    }
 
     cvk_destroy_static_mesh :: proc(mesh: Mesh) {}
 
-    cvk_create_texture :: proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool) { return {}, false }
+    cvk_create_texture :: proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool) { 
+        return {}, false 
+    }
 
     cvk_destroy_texture :: proc(texture: Texture) {}
 
@@ -183,8 +201,8 @@ when config.RENDERER_API == .Vulkan {
 
     cvk_cmd_bind_shader :: proc(shader: Shader) {
         graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
-        pipeline := _as_vk_pipeline(shader)
-        vk.CmdBindPipeline(graphics_buffer, .GRAPHICS, pipeline)
+        cvk_shader := _as_cvk_shader(shader)
+        vk.CmdBindPipeline(graphics_buffer, .GRAPHICS, cvk_shader.pipeline)
     }
 
     cvk_cmd_bind_uniforms_scene :: proc() {}
@@ -192,7 +210,10 @@ when config.RENDERER_API == .Vulkan {
     cvk_cmd_bind_uniforms_material :: proc(material: Material) {}
     cvk_cmd_bind_uniforms_model :: proc() {}
 
-    cvk_cmd_draw :: proc(mesh: Mesh) {}
+    cvk_cmd_draw :: proc(mesh: Mesh) {
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        vk.CmdDraw(graphics_buffer, 3, 1, 0, 0) // TEMP
+    }
 
     cvk_cmd_present :: proc() {
         // TODO(headless): Noop this command
@@ -222,13 +243,13 @@ when config.RENDERER_API == .Vulkan {
     // ==============================================================================
 
     @(private)
-    _as_vk_pipeline :: #force_inline proc(shader: Shader) -> vk.Pipeline {
-        return transmute(vk.Pipeline)shader
+    _as_cvk_shader :: #force_inline proc(shader: Shader) -> ^vkb.CVK_Shader {
+        return transmute(^vkb.CVK_Shader)shader
     }
 
     @(private)
-    _as_shader :: #force_inline proc(pipeline: vk.Pipeline) -> Shader {
-        return transmute(Shader)pipeline
+    _as_shader :: #force_inline proc(cvk_shader: ^vkb.CVK_Shader) -> Shader {
+        return transmute(Shader)cvk_shader
     }
 
 

@@ -25,18 +25,7 @@ Model_Description :: struct {
 }
 
 Shader                  :: distinct Handle
-Shader_Description :: struct {
-    material_buffer_typeid  : typeid,
-    vertex_shader_data      : []u8,
-    fragment_shader_data    : []u8,
-    cull_mode               : Shader_Description_Cull_Mode,
-}
-
-Shader_Description_Cull_Mode :: enum {
-    BACK,
-    FRONT,
-    NONE,
-}
+Shader_Description      :: common.Shader_Description
 
 
 // Material_Master         :: distinct Handle

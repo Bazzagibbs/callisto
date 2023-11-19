@@ -31,6 +31,16 @@ Galileo_Vertex_Group_Info :: struct #packed {
 }
 // ///////////////////
 
+// Mandatory
+MESH_ATTRIBUTE_LOCATION_POSITION    :: 0
+MESH_ATTRIBUTE_LOCATION_NORMAL      :: 1
+MESH_ATTRIBUTE_LOCATION_TANGENT     :: 2
+// Optional
+MESH_ATTRIBUTE_LOCATION_TEXCOORD    :: 3
+MESH_ATTRIBUTE_LOCATION_COLOR       :: 4
+MESH_ATTRIBUTE_LOCATION_JOINT       :: 5
+MESH_ATTRIBUTE_LOCATION_WEIGHT      :: 6
+
 
 Mesh                :: struct {
     using metadata      : Asset,
