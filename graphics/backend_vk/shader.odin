@@ -4,31 +4,6 @@ import vk "vendor:vulkan"
 import "core:os"
 import cc "../../common"
 
-Pipeline_Info :: struct {
-    device:             vk.Device,
-    viewport_details:   vk.Viewport,
-    scissor_details:    vk.Rect2D,
-    render_pass_obj:    vk.RenderPass,
-
-    layout_obj:         vk.PipelineLayout,
-
-    cull_mode:          vk.CullModeFlags,
-    stages:             []vk.PipelineShaderStageCreateInfo,
-    vertex_input:       vk.PipelineVertexInputStateCreateInfo,
-    input_assembly:     vk.PipelineInputAssemblyStateCreateInfo,
-    viewport:           vk.PipelineViewportStateCreateInfo,
-    rasterizer:         vk.PipelineRasterizationStateCreateInfo,
-    multisample:        vk.PipelineMultisampleStateCreateInfo,
-    color_blend:        vk.PipelineColorBlendStateCreateInfo,
-    color_blend_attach: vk.PipelineColorBlendAttachmentState,
-    layout:             vk.PipelineLayoutCreateInfo,
-}
-
-CVK_Shader :: struct {
-    pipeline:   vk.Pipeline,
-    layout:     vk.PipelineLayout,
-}
-
 create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: ^cc.Shader_Description) -> (shader: ^CVK_Shader, ok: bool) {
     info := create_pipeline_info(2)
     defer destroy_pipeline_info(&info)

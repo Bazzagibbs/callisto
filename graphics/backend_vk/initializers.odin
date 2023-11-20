@@ -30,7 +30,7 @@ DEVICE_FEATURES :: vk.PhysicalDeviceFeatures {}
 
 check_result :: proc(res: vk.Result, loc := #caller_location) -> (ok: bool) {
     if res != .SUCCESS {
-        log.error(loc, "Renderer error:", res)
+        log.error("Renderer error at:", loc, res)
         return false
     }
     return true

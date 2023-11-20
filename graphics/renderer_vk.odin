@@ -252,6 +252,16 @@ when config.RENDERER_API == .Vulkan {
         return transmute(Shader)cvk_shader
     }
 
+    @(private)
+    _as_cvk_mesh :: #force_inline proc(mesh: Mesh) -> ^vkb.CVK_Mesh {
+        return transmute(^vkb.CVK_Mesh)mesh
+    }
+
+    @(private)
+    _as_mesh :: #force_inline proc(cvk_mesh: ^vkb.CVK_Mesh) -> Mesh {
+        return transmute(Mesh)cvk_mesh
+    }
+
 
     // ==============================================================================
     @(init)
