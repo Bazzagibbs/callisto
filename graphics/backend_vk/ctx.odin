@@ -1,12 +1,16 @@
 package callisto_graphics_vkb
 
 import vk "vendor:vulkan"
+import vma "vulkan-memory-allocator"
 import "core:log"
 
 Graphics_Context :: struct {
+    // destroy_stack:              [dynamic]Gpu_Resource_Entry,
+
     instance:                   vk.Instance,
     logger:                     log.Logger,
     debug_messenger:            vk.DebugUtilsMessengerEXT,
+    allocator:                  vma.Allocator,
                               
     surface:                    vk.SurfaceKHR,
                               
@@ -61,3 +65,4 @@ Sync_Structures :: struct {
     sem_render_finished:    vk.Semaphore,
     fence_in_flight:        vk.Fence,
 }
+

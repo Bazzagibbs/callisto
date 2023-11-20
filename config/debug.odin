@@ -6,3 +6,5 @@ DEBUG_BREAKPOINT_ON_RENDERER_ERROR  : bool                  : true
 
 DEBUG_PROFILER_ENABLED              : bool                  : false
 DEBUG_PROFILER_OUTPUT_FILE          : string                : "out/profiler_result.spall"
+
+DEBUG_RENDERER_INIT                 : bool                  : false

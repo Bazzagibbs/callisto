@@ -1,4 +1,3 @@
-//+private
 package callisto_graphics_vkb
 
 import "core:log"
@@ -7,6 +6,18 @@ import "core:fmt"
 import "core:strings"
 import "../../config"
 import vk "vendor:vulkan"
+
+
+check_result :: proc(res: vk.Result, loc := #caller_location) -> (ok: bool) {
+    if res != .SUCCESS {
+        log.error("Renderer error at:", loc, res)
+        when config.DEBUG_BREAKPOINT_ON_RENDERER_ERROR {
+            runtime.trap()
+        }
+        return false
+    }
+    return true
+}
 
 _create_vk_logger :: proc() -> log.Logger {
     renderer_logger_opts: log.Options = {
@@ -105,4 +116,5 @@ _set_debug_name :: proc(cg_ctx: ^Graphics_Context, handle: u64, vk_type: vk.Obje
         }
     }
 }
+
 

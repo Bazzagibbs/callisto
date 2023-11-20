@@ -53,7 +53,9 @@ cmd_bind_uniforms_pass : proc()
 cmd_bind_uniforms_material : proc(material: Material) 
 cmd_bind_uniforms_model : proc()
 
-cmd_draw : proc(mesh: Mesh) 
+cmd_draw_mesh : proc(mesh: Mesh) 
+cmd_draw_model : proc(model: Model)
+cmd_draw_model_immediate : proc(model: Model)
 
 cmd_present : proc()
 

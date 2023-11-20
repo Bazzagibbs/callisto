@@ -54,14 +54,22 @@ Vertex_Group        :: struct {
     buffer_slice    : []u8,
     
     // These are slices into the mesh buffer
-    index           : []u32,
-    position        : [][3]f32,
-    normal          : [][3]f32,
-    tangent         : [][4]f32,
-    texcoords       : [][][2]f32,
-    colors          : [][][4]u8,
-    joints          : [][][4]u16, 
-    weights         : [][][4]u16,
+    index               : []u32,
+    position            : [][3]f32,
+    normal              : [][3]f32,
+    tangent             : [][4]f32,
+    texcoords           : [][][2]f32,
+    colors              : [][][4]u8,
+    joints              : [][][4]u16, 
+    weights             : [][][4]u16,
+    index_offset        : u32,
+    position_offset     : u32,
+    normal_offset       : u32,
+    tangent_offset      : u32,
+    texcoords_offsets   : []u32,
+    colors_offsets      : []u32,
+    joints_offsets      : []u32,
+    weights_offsets     : []u32,
 }
 
 load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
@@ -81,37 +89,49 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
         vert_group.buffer_slice = mesh.buffer[vert_group_info.buffer_slice_begin:vert_group_info.buffer_slice_size]
         
         if vert_group_info.texcoord_channel_count > 0 {
-            vert_group.texcoords = make([][][2]f32, vert_group_info.texcoord_channel_count)
+            vert_group.texcoords            = make([][][2]f32, vert_group_info.texcoord_channel_count)
+            vert_group.texcoords_offsets    = make([]u32, vert_group_info.texcoord_channel_count)
         }
         if vert_group_info.color_channel_count > 0 {
-            vert_group.colors = make([][][4]u8, vert_group_info.color_channel_count)
+            vert_group.colors               = make([][][4]u8, vert_group_info.color_channel_count)
+            vert_group.colors_offsets       = make([]u32, vert_group_info.color_channel_count)
         }
         if vert_group_info.joint_weight_channel_count > 0 {
-            vert_group.joints  = make([][][4]u16, vert_group_info.joint_weight_channel_count)
-            vert_group.weights = make([][][4]u16, vert_group_info.joint_weight_channel_count)
+            vert_group.joints               = make([][][4]u16, vert_group_info.joint_weight_channel_count)
+            vert_group.weights              = make([][][4]u16, vert_group_info.joint_weight_channel_count)
+            vert_group.joints_offsets       = make([]u32, vert_group_info.joint_weight_channel_count)
+            vert_group.weights_offsets      = make([]u32, vert_group_info.joint_weight_channel_count)
         }
         
-        cursor := 0
-        vert_group.index    = make_subslice_of_type(u32,    vert_group.buffer_slice, &cursor, int(vert_group_info.index_count))
-        vert_group.position = make_subslice_of_type([3]f32, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
-        vert_group.normal   = make_subslice_of_type([3]f32, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
-        vert_group.tangent  = make_subslice_of_type([4]f32, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
+        cursor : u32 = 0
+        vert_group.index_offset     = cursor
+        vert_group.index            = make_subslice_of_type(u32,    vert_group.buffer_slice, &cursor, vert_group_info.index_count)
+        vert_group.position_offset  = cursor
+        vert_group.position         = make_subslice_of_type([3]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
+        vert_group.normal_offset    = cursor
+        vert_group.normal           = make_subslice_of_type([3]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
+        vert_group.tangent_offset   = cursor
+        vert_group.tangent          = make_subslice_of_type([4]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
 
 
         for _, j in vert_group.texcoords {
-            vert_group.texcoords[j] = make_subslice_of_type([2]f32, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
+            vert_group.texcoords_offsets[j] = cursor
+            vert_group.texcoords[j]         = make_subslice_of_type([2]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
         }
 
         for _, j in vert_group.colors {
-            vert_group.colors[j] = make_subslice_of_type([4]u8, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
+            vert_group.colors_offsets[j]    = cursor
+            vert_group.colors[j]            = make_subslice_of_type([4]u8, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
         }
         
         for _, j in vert_group.joints {
-            vert_group.joints[j] = make_subslice_of_type([4]u16, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
+            vert_group.joints_offsets[j]    = cursor
+            vert_group.joints[j]            = make_subslice_of_type([4]u16, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
         }
         
         for _, j in vert_group.weights {
-            vert_group.weights[j] = make_subslice_of_type([4]u16, vert_group.buffer_slice, &cursor, int(vert_group_info.vertex_count))
+            vert_group.weights_offsets[j]   = cursor
+            vert_group.weights[j]           = make_subslice_of_type([4]u16, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
         }
 
         // TODO: attribute extensions
@@ -139,11 +159,22 @@ make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
 
 delete_mesh :: proc(mesh: ^Mesh) {
     for vert_group in mesh.vertex_groups {
-        if len(vert_group.texcoords) > 0    do delete(vert_group.texcoords)
-        if len(vert_group.colors) > 0       do delete(vert_group.colors)
-        if len(vert_group.joints) > 0       do delete(vert_group.joints)
-        if len(vert_group.weights) > 0      do delete(vert_group.weights)
+        if len(vert_group.texcoords) > 0 {
+            delete(vert_group.texcoords)
+            delete(vert_group.texcoords_offsets)
+        }
+        if len(vert_group.colors) > 0 {
+            delete(vert_group.colors)
+            delete(vert_group.colors_offsets)
+        }
+        if len(vert_group.joints) > 0 {
+            delete(vert_group.joints)
+            delete(vert_group.weights)
+            delete(vert_group.joints_offsets)
+            delete(vert_group.weights_offsets)
+        }
     }
+
     delete(mesh.vertex_groups)
     delete(mesh.buffer)
     if mesh.name != {} {

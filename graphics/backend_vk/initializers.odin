@@ -1,18 +1,23 @@
 package callisto_graphics_vkb
 
 import vk "vendor:vulkan"
+import vma "vulkan-memory-allocator"
 import cc "../../common"
 import "core:strings"
 import "core:slice"
 import "core:log"
 import "core:math"
 import "core:runtime"
+import "core:intrinsics"
 import "../../config"
 import "../../platform"
+
+API_VERSION :: vk.API_VERSION_1_3
 
 INSTANCE_EXTS :: []cstring {}
 
 ENABLE_VALIDATION_LAYERS :: ODIN_DEBUG
+
 VALIDATION_LAYERS :: []cstring {
     "VK_LAYER_KHRONOS_validation",
 }
@@ -22,19 +27,6 @@ DEVICE_EXTS :: []cstring {
 }
 
 DEVICE_FEATURES :: vk.PhysicalDeviceFeatures {}
-
-
-
-// Helpers
-// ///////
-
-check_result :: proc(res: vk.Result, loc := #caller_location) -> (ok: bool) {
-    if res != .SUCCESS {
-        log.error("Renderer error at:", loc, res)
-        return false
-    }
-    return true
-}
 
 // INSTANCE
 // ////////
@@ -50,7 +42,7 @@ create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
         applicationVersion  = vk.MAKE_VERSION(config.APP_VERSION.x, config.APP_VERSION.y, config.APP_VERSION.z),
         pEngineName         = strings.unsafe_string_to_cstring(config.ENGINE_NAME),
         engineVersion       = vk.MAKE_VERSION(config.ENGINE_VERSION.x, config.ENGINE_VERSION.y, config.ENGINE_VERSION.z),
-        apiVersion          = vk.MAKE_VERSION(1, 3, 0),
+        apiVersion          = API_VERSION,
     }
 
 
@@ -99,8 +91,7 @@ create_instance :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
         cg_ctx.logger = _create_vk_logger()
         debug_create_info := _debug_messenger_create_info(&cg_ctx.logger)
        
-        when config.DEBUG_LOG_LEVEL == .Debug {
-            // Instance creation logging is very verbose, only enable it if we need it.
+        when config.DEBUG_RENDERER_INIT {
             instance_create_info.pNext = &debug_create_info
         }
     }
@@ -218,7 +209,7 @@ is_physical_device_suitable :: proc(cg_ctx: ^Graphics_Context, phys_device: vk.P
     suitable := check_device_extension_support(phys_device, DEVICE_EXTS) &&
                 families_adequate &&
                 swap_adequate &&
-                props.apiVersion >= vk.MAKE_VERSION(1, 3, 0)
+                props.apiVersion >= API_VERSION
 
     when !config.RENDERER_HEADLESS {
         suitable &= (props.deviceType == .DISCRETE_GPU)
@@ -743,3 +734,51 @@ destroy_sync_structures :: proc(cg_ctx: ^Graphics_Context) {
     }
     delete(cg_ctx.sync_structures)
 }
+
+
+// ALLOCATOR
+// /////////
+
+create_allocator :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    vk_funcs := vma.create_vulkan_functions()
+
+    allocator_info := vma.AllocatorCreateInfo {
+        physicalDevice = cg_ctx.physical_device,
+        device = cg_ctx.device,
+        instance = cg_ctx.instance,
+        pVulkanFunctions = &vk_funcs,
+        vulkanApiVersion = API_VERSION,
+    }
+    
+    res := vma.CreateAllocator(&allocator_info, &cg_ctx.allocator)
+    check_result(res) or_return
+
+    return true
+} 
+
+destroy_allocator :: proc(cg_ctx: ^Graphics_Context) {
+    vma.DestroyAllocator(cg_ctx.allocator)
+} 
+
+
+// RESOURCE CLEANUP
+// ////////////////
+
+// defer_destroy :: proc(cg_ctx: ^Graphics_Context, resource: $T) 
+//     where intrinsics.type_is_specialization_of(T, vk.Handle) ||
+//           intrinsics.type_is_specialization_of(T, vk.NonDispatchableHandle) {
+//
+//     res_entry := Gpu_Resource_Entry {
+//         type = typeid_of(T),
+//         handle = resource,
+//     }
+//
+//     append(&cg_ctx.destroy_stack, res_entry)
+// } 
+//
+//
+// flush_destroy_stack :: proc(cg_ctx: ^Graphics_Context) {
+//
+// }
+//
+//

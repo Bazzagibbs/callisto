@@ -3,12 +3,14 @@ package callisto_graphics
 import "core:log"
 import "core:intrinsics"
 import "core:os"
+import "core:runtime"
 import "../config"
 import "../asset"
 import "../debug"
 import "../platform"
 import vkb "backend_vk"
 import vk "vendor:vulkan"
+import cc "../common"
 
 when config.RENDERER_API == .Vulkan {
     Graphics_Context :: vkb.Graphics_Context
@@ -49,12 +51,16 @@ when config.RENDERER_API == .Vulkan {
         vkb.create_sync_structures(cg_ctx) or_return
         defer if !ok do vkb.destroy_sync_structures(cg_ctx)
 
+        vkb.create_allocator(cg_ctx) or_return
+        defer if !ok do vkb.destroy_allocator(cg_ctx)
+
         return true
     }
 
     cvk_shutdown :: proc(cg_ctx: ^Graphics_Context) {
         vk.DeviceWaitIdle(cg_ctx.device)
-
+        
+        vkb.destroy_allocator(cg_ctx)
         vkb.destroy_sync_structures(cg_ctx)
         vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
         vkb.destroy_builtin_render_pass(cg_ctx)
@@ -85,21 +91,53 @@ when config.RENDERER_API == .Vulkan {
         vkb.destroy_pipeline(cg_ctx, cvk_shader)
     }
 
-    cvk_create_material_from_shader :: proc(shader: Shader) -> (material: Material, ok: bool) { return {}, false }
+    cvk_create_material_from_shader :: proc(shader: Shader) -> (material: Material, ok: bool) {
+        unimplemented()
+    }
 
-    cvk_destroy_material :: proc(material: Material) {}
+    cvk_destroy_material :: proc(material: Material) {
+        unimplemented()
+    }
 
     cvk_create_static_mesh :: proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool) { 
-        return {}, false 
+        cvk_mesh := new(vkb.CVK_Mesh)
+        defer if !ok do free(cvk_mesh)
+
+        cvk_mesh.vert_groups = make([]vkb.CVK_Vertex_Group, len(mesh_asset.vertex_groups))
+        defer if !ok do delete(cvk_mesh.vert_groups)
+
+        cvk_mesh.buffer = vkb.upload_buffer_data(cg_ctx, mesh_asset.buffer, {.INDEX_BUFFER, .VERTEX_BUFFER}) or_return
+        
+        // Sub-allocate buffer and populate attribute descriptions
+        for asset_vg, i in mesh_asset.vertex_groups {
+            vg := &cvk_mesh.vert_groups[i]
+
+            vg.mesh_buffer          = cvk_mesh.buffer.buffer
+            vg.idx_buffer_offset    = vk.DeviceSize(asset_vg.index_offset)
+            vg.vertex_buffer_offset = vk.DeviceSize(asset_vg.position_offset)
+        }
+
+        mesh = _as_mesh(cvk_mesh)
+        return mesh, true
     }
 
-    cvk_destroy_static_mesh :: proc(mesh: Mesh) {}
+    cvk_destroy_static_mesh :: proc(mesh: Mesh) {
+        cvk_mesh := _as_cvk_mesh(mesh)
+        for vert_group in cvk_mesh.vert_groups {
+        }
+
+        delete(cvk_mesh.vert_groups)
+        vkb.destroy_buffer(cg_ctx, &cvk_mesh.buffer)
+        free(cvk_mesh)
+    }
 
     cvk_create_texture :: proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool) { 
-        return {}, false 
+        unimplemented("Create Texture")
     }
 
-    cvk_destroy_texture :: proc(texture: Texture) {}
+    cvk_destroy_texture :: proc(texture: Texture) {
+        unimplemented()
+    }
 
     cvk_set_clear_color :: proc(color: [4]f32) {
         cg_ctx.clear_color = color
@@ -164,13 +202,25 @@ when config.RENDERER_API == .Vulkan {
         vkb.check_result(res)
     }
     
-    cvk_cmd_begin_transfer :: proc() {}
-    cvk_cmd_end_transfer :: proc() {}
-    cvk_cmd_submit_transfer :: proc() {}
+    cvk_cmd_begin_transfer :: proc() {
+        unimplemented()
+    }
+    cvk_cmd_end_transfer :: proc() {
+        unimplemented()
+    }
+    cvk_cmd_submit_transfer :: proc() {
+        unimplemented()
+    }
     
-    cvk_cmd_begin_compute :: proc() {}
-    cvk_cmd_end_compute :: proc() {}
-    cvk_cmd_submit_compute :: proc() {}
+    cvk_cmd_begin_compute :: proc() {
+        unimplemented()
+    }
+    cvk_cmd_end_compute :: proc() {
+        unimplemented()
+    }
+    cvk_cmd_submit_compute :: proc() {
+        unimplemented()
+    }
 
     cvk_cmd_begin_render_pass :: proc() {
         graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
@@ -205,15 +255,45 @@ when config.RENDERER_API == .Vulkan {
         vk.CmdBindPipeline(graphics_buffer, .GRAPHICS, cvk_shader.pipeline)
     }
 
-    cvk_cmd_bind_uniforms_scene :: proc() {}
-    cvk_cmd_bind_uniforms_pass :: proc() {}
-    cvk_cmd_bind_uniforms_material :: proc(material: Material) {}
-    cvk_cmd_bind_uniforms_model :: proc() {}
+    cvk_cmd_bind_uniforms_scene :: proc() {
+        unimplemented()
+    }
+    cvk_cmd_bind_uniforms_pass :: proc() {
+        unimplemented()
+    }
+    cvk_cmd_bind_uniforms_material :: proc(material: Material) {
+        unimplemented()
+    }
+    cvk_cmd_bind_uniforms_model :: proc() {
+        unimplemented()
+        // graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        // vk.CmdBindDescriptorSets(graphics_buffer, .GRAPHICS, )
+    }
 
-    cvk_cmd_draw :: proc(mesh: Mesh) {
+    // Draws all vertex groups in a mesh using the currently bound shader.
+    cvk_cmd_draw_mesh :: proc(mesh: Mesh) {
+        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        cvk_mesh := _as_cvk_mesh(mesh)
+
+        for &vert_group in cvk_mesh.vert_groups {
+            vk.CmdBindIndexBuffer(graphics_buffer, vert_group.mesh_buffer, vert_group.idx_buffer_offset, .UINT32)
+            vk.CmdBindVertexBuffers(graphics_buffer, 0, 1, &vert_group.mesh_buffer, &vert_group.vertex_buffer_offset)
+            vk.CmdDraw(graphics_buffer, vert_group.vertex_count, 1, 0, 0)
+        }
+    }
+
+    // Each vertex group is queued to be drawn when its corresponding material/shader is bound.
+    cvk_cmd_draw_model :: proc(model: Model) {
+        unimplemented()
+    }
+
+    // Warning: this procedure will change GPU state frequently. 
+    // Prefer `cmd_draw_model` to draw vertex groups with shared materials/shaders without unnecessary binds.
+    cvk_cmd_draw_model_immediate :: proc(model: Model) {
         graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
         vk.CmdDraw(graphics_buffer, 3, 1, 0, 0) // TEMP
     }
+
 
     cvk_cmd_present :: proc() {
         // TODO(headless): Noop this command
@@ -262,6 +342,15 @@ when config.RENDERER_API == .Vulkan {
         return transmute(Mesh)cvk_mesh
     }
 
+    @(private)
+    _as_cvk_model :: #force_inline proc(model: Model) -> ^vkb.CVK_Model {
+        return transmute(^vkb.CVK_Model)model
+    }
+
+    @(private)
+    _as_model :: #force_inline proc(cvk_model: ^vkb.CVK_Model) -> Model {
+        return transmute(Model)cvk_model
+    }
 
     // ==============================================================================
     @(init)
@@ -300,7 +389,9 @@ when config.RENDERER_API == .Vulkan {
         cmd_bind_uniforms_material  = cvk_cmd_bind_uniforms_material
         cmd_bind_uniforms_model     = cvk_cmd_bind_uniforms_model
                                                                    
-        cmd_draw                    = cvk_cmd_draw
+        cmd_draw_mesh               = cvk_cmd_draw_mesh
+        cmd_draw_model              = cvk_cmd_draw_model
+        cmd_draw_model_immediate    = cvk_cmd_draw_model_immediate
         cmd_present                 = cvk_cmd_present
     }
 }

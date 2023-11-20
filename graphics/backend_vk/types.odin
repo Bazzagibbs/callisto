@@ -30,4 +30,26 @@ CVK_Shader :: struct {
     layout:     vk.PipelineLayout,
 }
 
-CVK_Mesh :: struct {}
+CVK_Mesh :: struct {
+    buffer:         Gpu_Buffer,
+    vert_groups:    []CVK_Vertex_Group,
+}
+
+CVK_Vertex_Group :: struct {
+    mesh_buffer:            vk.Buffer,
+    vertex_count:           u32,
+    idx_buffer_offset:      vk.DeviceSize,
+    vertex_buffer_offset:   vk.DeviceSize,
+    // attribute_desc: ,
+}
+
+CVK_Model :: struct {
+    mesh:       CVK_Mesh,
+    materials:  []CVK_Material,
+}
+
+CVK_Material :: struct {
+    shader:     CVK_Shader,
+    // descriptor_set_shape: ,
+    // descriptor_set: CVK_Uniforms,
+}
