@@ -21,6 +21,9 @@ when config.RENDERER_API == .Vulkan {
     }
 
     cvk_init :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window_Context) -> (ok: bool) {
+        vkb.init_graphics_context(cg_ctx)
+        defer if !ok do vkb.destroy_graphics_context(cg_ctx)
+
         vkb.create_instance(cg_ctx) or_return
         defer if !ok do vkb.destroy_instance(cg_ctx)
 
@@ -70,6 +73,8 @@ when config.RENDERER_API == .Vulkan {
         vkb.destroy_device(cg_ctx)
         vkb.destroy_surface(cg_ctx)
         vkb.destroy_instance(cg_ctx)
+
+        vkb.destroy_graphics_context(cg_ctx)
     }
 
     cvk_wait_until_idle :: proc() {
@@ -147,44 +152,40 @@ when config.RENDERER_API == .Vulkan {
     // ==============================================================================
 
     cvk_cmd_begin_graphics :: proc() {
-        sync_structures := &cg_ctx.sync_structures[cg_ctx.current_frame]
+        frame := vkb.current_frame_data(cg_ctx)
 
-        vk.WaitForFences(cg_ctx.device, 1, &sync_structures.fence_in_flight, true, max(u64))
-        vk.ResetFences(cg_ctx.device, 1, &sync_structures.fence_in_flight)
+        vk.WaitForFences(cg_ctx.device, 1, &frame.in_flight_fence, true, max(u64))
+        vk.ResetFences(cg_ctx.device, 1, &frame.in_flight_fence)
 
-        vk.AcquireNextImageKHR(cg_ctx.device, cg_ctx.swapchain, max(u64), sync_structures.sem_image_available, {}, &cg_ctx.current_image_index)
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
-        vk.ResetCommandBuffer(graphics_buffer, {})
+        vk.AcquireNextImageKHR(cg_ctx.device, cg_ctx.swapchain, max(u64), frame.image_available_sem, {}, &frame.image_index)
+        vk.ResetCommandBuffer(frame.graphics_command_buffer, {})
 
         begin_info := vk.CommandBufferBeginInfo {
             sType = .COMMAND_BUFFER_BEGIN_INFO,
             
         }
 
-        vk.BeginCommandBuffer(graphics_buffer, &begin_info)
+        vk.BeginCommandBuffer(frame.graphics_command_buffer, &begin_info)
     }
 
     cvk_cmd_end_graphics  :: proc() {
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
         vk.EndCommandBuffer(graphics_buffer)
     }
 
 
     cvk_cmd_submit_graphics :: proc() {
         // TODO(headless): Noop this command
-
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
-        sync_structures := &cg_ctx.sync_structures[cg_ctx.current_frame]
-        
+        frame := vkb.current_frame_data(cg_ctx)
 
         wait_semaphores := []vk.Semaphore { 
-            sync_structures.sem_image_available,
+            frame.image_available_sem,
         }
 
         wait_stages := vk.PipelineStageFlags {.COLOR_ATTACHMENT_OUTPUT}
 
         signal_semaphores := []vk.Semaphore {
-            sync_structures.sem_render_finished,
+            frame.present_ready_sem,
         }
 
         submit_info := vk.SubmitInfo {
@@ -193,12 +194,12 @@ when config.RENDERER_API == .Vulkan {
             pWaitSemaphores         = raw_data(wait_semaphores),
             pWaitDstStageMask       = &wait_stages,
             commandBufferCount      = 1,
-            pCommandBuffers         = &graphics_buffer,
+            pCommandBuffers         = &frame.graphics_command_buffer,
             signalSemaphoreCount    = u32(len(signal_semaphores)),
             pSignalSemaphores       = raw_data(signal_semaphores),
         }
 
-        res := vk.QueueSubmit(cg_ctx.graphics_queue, 1, &submit_info, sync_structures.fence_in_flight)
+        res := vk.QueueSubmit(cg_ctx.graphics_queue, 1, &submit_info, frame.in_flight_fence)
         vkb.check_result(res)
     }
     
@@ -223,8 +224,8 @@ when config.RENDERER_API == .Vulkan {
     }
 
     cvk_cmd_begin_render_pass :: proc() {
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
-        framebuffer := cg_ctx.render_pass_framebuffers[cg_ctx.current_image_index]
+        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
+        framebuffer := cg_ctx.render_pass_framebuffers[vkb.current_frame_data(cg_ctx).image_index]
 
         clear_values := []vk.ClearValue {
             {color = {float32 = cg_ctx.clear_color}},
@@ -245,12 +246,12 @@ when config.RENDERER_API == .Vulkan {
     }
 
     cvk_cmd_end_render_pass :: proc() {
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
         vk.CmdEndRenderPass(graphics_buffer)
     }
 
     cvk_cmd_bind_shader :: proc(shader: Shader) {
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
         cvk_shader := _as_cvk_shader(shader)
         vk.CmdBindPipeline(graphics_buffer, .GRAPHICS, cvk_shader.pipeline)
     }
@@ -266,13 +267,13 @@ when config.RENDERER_API == .Vulkan {
     }
     cvk_cmd_bind_uniforms_model :: proc() {
         unimplemented()
-        // graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        // graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
         // vk.CmdBindDescriptorSets(graphics_buffer, .GRAPHICS, )
     }
 
     // Draws all vertex groups in a mesh using the currently bound shader.
     cvk_cmd_draw_mesh :: proc(mesh: Mesh) {
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
         cvk_mesh := _as_cvk_mesh(mesh)
 
         for &vert_group in cvk_mesh.vert_groups {
@@ -290,7 +291,7 @@ when config.RENDERER_API == .Vulkan {
     // Warning: this procedure will change GPU state frequently. 
     // Prefer `cmd_draw_model` to draw vertex groups with shared materials/shaders without unnecessary binds.
     cvk_cmd_draw_model_immediate :: proc(model: Model) {
-        graphics_buffer := cg_ctx.graphics_command_buffers[cg_ctx.current_frame]
+        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
         vk.CmdDraw(graphics_buffer, 3, 1, 0, 0) // TEMP
     }
 
@@ -298,7 +299,7 @@ when config.RENDERER_API == .Vulkan {
     cvk_cmd_present :: proc() {
         // TODO(headless): Noop this command
         wait_semaphores := []vk.Semaphore {
-            cg_ctx.sync_structures[cg_ctx.current_frame].sem_render_finished,
+            vkb.current_frame_data(cg_ctx).present_ready_sem,
         }
 
         swapchains := []vk.SwapchainKHR {
@@ -311,12 +312,12 @@ when config.RENDERER_API == .Vulkan {
             pWaitSemaphores     = raw_data(wait_semaphores),
             swapchainCount      = u32(len(swapchains)),
             pSwapchains         = raw_data(swapchains),
-            pImageIndices       = &cg_ctx.current_image_index,
+            pImageIndices       = &vkb.current_frame_data(cg_ctx).image_index,
         }
 
         vk.QueuePresentKHR(cg_ctx.graphics_queue, &present_info)
 
-        cg_ctx.current_image_index = (cg_ctx.current_image_index + 1) % u32(config.RENDERER_FRAMES_IN_FLIGHT)
+        cg_ctx.current_frame = (cg_ctx.current_frame + 1) % u32(config.RENDERER_FRAMES_IN_FLIGHT)
     }
 
 

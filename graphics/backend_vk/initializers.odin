@@ -28,6 +28,16 @@ DEVICE_EXTS :: []cstring {
 
 DEVICE_FEATURES :: vk.PhysicalDeviceFeatures {}
 
+// GRAPHICS CONTEXT
+// ////////////////
+init_graphics_context :: proc(cg_ctx: ^Graphics_Context) {
+    cg_ctx.frame_data = make([]Frame_Data, config.RENDERER_FRAMES_IN_FLIGHT)
+}
+
+destroy_graphics_context :: proc(cg_ctx: ^Graphics_Context) {
+    delete(cg_ctx.frame_data)
+}
+
 // INSTANCE
 // ////////
 
@@ -537,8 +547,11 @@ create_command_pools :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     // Graphics
     when !config.RENDERER_HEADLESS {
         pool_create_info.queueFamilyIndex = cg_ctx.graphics_queue_family_idx
-        res = vk.CreateCommandPool(cg_ctx.device, &pool_create_info, nil, &cg_ctx.graphics_pool)
-        check_result(res) or_return
+        
+        for &frame in cg_ctx.frame_data {
+            res = vk.CreateCommandPool(cg_ctx.device, &pool_create_info, nil, &frame.graphics_pool)
+            check_result(res) or_return
+        }
     }
 
     return true
@@ -549,7 +562,9 @@ destroy_command_pools :: proc(cg_ctx: ^Graphics_Context) {
     vk.DestroyCommandPool(cg_ctx.device, cg_ctx.transfer_pool, nil)
     vk.DestroyCommandPool(cg_ctx.device, cg_ctx.compute_pool, nil)
     when !config.RENDERER_HEADLESS {
-        vk.DestroyCommandPool(cg_ctx.device, cg_ctx.graphics_pool, nil)
+        for &frame in cg_ctx.frame_data {
+            vk.DestroyCommandPool(cg_ctx.device, frame.graphics_pool, nil)
+        }
     }
 }
 
@@ -557,10 +572,10 @@ destroy_command_pools :: proc(cg_ctx: ^Graphics_Context) {
 create_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     // Transfer
     cb_transfer_allocate_info := vk.CommandBufferAllocateInfo {
-        sType = .COMMAND_BUFFER_ALLOCATE_INFO,
-        commandPool = cg_ctx.transfer_pool,
-        level = .PRIMARY,
-        commandBufferCount = 1,
+        sType               = .COMMAND_BUFFER_ALLOCATE_INFO,
+        commandPool         = cg_ctx.transfer_pool,
+        level               = .PRIMARY,
+        commandBufferCount  = 1,
     }
 
     res := vk.AllocateCommandBuffers(cg_ctx.device, &cb_transfer_allocate_info, &cg_ctx.transfer_command_buffer)
@@ -568,16 +583,17 @@ create_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) 
         
     // Graphics
     when !config.RENDERER_HEADLESS {
-        cb_graphics_allocate_info := vk.CommandBufferAllocateInfo {
-            sType = .COMMAND_BUFFER_ALLOCATE_INFO,
-            commandPool = cg_ctx.graphics_pool,
-            level = .PRIMARY,
-            commandBufferCount = u32(config.RENDERER_FRAMES_IN_FLIGHT),
-        }
+        for &frame in cg_ctx.frame_data {
+            cb_graphics_allocate_info := vk.CommandBufferAllocateInfo {
+                sType               = .COMMAND_BUFFER_ALLOCATE_INFO,
+                commandPool         = frame.graphics_pool,
+                level               = .PRIMARY,
+                commandBufferCount  = 1,
+            }
 
-        cg_ctx.graphics_command_buffers = make([]vk.CommandBuffer, config.RENDERER_FRAMES_IN_FLIGHT)
-        res = vk.AllocateCommandBuffers(cg_ctx.device, &cb_graphics_allocate_info, raw_data(cg_ctx.graphics_command_buffers))
-        check_result(res) or_return
+            res = vk.AllocateCommandBuffers(cg_ctx.device, &cb_graphics_allocate_info, &frame.graphics_command_buffer)
+            check_result(res) or_return
+        }
     }
 
     return true
@@ -589,8 +605,9 @@ destroy_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) {
 
     // Graphics
     when !config.RENDERER_HEADLESS {
-        vk.FreeCommandBuffers(cg_ctx.device, cg_ctx.graphics_pool, u32(len(cg_ctx.graphics_command_buffers)), raw_data(cg_ctx.graphics_command_buffers))
-        delete(cg_ctx.graphics_command_buffers)
+        for &frame in cg_ctx.frame_data {
+            vk.FreeCommandBuffers(cg_ctx.device, frame.graphics_pool, 1, &frame.graphics_command_buffer)
+        }
     }
 }
 
@@ -703,8 +720,6 @@ destroy_framebuffers :: proc(cg_ctx: ^Graphics_Context, framebuffers: []vk.Frame
 // ///////////////
 
 create_sync_structures :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
-    cg_ctx.sync_structures = make([]Sync_Structures, config.RENDERER_FRAMES_IN_FLIGHT)
-
     sem_info := vk.SemaphoreCreateInfo {
         sType = .SEMAPHORE_CREATE_INFO,
     }
@@ -714,12 +729,12 @@ create_sync_structures :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
         flags = {.SIGNALED},
     }
 
-    for &syncs in cg_ctx.sync_structures {
-        res := vk.CreateSemaphore(cg_ctx.device, &sem_info, nil, &syncs.sem_image_available)
+    for &frame in cg_ctx.frame_data {
+        res := vk.CreateSemaphore(cg_ctx.device, &sem_info, nil, &frame.image_available_sem)
         check_result(res) or_return
-        res  = vk.CreateSemaphore(cg_ctx.device, &sem_info, nil, &syncs.sem_render_finished)
+        res  = vk.CreateSemaphore(cg_ctx.device, &sem_info, nil, &frame.present_ready_sem)
         check_result(res) or_return
-        res  = vk.CreateFence(cg_ctx.device, &fence_info, nil, &syncs.fence_in_flight)
+        res  = vk.CreateFence(cg_ctx.device, &fence_info, nil, &frame.in_flight_fence)
         check_result(res) or_return
     }
 
@@ -727,12 +742,11 @@ create_sync_structures :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
 }
 
 destroy_sync_structures :: proc(cg_ctx: ^Graphics_Context) {
-    for &syncs in cg_ctx.sync_structures {
-        vk.DestroySemaphore(cg_ctx.device, syncs.sem_image_available, nil)
-        vk.DestroySemaphore(cg_ctx.device, syncs.sem_render_finished, nil)
-        vk.DestroyFence(cg_ctx.device, syncs.fence_in_flight, nil)
+    for &frame in cg_ctx.frame_data {
+        vk.DestroySemaphore(cg_ctx.device, frame.image_available_sem, nil)
+        vk.DestroySemaphore(cg_ctx.device, frame.present_ready_sem, nil)
+        vk.DestroyFence(cg_ctx.device, frame.in_flight_fence, nil)
     }
-    delete(cg_ctx.sync_structures)
 }
 
 

@@ -25,11 +25,10 @@ Graphics_Context :: struct {
     transfer_queue_family_idx:  u32,
     compute_queue_family_idx:   u32,
 
-    graphics_pool:              vk.CommandPool,
+    // graphics_pool is in frame data
     transfer_pool:              vk.CommandPool,
     compute_pool:               vk.CommandPool,
 
-    graphics_command_buffers:   []vk.CommandBuffer, // One per frame in flight
     transfer_command_buffer:    vk.CommandBuffer,
 
     swapchain:                  vk.SwapchainKHR,
@@ -43,11 +42,22 @@ Graphics_Context :: struct {
 
     descriptor_layout_pass:     vk.DescriptorSetLayout,
 
-    sync_structures:            []Sync_Structures,
-    current_frame:              u32,
-    current_image_index:        u32,
-    
     clear_color:                [4]f32,
+
+    current_frame:              u32,
+    frame_data:                 []Frame_Data,
+}
+
+Frame_Data :: struct {
+    image_index:                u32,
+
+    graphics_pool:              vk.CommandPool,
+    
+    graphics_command_buffer:    vk.CommandBuffer,
+
+    present_ready_sem:      vk.Semaphore,
+    image_available_sem:    vk.Semaphore,
+    in_flight_fence:        vk.Fence,
 }
 
 Queue_Families :: struct {
@@ -60,9 +70,11 @@ Queue_Families :: struct {
     transfer:       u32,
 }
 
-Sync_Structures :: struct {
-    sem_image_available:    vk.Semaphore,
-    sem_render_finished:    vk.Semaphore,
-    fence_in_flight:        vk.Fence,
+
+current_frame_data :: #force_inline proc(cg_ctx: ^Graphics_Context) -> ^Frame_Data {
+    return &cg_ctx.frame_data[cg_ctx.current_frame]
 }
 
+current_image :: #force_inline proc(cg_ctx: ^Graphics_Context) -> vk.Image {
+    return cg_ctx.swapchain_images[current_frame_data(cg_ctx).image_index]
+}
