@@ -120,8 +120,8 @@ when config.RENDERER_API == .Vulkan {
             vg.mesh_buffer              = cvk_mesh.buffer.buffer
             vg.idx_buffer_offset        = vk.DeviceSize(asset_vg.index_offset)
             vg.vertex_buffer_offset     = vk.DeviceSize(asset_vg.position_offset)
-            // vg.vertex_input_bindings    = make([]vk.VertexInputBindingDescription, asset_vg.channel_count)
-            vg.vertex_input_attributes  = make([]vk.VertexInputAttributeDescription, asset_vg.channel_count)
+            vg.vertex_input_bindings    = make([]vk.VertexInputBindingDescription, asset_vg.total_channel_count)
+            vg.vertex_input_attributes  = make([]vk.VertexInputAttributeDescription, asset_vg.total_channel_count)
 
             vkb.populate_binding_attribute_descriptions(&asset_vg, vg)
         }
@@ -132,7 +132,9 @@ when config.RENDERER_API == .Vulkan {
 
     cvk_destroy_static_mesh :: proc(mesh: Mesh) {
         cvk_mesh := _as_cvk_mesh(mesh)
-        for vert_group in cvk_mesh.vert_groups {
+        for vg in cvk_mesh.vert_groups {
+            delete(vg.vertex_input_bindings)
+            delete(vg.vertex_input_attributes)
         }
 
         delete(cvk_mesh.vert_groups)
