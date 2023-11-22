@@ -775,24 +775,3 @@ destroy_allocator :: proc(cg_ctx: ^Graphics_Context) {
 } 
 
 
-// RESOURCE CLEANUP
-// ////////////////
-
-// defer_destroy :: proc(cg_ctx: ^Graphics_Context, resource: $T) 
-//     where intrinsics.type_is_specialization_of(T, vk.Handle) ||
-//           intrinsics.type_is_specialization_of(T, vk.NonDispatchableHandle) {
-//
-//     res_entry := Gpu_Resource_Entry {
-//         type = typeid_of(T),
-//         handle = resource,
-//     }
-//
-//     append(&cg_ctx.destroy_stack, res_entry)
-// } 
-//
-//
-// flush_destroy_stack :: proc(cg_ctx: ^Graphics_Context) {
-//
-// }
-//
-//

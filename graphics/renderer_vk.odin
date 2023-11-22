@@ -114,12 +114,16 @@ when config.RENDERER_API == .Vulkan {
         cvk_mesh.buffer = vkb.upload_buffer_data(cg_ctx, mesh_asset.buffer, {.INDEX_BUFFER, .VERTEX_BUFFER}) or_return
         
         // Sub-allocate buffer and populate attribute descriptions
-        for asset_vg, i in mesh_asset.vertex_groups {
+        for &asset_vg, i in mesh_asset.vertex_groups {
             vg := &cvk_mesh.vert_groups[i]
 
-            vg.mesh_buffer          = cvk_mesh.buffer.buffer
-            vg.idx_buffer_offset    = vk.DeviceSize(asset_vg.index_offset)
-            vg.vertex_buffer_offset = vk.DeviceSize(asset_vg.position_offset)
+            vg.mesh_buffer              = cvk_mesh.buffer.buffer
+            vg.idx_buffer_offset        = vk.DeviceSize(asset_vg.index_offset)
+            vg.vertex_buffer_offset     = vk.DeviceSize(asset_vg.position_offset)
+            // vg.vertex_input_bindings    = make([]vk.VertexInputBindingDescription, asset_vg.channel_count)
+            vg.vertex_input_attributes  = make([]vk.VertexInputAttributeDescription, asset_vg.channel_count)
+
+            vkb.populate_binding_attribute_descriptions(&asset_vg, vg)
         }
 
         mesh = _as_mesh(cvk_mesh)

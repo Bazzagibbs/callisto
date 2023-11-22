@@ -2,8 +2,9 @@ package callisto_asset
 
 import "core:io"
 import "core:mem"
-
+import vk "vendor:vulkan"
 import cc "../common"
+
 
 // Galileo file layout
 // ///////////////////
@@ -19,28 +20,18 @@ Galileo_Vertex_Group_Info :: struct #packed {
     bounds                      : cc.Axis_Aligned_Bounding_Box,
     buffer_slice_begin          : u64,
     buffer_slice_size           : u64,
-    
-    index_count                 : u32,
-    vertex_count                : u32,
+
+    index_count                 : u64,
+    vertex_count                : u64,
 
     texcoord_channel_count      : u8,
     color_channel_count         : u8,
     joint_weight_channel_count  : u8,
+    extension_channel_count     : u8,
 
     next_vertex_group_extension : u32,
 }
 // ///////////////////
-
-// Mandatory
-MESH_ATTRIBUTE_LOCATION_POSITION    :: 0
-MESH_ATTRIBUTE_LOCATION_NORMAL      :: 1
-MESH_ATTRIBUTE_LOCATION_TANGENT     :: 2
-// Optional
-MESH_ATTRIBUTE_LOCATION_TEXCOORD    :: 3
-MESH_ATTRIBUTE_LOCATION_COLOR       :: 4
-MESH_ATTRIBUTE_LOCATION_JOINT       :: 5
-MESH_ATTRIBUTE_LOCATION_WEIGHT      :: 6
-
 
 Mesh                :: struct {
     using metadata      : Asset,
@@ -51,26 +42,28 @@ Mesh                :: struct {
 
 Vertex_Group        :: struct {
     bounds          : cc.Axis_Aligned_Bounding_Box,
-    buffer_slice    : []u8,
+
+    buffer_slice                : []u8,     // Slice into mesh buffer, not allocated
     
-    // These are slices into the mesh buffer
-    index               : []u32,
-    position            : [][3]f32,
-    normal              : [][3]f32,
-    tangent             : [][4]f32,
-    texcoords           : [][][2]f32,
-    colors              : [][][4]u8,
-    joints              : [][][4]u16, 
-    weights             : [][][4]u16,
-    index_offset        : u32,
-    position_offset     : u32,
-    normal_offset       : u32,
-    tangent_offset      : u32,
-    texcoords_offsets   : []u32,
-    colors_offsets      : []u32,
-    joints_offsets      : []u32,
-    weights_offsets     : []u32,
+    index_count                 : u64,
+    vertex_count                : u64,
+
+    total_channel_count         : u8,
+    texcoord_channel_count      : u8,
+    color_channel_count         : u8,
+    joint_weight_channel_count  : u8,
+
+    index_offset                : u64,
+    position_offset             : u64,
+    normal_offset               : u64,
+    tangent_offset              : u64,
+
+    texcoord_offset             : u64,
+    color_offset                : u64,
+    joint_offset                : u64,
+    weight_offset               : u64,
 }
+
 
 load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
     manifest: Galileo_Mesh_Manifest
@@ -80,60 +73,38 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
     mesh.vertex_groups  = make([]Vertex_Group, manifest.vertex_group_count)
     mesh.buffer         = make([]u8, manifest.buffer_size)
 
+    cursor : u64 = 0
     for _, i in mesh.vertex_groups {
         vert_group := &mesh.vertex_groups[i]
-        vert_group_info: Galileo_Vertex_Group_Info
-        io.read_ptr(file_reader, &vert_group_info, size_of(Galileo_Vertex_Group_Info))
+        info: Galileo_Vertex_Group_Info
+        io.read_ptr(file_reader, &info, size_of(Galileo_Vertex_Group_Info))
         
-        vert_group.bounds = vert_group_info.bounds
-        vert_group.buffer_slice = mesh.buffer[vert_group_info.buffer_slice_begin:vert_group_info.buffer_slice_size]
+        vert_group.bounds                       = info.bounds
+        vert_group.buffer_slice                 = mesh.buffer[info.buffer_slice_begin:info.buffer_slice_size]
+        vert_group.index_count                  = info.index_count
+        vert_group.vertex_count                 = info.vertex_count
         
-        if vert_group_info.texcoord_channel_count > 0 {
-            vert_group.texcoords            = make([][][2]f32, vert_group_info.texcoord_channel_count)
-            vert_group.texcoords_offsets    = make([]u32, vert_group_info.texcoord_channel_count)
-        }
-        if vert_group_info.color_channel_count > 0 {
-            vert_group.colors               = make([][][4]u8, vert_group_info.color_channel_count)
-            vert_group.colors_offsets       = make([]u32, vert_group_info.color_channel_count)
-        }
-        if vert_group_info.joint_weight_channel_count > 0 {
-            vert_group.joints               = make([][][4]u16, vert_group_info.joint_weight_channel_count)
-            vert_group.weights              = make([][][4]u16, vert_group_info.joint_weight_channel_count)
-            vert_group.joints_offsets       = make([]u32, vert_group_info.joint_weight_channel_count)
-            vert_group.weights_offsets      = make([]u32, vert_group_info.joint_weight_channel_count)
-        }
-        
-        cursor : u32 = 0
-        vert_group.index_offset     = cursor
-        vert_group.index            = make_subslice_of_type(u32,    vert_group.buffer_slice, &cursor, vert_group_info.index_count)
-        vert_group.position_offset  = cursor
-        vert_group.position         = make_subslice_of_type([3]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
-        vert_group.normal_offset    = cursor
-        vert_group.normal           = make_subslice_of_type([3]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
-        vert_group.tangent_offset   = cursor
-        vert_group.tangent          = make_subslice_of_type([4]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
+        vert_group.texcoord_channel_count       = info.texcoord_channel_count
+        vert_group.color_channel_count          = info.color_channel_count
+        vert_group.joint_weight_channel_count   = info.joint_weight_channel_count
 
+        vert_group.total_channel_count = 3 /* position + normal + tangent */ +
+                                        info.texcoord_channel_count + 
+                                        info.color_channel_count + 
+                                        (info.joint_weight_channel_count * 2)
+                                        /* + custom attribute channels */
 
-        for _, j in vert_group.texcoords {
-            vert_group.texcoords_offsets[j] = cursor
-            vert_group.texcoords[j]         = make_subslice_of_type([2]f32, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
-        }
-
-        for _, j in vert_group.colors {
-            vert_group.colors_offsets[j]    = cursor
-            vert_group.colors[j]            = make_subslice_of_type([4]u8, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
-        }
         
-        for _, j in vert_group.joints {
-            vert_group.joints_offsets[j]    = cursor
-            vert_group.joints[j]            = make_subslice_of_type([4]u16, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
-        }
-        
-        for _, j in vert_group.weights {
-            vert_group.weights_offsets[j]   = cursor
-            vert_group.weights[j]           = make_subslice_of_type([4]u16, vert_group.buffer_slice, &cursor, vert_group_info.vertex_count)
-        }
+        vert_group.index_offset     = calculate_buffer_offset(u32, info.index_count, &cursor)
+        vert_group.position_offset  = calculate_buffer_offset([3]f32, info.vertex_count, &cursor)
+        vert_group.normal_offset    = calculate_buffer_offset([3]f32, info.vertex_count, &cursor)
+        vert_group.tangent_offset   = calculate_buffer_offset([4]f32, info.vertex_count, &cursor)
 
+        vert_group.texcoord_offset  = calculate_buffer_offset([2]u16, info.vertex_count * u64(info.texcoord_channel_count), &cursor)
+        vert_group.color_offset     = calculate_buffer_offset([4]u8,  info.vertex_count * u64(info.color_channel_count), &cursor)
+        vert_group.joint_offset     = calculate_buffer_offset([4]u16, info.vertex_count * u64(info.joint_weight_channel_count), &cursor)
+        vert_group.weight_offset    = calculate_buffer_offset([4]u16, info.vertex_count * u64(info.joint_weight_channel_count), &cursor)
+        
         // TODO: attribute extensions
     }
 
@@ -158,23 +129,6 @@ make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
 
 
 delete_mesh :: proc(mesh: ^Mesh) {
-    for vert_group in mesh.vertex_groups {
-        if len(vert_group.texcoords) > 0 {
-            delete(vert_group.texcoords)
-            delete(vert_group.texcoords_offsets)
-        }
-        if len(vert_group.colors) > 0 {
-            delete(vert_group.colors)
-            delete(vert_group.colors_offsets)
-        }
-        if len(vert_group.joints) > 0 {
-            delete(vert_group.joints)
-            delete(vert_group.weights)
-            delete(vert_group.joints_offsets)
-            delete(vert_group.weights_offsets)
-        }
-    }
-
     delete(mesh.vertex_groups)
     delete(mesh.buffer)
     if mesh.name != {} {
@@ -196,22 +150,23 @@ serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []
     
     // Populate mesh manifest
     manifest := new_struct_in_buffer(Galileo_Mesh_Manifest, data, &cursor)
-    manifest.bounds = mesh.bounds
+    manifest.bounds             = mesh.bounds
     manifest.vertex_group_count = u32(len(mesh.vertex_groups))
-    manifest.extension_count = 0
-    manifest.buffer_size = u64(len(mesh.buffer))
+    manifest.extension_count    = 0
+    manifest.buffer_size        = u64(len(mesh.buffer))
 
     // Populate vertex group infos
     for vg in mesh.vertex_groups {
-        vg_info := new_struct_in_buffer(Galileo_Vertex_Group_Info, data, &cursor)
-        vg_info.bounds = vg.bounds
-        vg_info.buffer_slice_begin = u64(get_subslice_offset(mesh.buffer, vg.buffer_slice))
-        vg_info.buffer_slice_size = u64(len(vg.buffer_slice))
-        vg_info.index_count = u32(len(vg.index))
-        vg_info.vertex_count = u32(len(vg.position))
-        vg_info.texcoord_channel_count = u8(len(vg.texcoords))
-        vg_info.color_channel_count = u8(len(vg.colors))
-        vg_info.joint_weight_channel_count = u8(len(vg.joints))
+        info := new_struct_in_buffer(Galileo_Vertex_Group_Info, data, &cursor)
+        info.bounds                     = vg.bounds
+        info.buffer_slice_begin         = vg.index_offset
+        info.buffer_slice_size          = u64(len(vg.buffer_slice))
+        info.index_count                = vg.index_count
+        info.vertex_count               = vg.vertex_count
+        info.texcoord_channel_count     = vg.texcoord_channel_count
+        info.color_channel_count        = vg.color_channel_count
+        info.joint_weight_channel_count = vg.joint_weight_channel_count
+        info.extension_channel_count    = 0
     }
 
     // TODO: populate extension info
@@ -222,3 +177,20 @@ serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []
     return 
 }
 
+
+// Updates the cursor to the beginning index of the next attribute. Returns the beginning of the current attribute.
+calculate_buffer_offset :: proc($element_type: typeid, element_count: u64, cursor: ^u64) -> u64 {
+    element_size := u64(type_info_of(element_type).size)
+    cursor_cache := cursor^
+
+    cursor^ += element_size * element_count
+
+    return cursor_cache
+}
+
+
+vertex_group_get_channel_offset :: proc($element_type: typeid, vertex_count: u64, attribute_offset: u64, channel: u8) -> (channel_offset: u64) {
+    element_size := u64(type_info_of(element_type).size)
+    channel_stride := element_size * vertex_count
+    return attribute_offset + (u64(channel) * channel_stride)
+}

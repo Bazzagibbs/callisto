@@ -36,11 +36,12 @@ CVK_Mesh :: struct {
 }
 
 CVK_Vertex_Group :: struct {
-    mesh_buffer:            vk.Buffer,
-    vertex_count:           u32,
-    idx_buffer_offset:      vk.DeviceSize,
-    vertex_buffer_offset:   vk.DeviceSize,
-    // attribute_desc: ,
+    mesh_buffer:                vk.Buffer,
+    vertex_count:               u32,
+    idx_buffer_offset:          vk.DeviceSize,
+    vertex_buffer_offset:       vk.DeviceSize,
+    vertex_input_bindings:      []vk.VertexInputBindingDescription,
+    vertex_input_attributes:    []vk.VertexInputAttributeDescription,
 }
 
 CVK_Model :: struct {
