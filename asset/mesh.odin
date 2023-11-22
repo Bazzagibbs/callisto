@@ -189,7 +189,7 @@ calculate_buffer_offset :: proc($element_type: typeid, element_count: u64, curso
 }
 
 
-vertex_group_get_channel_offset :: proc($element_type: typeid, vertex_count: u64, attribute_offset: u64, channel: u8) -> (channel_offset: u64) {
+get_vertex_group_channel_offset :: proc($element_type: typeid, vertex_count: u64, attribute_offset: u64, channel: u8) -> (channel_offset: u64) {
     element_size := u64(type_info_of(element_type).size)
     channel_stride := element_size * vertex_count
     return attribute_offset + (u64(channel) * channel_stride)

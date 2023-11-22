@@ -57,8 +57,8 @@ unload :: proc(loaded_asset: ^$T)
     delete(loaded_asset)
 }
 
-make_subslice_of_type :: proc($T: typeid, data_buffer: []u8, cursor: ^u32, length: u32) -> (subslice: []T) {
-    stride := u32(size_of(T))
+make_subslice_of_type :: proc($T: typeid, data_buffer: []u8, cursor: ^u64, length: u64) -> (subslice: []T) {
+    stride := u64(size_of(T))
     subslice = transmute([]T) mem.Raw_Slice{&data_buffer[cursor^], int(length)}
     cursor^ += stride * length
     return subslice
