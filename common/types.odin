@@ -49,14 +49,20 @@ Transform :: struct {
 
 
 Shader_Description :: struct {
-    // material_buffer_typeid  : typeid,
-    vertex_shader_data      : []u8,
-    fragment_shader_data    : []u8,
-    cull_mode               : Shader_Description_Cull_Mode,
+    material_uniforms_typeid    : typeid,
+    vertex_shader_data          : []u8,
+    fragment_shader_data        : []u8,
+    cull_mode                   : Shader_Description_Cull_Mode,
 }
 
 Shader_Description_Cull_Mode :: enum {
     BACK,
     FRONT,
     NONE,
+}
+
+Render_Pass_Uniforms :: struct {
+    view:       linalg.Matrix4x4f32,
+    proj:       linalg.Matrix4x4f32,
+    viewproj:   linalg.Matrix4x4f32,
 }

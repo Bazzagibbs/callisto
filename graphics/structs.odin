@@ -1,6 +1,6 @@
 package callisto_graphics
 
-import "../common"
+import cc "../common"
 
 Built_In :: struct {
     texture_white           : Texture,
@@ -8,7 +8,7 @@ Built_In :: struct {
     texture_transparent     : Texture,
 }
 
-Handle                  :: common.Handle
+Handle                  :: cc.Handle
 
 Buffer                  :: distinct Handle
 
@@ -16,7 +16,7 @@ Vertex_Buffer           :: distinct Buffer
 Index_Buffer            :: distinct Buffer
 Uniform_Buffer          :: distinct Buffer
 
-Mesh                    :: common.Mesh
+Mesh                    :: cc.Mesh
 
 // Contains bundled mesh/texture/material data
 Model                   :: distinct Handle
@@ -25,7 +25,7 @@ Model_Description :: struct {
 }
 
 Shader                  :: distinct Handle
-Shader_Description      :: common.Shader_Description
+Shader_Description      :: cc.Shader_Description
 
 
 // Material_Master         :: distinct Handle
@@ -44,3 +44,5 @@ Image_Color_Space :: enum {
 }
 
 Texture_Binding         :: distinct u32
+
+Render_Pass_Uniforms    :: cc.Render_Pass_Uniforms

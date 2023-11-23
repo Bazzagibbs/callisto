@@ -2,6 +2,7 @@ package callisto_graphics
 
 import "../asset"
 import "../platform"
+import cc "../common"
 
 bind_context : proc(^Graphics_Context)
 
@@ -29,6 +30,11 @@ destroy_texture : proc(texture: Texture)
 
 set_clear_color : proc(color: [4]f32)
 
+// upload_uniforms_scene : proc(scene: Scene, uniforms: Scene_Uniforms)
+upload_uniforms_render_pass : proc(/*render_pass: Render_Pass,*/ uniforms: ^cc.Render_Pass_Uniforms)
+// upload_uniforms_material : proc(material: Material, uniforms: Material_Uniforms)
+// upload_uniforms_instance : proc(instance: Instance, uniforms: Instance_Uniforms)
+
 // ==============================================================================
 
 cmd_begin_graphics : proc()
@@ -49,9 +55,9 @@ cmd_end_render_pass : proc()
 cmd_bind_shader: proc(shader: Shader)
 
 cmd_bind_uniforms_scene : proc()
-cmd_bind_uniforms_pass : proc()
+cmd_bind_uniforms_render_pass : proc()
 cmd_bind_uniforms_material : proc(material: Material) 
-cmd_bind_uniforms_model : proc()
+cmd_bind_uniforms_instance : proc()
 
 cmd_draw_mesh : proc(mesh: Mesh) 
 cmd_draw_model : proc(model: Model)

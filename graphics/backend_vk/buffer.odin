@@ -62,23 +62,28 @@ destroy_buffer :: proc(cg_ctx: ^Graphics_Context, buffer: ^Gpu_Buffer) {
 }
 
 
-upload_buffer_data :: proc(cg_ctx: ^Graphics_Context, data: []byte, usage: vk.BufferUsageFlags) -> (buffer: Gpu_Buffer, ok: bool) {
-    data_size := len(data)
-    staging_buffer := create_staging_buffer(cg_ctx, data_size) or_return
+upload_buffer_data :: proc(cg_ctx: ^Graphics_Context, buffer: ^Gpu_Buffer, data: []byte) -> (ok: bool) {
+    staging_buffer := create_staging_buffer(cg_ctx, len(data)) or_return
     defer destroy_buffer(cg_ctx, &staging_buffer)
 
-    mapped_mem: rawptr
-    vma.MapMemory(cg_ctx.allocator, staging_buffer.allocation, &mapped_mem)
-    mem.copy(raw_data(data), mapped_mem, data_size)
-    vma.UnmapMemory(cg_ctx.allocator, staging_buffer.allocation)
+    upload_buffer_data_no_staging(cg_ctx, &staging_buffer, data) or_return
 
-    buffer = create_buffer(cg_ctx, data_size, {.TRANSFER_DST} + usage, .GPU_ONLY) or_return
+    buffer_copy(cg_ctx, staging_buffer.buffer, buffer.buffer, vk.DeviceSize(len(data)))
 
-    buffer_copy(cg_ctx, staging_buffer.buffer, buffer.buffer, vk.DeviceSize(data_size))
-
-    return buffer, true
+    return true
 }
 
+upload_buffer_data_no_staging :: proc(cg_ctx: ^Graphics_Context, buffer: ^Gpu_Buffer, data: []byte) -> (ok: bool) {
+    data_size := len(data)
+
+    mapped_mem: rawptr
+    res := vma.MapMemory(cg_ctx.allocator, buffer.allocation, &mapped_mem)
+    check_result(res) or_return
+    mem.copy(raw_data(data), mapped_mem, data_size)
+    vma.UnmapMemory(cg_ctx.allocator, buffer.allocation)
+
+    return true
+}
 
 // ///////////////////////////////////////////////////////////////////////////
 

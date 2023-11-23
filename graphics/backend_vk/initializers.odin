@@ -366,7 +366,7 @@ destroy_device :: proc(cg_ctx: ^Graphics_Context) {
 }
 
 
-// SWAPCHA
+// SWAPCHAIN
 // /////////
 Swapchain_Support_Details :: struct {
     capabilities:   vk.SurfaceCapabilitiesKHR,
@@ -682,6 +682,113 @@ create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
 
 destroy_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) {
     vk.DestroyRenderPass(cg_ctx.device, cg_ctx.render_pass, nil)
+}
+
+create_builtin_pipeline_layout :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    set_layouts := []vk.DescriptorSetLayout{
+        cg_ctx.descriptor_layout_render_pass,
+    }
+
+    layout_info := vk.PipelineLayoutCreateInfo {
+        sType = .PIPELINE_LAYOUT_CREATE_INFO,
+        setLayoutCount = u32(len(set_layouts)),
+        pSetLayouts = raw_data(set_layouts),
+    }
+    res := vk.CreatePipelineLayout(cg_ctx.device, &layout_info, nil, &cg_ctx.builtin_pipeline_layout)
+    check_result(res) or_return
+
+    return true
+}
+
+destroy_builtin_pipeline_layout :: proc(cg_ctx: ^Graphics_Context) {
+    vk.DestroyPipelineLayout(cg_ctx.device, cg_ctx.builtin_pipeline_layout, nil)
+}
+
+create_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+    pool_sizes := []vk.DescriptorPoolSize {
+        { .UNIFORM_BUFFER, 10 },
+    }
+
+    pool_info := vk.DescriptorPoolCreateInfo {
+        sType           = .DESCRIPTOR_POOL_CREATE_INFO,
+        maxSets         = 10,
+        poolSizeCount   = u32(len(pool_sizes)),
+        pPoolSizes      = raw_data(pool_sizes),
+    }
+
+    res := vk.CreateDescriptorPool(cg_ctx.device, &pool_info, nil, &cg_ctx.descriptor_pool_render_pass)
+    check_result(res) or_return
+    defer if !ok do vk.DestroyDescriptorPool(cg_ctx.device, cg_ctx.descriptor_pool_render_pass, nil)
+
+    layout_bindings := [] vk.DescriptorSetLayoutBinding {
+        // {   // Scene
+        //     binding         = 0,
+        //     descriptorCount = 1,
+        //     descriptorType  = .UNIFORM_BUFFER,
+        //     stageFlags      = {.VERTEX, .FRAGMENT},
+        // },
+        {   // Render pass
+            binding         = 1,
+            descriptorCount = 1,
+            descriptorType  = .UNIFORM_BUFFER,
+            stageFlags      = {.VERTEX},
+        },
+        // Material
+        // Instance
+    }
+
+    set_info := vk.DescriptorSetLayoutCreateInfo {
+        sType           = .DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        bindingCount    = u32(len(layout_bindings)),
+        pBindings       = raw_data(layout_bindings),
+    }
+
+    res = vk.CreateDescriptorSetLayout(cg_ctx.device, &set_info, nil, &cg_ctx.descriptor_layout_render_pass)
+    check_result(res) or_return
+    defer if !ok do vk.DestroyDescriptorSetLayout(cg_ctx.device, cg_ctx.descriptor_layout_render_pass, nil)
+    
+    for &frame in cg_ctx.frame_data {
+        frame.camera_uniform_buffer = create_buffer(cg_ctx, size_of(cc.Render_Pass_Uniforms), {.UNIFORM_BUFFER}, .CPU_TO_GPU) or_return
+
+        desc_set_alloc_info := vk.DescriptorSetAllocateInfo {
+            sType               = .DESCRIPTOR_SET_ALLOCATE_INFO,
+            descriptorPool      = cg_ctx.descriptor_pool_render_pass,
+            descriptorSetCount  = 1,
+            pSetLayouts         = &cg_ctx.descriptor_layout_render_pass,
+        }
+        res = vk.AllocateDescriptorSets(cg_ctx.device, &desc_set_alloc_info, &frame.camera_uniform_set)
+        check_result(res) or_return
+
+        buffer_info := vk.DescriptorBufferInfo {
+            buffer  = frame.camera_uniform_buffer.buffer,
+            offset  = 0,
+            range   = vk.DeviceSize(size_of(cc.Render_Pass_Uniforms)),
+        }
+
+        write_set := vk.WriteDescriptorSet {
+            sType           = .WRITE_DESCRIPTOR_SET,
+            dstBinding      = 1,
+            dstSet          = frame.camera_uniform_set,
+            descriptorCount = 1,
+            descriptorType  = .UNIFORM_BUFFER,
+            pBufferInfo     = &buffer_info,
+        }
+
+        vk.UpdateDescriptorSets(cg_ctx.device, 1, &write_set, 0, nil)
+    }
+    
+    return true
+}
+
+
+destroy_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) {
+    for &frame in cg_ctx.frame_data {
+        // vk.FreeDescriptorSets(cg_ctx.device, cg_ctx.descriptor_pool_render_pass, 1, &frame.camera_uniform_set)
+        destroy_buffer(cg_ctx, &frame.camera_uniform_buffer)
+    }
+
+    vk.DestroyDescriptorSetLayout(cg_ctx.device, cg_ctx.descriptor_layout_render_pass, nil)
+    vk.DestroyDescriptorPool(cg_ctx.device, cg_ctx.descriptor_pool_render_pass, nil)
 }
 
 

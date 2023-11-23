@@ -38,7 +38,9 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     pipeline_color_blend(&info)
 
     // This could be moved/managed by render graph?
-    pipeline_layout(&info) or_return
+    desc_set_layouts := []vk.DescriptorSetLayout {cg_ctx.descriptor_layout_render_pass}
+
+    pipeline_layout(&info, desc_set_layouts) or_return
     defer if !ok do vk.DestroyPipelineLayout(info.device, info.layout_obj, nil)
     // ////////////////////////////////////////////
    
@@ -101,11 +103,15 @@ pipeline_stage :: proc(module: vk.ShaderModule, stage: vk.ShaderStageFlags) -> v
 }
 
 
-pipeline_vertex_input :: proc(info: ^Pipeline_Info) { // TODO: pass vertex attribute description here
+pipeline_vertex_input :: proc(info: ^Pipeline_Info) { // TODO: pass vertex attributes used by shader here.
+    // For now, just bind all required attributes.
+
     info.vertex_input = vk.PipelineVertexInputStateCreateInfo {
         sType                           = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        vertexBindingDescriptionCount   = 0,
-        vertexAttributeDescriptionCount = 0,
+        vertexBindingDescriptionCount   = u32(len(pipeline_bindings)),
+        pVertexBindingDescriptions      = raw_data(pipeline_bindings),
+        vertexAttributeDescriptionCount = u32(len(pipeline_attributes)),
+        pVertexAttributeDescriptions    = raw_data(pipeline_attributes),
     }
 }
 
@@ -167,11 +173,11 @@ pipeline_viewport_state :: proc(info: ^Pipeline_Info) {
 }
 
 
-pipeline_layout :: proc(info: ^Pipeline_Info) -> (ok: bool) {
+pipeline_layout :: proc(info: ^Pipeline_Info, descriptor_set_layouts: []vk.DescriptorSetLayout) -> (ok: bool) {
     info.layout = vk.PipelineLayoutCreateInfo {
         sType                   = .PIPELINE_LAYOUT_CREATE_INFO,
-        setLayoutCount          = 0,
-        pSetLayouts             = nil,
+        setLayoutCount          = u32(len(descriptor_set_layouts)),
+        pSetLayouts             = raw_data(descriptor_set_layouts),
         pushConstantRangeCount  = 0,
         pPushConstantRanges     = nil,
     }
@@ -203,6 +209,43 @@ pipeline_build_graphics :: proc(info: ^Pipeline_Info) -> (pipeline: vk.Pipeline,
     check_result(res) or_return
 
     return pipeline, true
+}
+
+
+pipeline_bindings := []vk.VertexInputBindingDescription {
+    {
+        binding = 0, // Position
+        stride = size_of(cc.vec3),
+        inputRate = .VERTEX,
+    },
+    {
+        binding = 1, // Normal
+        stride = size_of(cc.vec3),
+        inputRate = .VERTEX,
+    },
+    {
+        binding = 2, // Tangent
+        stride = size_of(cc.vec4),
+        inputRate = .VERTEX,
+    },
+}
+
+pipeline_attributes := []vk.VertexInputAttributeDescription {
+    {
+        binding = 0,
+        location = 0,
+        format = .R32G32B32_SFLOAT,
+    },
+    {
+        binding = 1,
+        location = 1,
+        format = .R32G32B32_SFLOAT,
+    },
+    {
+        binding = 2,
+        location = 2,
+        format = .R32G32B32A32_SFLOAT,
+    },
 }
 
 

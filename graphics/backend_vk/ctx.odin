@@ -40,7 +40,9 @@ Graphics_Context :: struct {
     render_pass:                vk.RenderPass,
     render_pass_framebuffers:   []vk.Framebuffer,
 
-    descriptor_layout_pass:     vk.DescriptorSetLayout,
+    builtin_pipeline_layout:        vk.PipelineLayout,
+    descriptor_layout_render_pass:  vk.DescriptorSetLayout,
+    descriptor_pool_render_pass:    vk.DescriptorPool,
 
     clear_color:                [4]f32,
 
@@ -55,9 +57,14 @@ Frame_Data :: struct {
     
     graphics_command_buffer:    vk.CommandBuffer,
 
-    present_ready_sem:      vk.Semaphore,
-    image_available_sem:    vk.Semaphore,
-    in_flight_fence:        vk.Fence,
+    present_ready_sem:          vk.Semaphore,
+    image_available_sem:        vk.Semaphore,
+    in_flight_fence:            vk.Fence,
+
+    // TEMP //
+    //////////
+    camera_uniform_buffer:      Gpu_Buffer,
+    camera_uniform_set:         vk.DescriptorSet,
 }
 
 Queue_Families :: struct {
