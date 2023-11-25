@@ -465,26 +465,23 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
     res = vk.GetSwapchainImagesKHR(cg_ctx.device, cg_ctx.swapchain, &actual_image_count, raw_data(cg_ctx.swapchain_images))
     check_result(res) or_return
 
+    // Image views
     for swap_img, i in cg_ctx.swapchain_images {
-        view_create_info := vk.ImageViewCreateInfo {
-            sType               = .IMAGE_VIEW_CREATE_INFO,
-            image               = swap_img,
-            viewType            = .D2,
-            format              = cg_ctx.swapchain_format,
-            components          = {}, // RGBA Identity by default
-            subresourceRange    = {
-                aspectMask      = {.COLOR},
-                baseMipLevel    = 0,
-                levelCount      = 1,
-                baseArrayLayer  = 0,
-                layerCount      = 1,
-            }
-        }
-
-        res = vk.CreateImageView(cg_ctx.device, &view_create_info, nil, &(cg_ctx.swapchain_views[i]))
-        check_result(res) or_return
+        cg_ctx.swapchain_views[i] = create_image_view(cg_ctx, cg_ctx.swapchain_format, swap_img, {.COLOR}) or_return
     }
-    
+   
+    // Depth
+    depth_extent := vk.Extent3D {
+        width   = swap_extent.width,
+        height  = swap_extent.height,
+        depth   = 1,
+    }
+
+    cg_ctx.depth_image_format = .D32_SFLOAT
+
+    cg_ctx.depth_image      = create_image(cg_ctx, cg_ctx.depth_image_format, {.DEPTH_STENCIL_ATTACHMENT}, depth_extent) or_return
+    cg_ctx.depth_image_view = create_image_view(cg_ctx, cg_ctx.depth_image_format, cg_ctx.depth_image.image, {.DEPTH}) or_return
+
     return true
 }
 
@@ -630,6 +627,16 @@ create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
             initialLayout   = .UNDEFINED,
             finalLayout     = .PRESENT_SRC_KHR,
         },
+        {
+            format          = cg_ctx.depth_image_format,
+            samples         = {._1},
+            loadOp          = .CLEAR,
+            storeOp         = .STORE,
+            stencilLoadOp   = .CLEAR,
+            stencilStoreOp  = .DONT_CARE,
+            initialLayout   = .UNDEFINED,
+            finalLayout     = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        },
     }
 
     // References attachments to be used in a subpass and describes how they're used
@@ -640,6 +647,11 @@ create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
             layout      = .COLOR_ATTACHMENT_OPTIMAL,
         },
     }
+    
+    depth_stencil_ref := vk.AttachmentReference {
+        attachment  = 1,
+        layout      = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    }
 
 
     // Describes all subpasses used in the render pass
@@ -648,12 +660,13 @@ create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
             pipelineBindPoint       = .GRAPHICS,
             colorAttachmentCount    = u32(len(color_refs)),
             pColorAttachments       = raw_data(color_refs),
+            pDepthStencilAttachment = &depth_stencil_ref,
         },
     }
     
     // Describes the flow of subpasses
     subpass_depends := []vk.SubpassDependency {
-        {
+        {   // Color
             srcSubpass      = vk.SUBPASS_EXTERNAL,          // Subpass entry point
             dstSubpass      = 0,                            // Subpass index 0
             srcStageMask    = {.COLOR_ATTACHMENT_OUTPUT},
@@ -661,7 +674,16 @@ create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
             dstStageMask    = {.COLOR_ATTACHMENT_OUTPUT},
             dstAccessMask   = {.COLOR_ATTACHMENT_WRITE},
         },
+        {   // Depth
+            srcSubpass      = vk.SUBPASS_EXTERNAL,          // Subpass entry point
+            dstSubpass      = 0,                            // Subpass index 0
+            srcStageMask    = {.EARLY_FRAGMENT_TESTS, .LATE_FRAGMENT_TESTS},
+            srcAccessMask   = {},
+            dstStageMask    = {.EARLY_FRAGMENT_TESTS, .LATE_FRAGMENT_TESTS},
+            dstAccessMask   = {.DEPTH_STENCIL_ATTACHMENT_WRITE},
+        },
     }
+    
 
     render_pass_create_info := vk.RenderPassCreateInfo {
         sType           = .RENDER_PASS_CREATE_INFO,
@@ -795,17 +817,23 @@ destroy_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) {
 create_framebuffers :: proc(cg_ctx: ^Graphics_Context, render_pass: vk.RenderPass) -> (framebuffers: []vk.Framebuffer, ok: bool) {
     framebuffers = make([]vk.Framebuffer, len(cg_ctx.swapchain_images))
 
-    fb_create_info := vk.FramebufferCreateInfo {
-        sType           = .FRAMEBUFFER_CREATE_INFO,
-        renderPass      = render_pass,
-        attachmentCount = 1,
-        width           = cg_ctx.swapchain_extents.width,
-        height          = cg_ctx.swapchain_extents.height,
-        layers          = 1,
-    }
-
     for _, i in framebuffers {
-        fb_create_info.pAttachments = &cg_ctx.swapchain_views[i]
+
+        attachments := []vk.ImageView {
+            cg_ctx.swapchain_views[i],
+            cg_ctx.depth_image_view,
+        }
+
+        fb_create_info := vk.FramebufferCreateInfo {
+            sType           = .FRAMEBUFFER_CREATE_INFO,
+            renderPass      = render_pass,
+            attachmentCount = u32(len(attachments)),
+            pAttachments    = raw_data(attachments),
+            width           = cg_ctx.swapchain_extents.width,
+            height          = cg_ctx.swapchain_extents.height,
+            layers          = 1,
+        }
+
         res := vk.CreateFramebuffer(cg_ctx.device, &fb_create_info, nil, &framebuffers[i])
         check_result(res) or_return
     } 

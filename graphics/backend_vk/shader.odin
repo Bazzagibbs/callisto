@@ -36,6 +36,7 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     pipeline_rasterizer(&info, .FILL)
     pipeline_multisample(&info)
     pipeline_color_blend(&info)
+    pipeline_depth_stencil(&info, shader_description.depth_test, shader_description.depth_write, _compare_op_to_vk_compare_op(shader_description.depth_compare_op))
 
     // This could be moved/managed by render graph?
     desc_set_layouts := []vk.DescriptorSetLayout {cg_ctx.descriptor_layout_render_pass}
@@ -200,6 +201,7 @@ pipeline_build_graphics :: proc(info: ^Pipeline_Info) -> (pipeline: vk.Pipeline,
         pRasterizationState = &info.rasterizer,
         pMultisampleState   = &info.multisample,
         pColorBlendState    = &info.color_blend,
+        pDepthStencilState  = &info.depth_stencil, 
         layout              = info.layout_obj,
         renderPass          = info.render_pass_obj,
         subpass             = 0,
@@ -209,6 +211,17 @@ pipeline_build_graphics :: proc(info: ^Pipeline_Info) -> (pipeline: vk.Pipeline,
     check_result(res) or_return
 
     return pipeline, true
+}
+
+pipeline_depth_stencil :: proc(info: ^Pipeline_Info, do_depth_test, do_depth_write: bool, compare_op: vk.CompareOp) {
+    ds_info := vk.PipelineDepthStencilStateCreateInfo {
+        sType = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        depthTestEnable = b32(do_depth_test),
+        depthWriteEnable = b32(do_depth_write),
+        depthCompareOp = compare_op,
+    }
+
+    info.depth_stencil = ds_info
 }
 
 
@@ -252,13 +265,18 @@ pipeline_attributes := []vk.VertexInputAttributeDescription {
 @(private)
 _cull_mode_to_vk_cull_mode :: proc (mode: cc.Shader_Description_Cull_Mode) -> vk.CullModeFlags {
     switch mode {
-    case .BACK:
+    case .Back:
         return {.BACK}
-    case .FRONT:
+    case .Front:
         return {.FRONT}
-    case .NONE:
+    case .None:
         return {}
     }
 
     return {}
+}
+
+@(private)
+_compare_op_to_vk_compare_op :: proc(op: cc.Compare_Op) -> vk.CompareOp {
+    return vk.CompareOp(op)
 }

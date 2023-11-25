@@ -37,6 +37,10 @@ Graphics_Context :: struct {
     swapchain_images:           []vk.Image,
     swapchain_views:            []vk.ImageView,
 
+    depth_image:                Gpu_Image,
+    depth_image_view:           vk.ImageView,
+    depth_image_format:         vk.Format,
+
     render_pass:                vk.RenderPass,
     render_pass_framebuffers:   []vk.Framebuffer,
 

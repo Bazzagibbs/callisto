@@ -53,12 +53,26 @@ Shader_Description :: struct {
     vertex_shader_data          : []u8,
     fragment_shader_data        : []u8,
     cull_mode                   : Shader_Description_Cull_Mode,
+    depth_test                  : bool,
+    depth_write                 : bool,
+    depth_compare_op            : Compare_Op,
 }
 
 Shader_Description_Cull_Mode :: enum {
-    BACK,
-    FRONT,
-    NONE,
+    Back,
+    Front,
+    None,
+}
+
+Compare_Op :: enum {
+    Never,
+    Less,
+    Equal,
+    Less_Or_Equal,
+    Greater,
+    Not_Equal,
+    Greater_Or_Equal,
+    Always,
 }
 
 Render_Pass_Uniforms :: struct {

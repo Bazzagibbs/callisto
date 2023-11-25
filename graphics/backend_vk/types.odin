@@ -23,6 +23,7 @@ Pipeline_Info :: struct {
     multisample:        vk.PipelineMultisampleStateCreateInfo,
     color_blend:        vk.PipelineColorBlendStateCreateInfo,
     color_blend_attach: vk.PipelineColorBlendAttachmentState,
+    depth_stencil:      vk.PipelineDepthStencilStateCreateInfo,
     layout:             vk.PipelineLayoutCreateInfo,
 }
 

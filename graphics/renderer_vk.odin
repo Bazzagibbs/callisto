@@ -256,7 +256,8 @@ when config.RENDERER_API == .Vulkan {
         framebuffer := cg_ctx.render_pass_framebuffers[vkb.current_frame_data(cg_ctx).image_index]
 
         clear_values := []vk.ClearValue {
-            {color = {float32 = cg_ctx.clear_color}},
+            {color          = {float32 = cg_ctx.clear_color}},
+            {depthStencil   = {depth = 1}},
         }
 
         begin_info := vk.RenderPassBeginInfo {
