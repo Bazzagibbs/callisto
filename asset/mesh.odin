@@ -21,8 +21,8 @@ Galileo_Vertex_Group_Info :: struct #packed {
     buffer_slice_begin          : u64,
     buffer_slice_size           : u64,
 
-    index_count                 : u64,
-    vertex_count                : u64,
+    index_count                 : u32,
+    vertex_count                : u32,
 
     texcoord_channel_count      : u8,
     color_channel_count         : u8,
@@ -45,8 +45,8 @@ Vertex_Group        :: struct {
 
     buffer_slice                : []u8,     // Slice into mesh buffer, not allocated
     
-    index_count                 : u64,
-    vertex_count                : u64,
+    index_count                 : u32,
+    vertex_count                : u32,
 
     total_channel_count         : u8,
     texcoord_channel_count      : u8,
@@ -100,10 +100,10 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
         vert_group.normal_offset    = calculate_buffer_offset([3]f32, info.vertex_count, &cursor)
         vert_group.tangent_offset   = calculate_buffer_offset([4]f32, info.vertex_count, &cursor)
 
-        vert_group.texcoord_offset  = calculate_buffer_offset([2]u16, info.vertex_count * u64(info.texcoord_channel_count), &cursor)
-        vert_group.color_offset     = calculate_buffer_offset([4]u8,  info.vertex_count * u64(info.color_channel_count), &cursor)
-        vert_group.joint_offset     = calculate_buffer_offset([4]u16, info.vertex_count * u64(info.joint_weight_channel_count), &cursor)
-        vert_group.weight_offset    = calculate_buffer_offset([4]u16, info.vertex_count * u64(info.joint_weight_channel_count), &cursor)
+        vert_group.texcoord_offset  = calculate_buffer_offset([2]u16, info.vertex_count * u32(info.texcoord_channel_count), &cursor)
+        vert_group.color_offset     = calculate_buffer_offset([4]u8,  info.vertex_count * u32(info.color_channel_count), &cursor)
+        vert_group.joint_offset     = calculate_buffer_offset([4]u16, info.vertex_count * u32(info.joint_weight_channel_count), &cursor)
+        vert_group.weight_offset    = calculate_buffer_offset([4]u16, info.vertex_count * u32(info.joint_weight_channel_count), &cursor)
         
         // TODO: attribute extensions
     }
@@ -179,11 +179,11 @@ serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []
 
 
 // Updates the cursor to the beginning index of the next attribute. Returns the beginning of the current attribute.
-calculate_buffer_offset :: proc($element_type: typeid, element_count: u64, cursor: ^u64) -> u64 {
+calculate_buffer_offset :: proc($element_type: typeid, element_count: u32, cursor: ^u64) -> u64 {
     element_size := u64(type_info_of(element_type).size)
     cursor_cache := cursor^
 
-    cursor^ += element_size * element_count
+    cursor^ += element_size * u64(element_count)
 
     return cursor_cache
 }
