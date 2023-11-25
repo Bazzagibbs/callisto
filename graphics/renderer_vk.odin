@@ -15,8 +15,12 @@ import vk "vendor:vulkan"
 import cc "../common"
 
 when config.RENDERER_API == .Vulkan {
+    VIEW_BASIS_MATRIX :: vkb.VIEW_BASIS_MATRIX
+    
     Graphics_Context :: vkb.Graphics_Context
+   
     cg_ctx: ^Graphics_Context
+
 
     cvk_bind_context :: proc(ctx: ^Graphics_Context) {
         cg_ctx = ctx

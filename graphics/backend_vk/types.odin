@@ -64,3 +64,10 @@ CVK_Material :: struct {
     // descriptor_set_shape: ,
     // descriptor_set: CVK_Uniforms,
 }
+
+VIEW_BASIS_MATRIX :: matrix[4,4]f32 {
+    1,  0,  0,  0,
+    0,  0,  -1, 0,
+    0,  1,  0,  0,
+    0,  0,  0,  1,
+}
