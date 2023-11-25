@@ -79,7 +79,7 @@ upload_buffer_data_no_staging :: proc(cg_ctx: ^Graphics_Context, buffer: ^Gpu_Bu
     mapped_mem: rawptr
     res := vma.MapMemory(cg_ctx.allocator, buffer.allocation, &mapped_mem)
     check_result(res) or_return
-    mem.copy(raw_data(data), mapped_mem, data_size)
+    mem.copy(mapped_mem, raw_data(data), data_size)
     vma.UnmapMemory(cg_ctx.allocator, buffer.allocation)
 
     return true

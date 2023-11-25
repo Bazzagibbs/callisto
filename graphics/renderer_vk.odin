@@ -128,7 +128,8 @@ when config.RENDERER_API == .Vulkan {
         // Sub-allocate buffer and populate attribute descriptions
         for &asset_vg, i in mesh_asset.vertex_groups {
             vg := &cvk_mesh.vert_groups[i]
-
+            
+            vg.vertex_count             = asset_vg.vertex_count
             vg.mesh_buffer              = cvk_mesh.buffer.buffer
             vg.idx_buffer_offset        = vk.DeviceSize(asset_vg.index_offset)
             vg.vertex_buffers           = make([]vk.Buffer, asset_vg.total_channel_count)

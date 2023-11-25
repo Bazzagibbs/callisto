@@ -12,6 +12,6 @@ void main() {
     // vec3 fragBitangent = fragTangent.w * cross(fragNormal, fragTangent.xyz);
     // mat3 tbnMatrix = mat3(fragTangent.xyz, fragBitangent, fragNormal);
 
-    // outColor = vec4(fragNormal, 1.0);
-    outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    outColor = vec4(fragNormal, 1.0);
+    // outColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
