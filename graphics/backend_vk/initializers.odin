@@ -194,6 +194,7 @@ select_physical_device :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
     for phys_device in phys_devices[:phys_device_count] {
         if is_physical_device_suitable(cg_ctx, phys_device) {
             cg_ctx.physical_device = phys_device
+            vk.GetPhysicalDeviceProperties(phys_device, &cg_ctx.physical_device_properties)
             return true
         }
     }

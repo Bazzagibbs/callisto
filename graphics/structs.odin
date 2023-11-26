@@ -46,3 +46,4 @@ Image_Color_Space :: enum {
 Texture_Binding         :: distinct u32
 
 Render_Pass_Uniforms    :: cc.Render_Pass_Uniforms
+Instance_Uniforms       :: cc.Instance_Uniforms

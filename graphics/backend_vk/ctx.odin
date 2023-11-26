@@ -15,6 +15,7 @@ Graphics_Context :: struct {
     surface:                    vk.SurfaceKHR,
                               
     physical_device:            vk.PhysicalDevice,
+    physical_device_properties: vk.PhysicalDeviceProperties,
     device:                     vk.Device,
                               
     graphics_queue:             vk.Queue,

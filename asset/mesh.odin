@@ -52,6 +52,7 @@ Vertex_Group        :: struct {
     texcoord_channel_count      : u8,
     color_channel_count         : u8,
     joint_weight_channel_count  : u8,
+    extension_channel_count     : u8,
 
     index_offset                : u64,
     position_offset             : u64,
@@ -62,6 +63,7 @@ Vertex_Group        :: struct {
     color_offset                : u64,
     joint_offset                : u64,
     weight_offset               : u64,
+    extension_offset            : u64,
 }
 
 
@@ -87,12 +89,13 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
         vert_group.texcoord_channel_count       = info.texcoord_channel_count
         vert_group.color_channel_count          = info.color_channel_count
         vert_group.joint_weight_channel_count   = info.joint_weight_channel_count
+        vert_group.extension_channel_count      = info.extension_channel_count
 
         vert_group.total_channel_count = 3 /* position + normal + tangent */ +
                                         info.texcoord_channel_count + 
                                         info.color_channel_count + 
-                                        (info.joint_weight_channel_count * 2)
-                                        /* + custom attribute channels */
+                                        (info.joint_weight_channel_count * 2) +
+                                        info.extension_channel_count
 
         
         vert_group.index_offset     = calculate_buffer_offset(u32, info.index_count, &cursor)
@@ -104,6 +107,7 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
         vert_group.color_offset     = calculate_buffer_offset([4]u8,  info.vertex_count * u32(info.color_channel_count), &cursor)
         vert_group.joint_offset     = calculate_buffer_offset([4]u16, info.vertex_count * u32(info.joint_weight_channel_count), &cursor)
         vert_group.weight_offset    = calculate_buffer_offset([4]u16, info.vertex_count * u32(info.joint_weight_channel_count), &cursor)
+        vert_group.extension_offset = calculate_buffer_offset(u8,     info.vertex_count * u32(info.extension_channel_count), &cursor)
         
         // TODO: attribute extensions
     }

@@ -13,13 +13,13 @@ ivec2     :: [2]i32
 ivec3     :: [3]i32
 ivec4     :: [4]i32
 
-vec2        :: linalg.Vector2f32
-vec3        :: linalg.Vector3f32
-vec4        :: linalg.Vector4f32
+vec2        :: [2]f32
+vec3        :: [3]f32
+vec4        :: [4]f32
 
-mat2        :: linalg.Matrix2f32
-mat3        :: linalg.Matrix3f32
-mat4        :: linalg.Matrix4f32
+mat2        :: matrix[2, 2]f32
+mat3        :: matrix[3, 3]f32
+mat4        :: matrix[4, 4]f32
 
 MAT2_IDENTITY :: linalg.MATRIX2F32_IDENTITY
 MAT3_IDENTITY :: linalg.MATRIX3F32_IDENTITY
@@ -76,7 +76,11 @@ Compare_Op :: enum {
 }
 
 Render_Pass_Uniforms :: struct {
-    view:       linalg.Matrix4x4f32,
-    proj:       linalg.Matrix4x4f32,
-    viewproj:   linalg.Matrix4x4f32,
+    view:       mat4,
+    proj:       mat4,
+    viewproj:   mat4,
+}
+
+Instance_Uniforms :: struct {
+    model:      mat4,
 }
