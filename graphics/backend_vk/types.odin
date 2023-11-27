@@ -65,3 +65,7 @@ CVK_Material :: struct {
     // descriptor_set: CVK_Uniforms,
 }
 
+CVK_Render_Pass :: struct {
+    
+}
+

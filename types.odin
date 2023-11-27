@@ -11,7 +11,7 @@ Engine_Context :: struct {
     graphics:   cg.Graphics_Context,
 }
 
-Handle :: distinct rawptr
+Handle      :: cc.Handle
 
 uvec2       :: cc.uvec2
 uvec3       :: cc.uvec3
@@ -37,9 +37,6 @@ color32     :: cc.color32
 
 quat        :: cc.quat
 
-Vertex_Buffer   :: cc.Vertex_Buffer
-Index_Buffer    :: cc.Index_Buffer
-
-Axis_Algined_Bounding_Box :: cc.Axis_Aligned_Bounding_Box
+Axis_Aligned_Bounding_Box :: cc.Axis_Aligned_Bounding_Box
 
 Transform       :: cc.Transform

@@ -28,23 +28,24 @@ MAT4_IDENTITY :: linalg.MATRIX4F32_IDENTITY
 color32     :: [4]u8
 quat        :: linalg.Quaternionf32
 
-Vertex_Buffer   :: []u8
-Index_Buffer    :: []u32
 
-Mesh :: distinct Handle
+Buffer      :: distinct Handle
+Texture     :: distinct Handle
+Mesh        :: distinct Handle
+Shader      :: distinct Handle
+Material    :: distinct Handle
+Model       :: distinct Handle // Contains bundled Mesh and Materials
+Render_Pass :: distinct Handle
 
-// Structs
-// ///////
 
-Axis_Aligned_Bounding_Box :: struct {
-    center     : vec3,
-    extents    : vec3, // half of width/breadth/height
+Texture_Description :: struct {
+    image_path              : string,
+    color_space             : Image_Color_Space,
 }
 
-Transform :: struct {
-    translation     : vec3,
-    rotation        : quat,
-    scale           : vec3,
+Image_Color_Space :: enum {
+    Srgb,
+    Linear,
 }
 
 
@@ -75,6 +76,37 @@ Compare_Op :: enum {
     Always,
 }
 
+
+Material_Description :: struct {
+    // shader
+    // uniform values (textures, colors, values)
+}
+
+Model_Description :: struct {
+    model_path              : string,
+}
+
+Render_Pass_Description :: struct {
+    // uniform shape
+    // output target?
+}
+
+// Structs
+// ///////
+
+Axis_Aligned_Bounding_Box :: struct {
+    center     : vec3,
+    extents    : vec3, // half of width/breadth/height
+}
+
+Transform :: struct {
+    translation     : vec3,
+    rotation        : quat,
+    scale           : vec3,
+}
+
+
+// ///////////////////////////////////////////////////////////
 Render_Pass_Uniforms :: struct {
     view:       mat4,
     proj:       mat4,

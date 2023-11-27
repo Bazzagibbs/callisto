@@ -10,40 +10,19 @@ Built_In :: struct {
 
 Handle                  :: cc.Handle
 
-Buffer                  :: distinct Handle
-
-Vertex_Buffer           :: distinct Buffer
-Index_Buffer            :: distinct Buffer
-Uniform_Buffer          :: distinct Buffer
-
+Buffer                  :: cc.Buffer
+Texture                 :: cc.Texture
 Mesh                    :: cc.Mesh
+Shader                  :: cc.Shader
+Material                :: cc.Material 
+Model                   :: cc.Model
+Render_Pass             :: cc.Render_Pass
 
-// Contains bundled mesh/texture/material data
-Model                   :: distinct Handle
-Model_Description :: struct {
-    model_path              : string,
-}
-
-Shader                  :: distinct Handle
+Texture_Description     :: cc.Texture_Description
 Shader_Description      :: cc.Shader_Description
-
-
-// Material_Master         :: distinct Handle
-// Material_Variant        :: distinct Handle // Overrides uniforms from a material master
-Material                :: distinct Handle // Instantiated values from a material master or variant
-
-Texture                 :: distinct Handle
-Texture_Description :: struct {
-    image_path              : string,
-    color_space             : Image_Color_Space,
-}
-
-Image_Color_Space :: enum {
-    SRGB,
-    LINEAR,
-}
-
-Texture_Binding         :: distinct u32
+Material_Description    :: cc.Material_Description
+Model_Description       :: cc.Model_Description
+Render_Pass_Description :: cc.Render_Pass_Description
 
 Render_Pass_Uniforms    :: cc.Render_Pass_Uniforms
 Instance_Uniforms       :: cc.Instance_Uniforms
