@@ -42,13 +42,6 @@ Graphics_Context :: struct {
     depth_image_view:           vk.ImageView,
     depth_image_format:         vk.Format,
 
-    render_pass:                vk.RenderPass,
-    render_pass_framebuffers:   []vk.Framebuffer,
-
-    builtin_pipeline_layout:        vk.PipelineLayout,
-    descriptor_layout_render_pass:  vk.DescriptorSetLayout,
-    descriptor_pool_render_pass:    vk.DescriptorPool,
-
     clear_color:                [4]f32,
 
     current_frame:              u32,
@@ -56,7 +49,7 @@ Graphics_Context :: struct {
 }
 
 Frame_Data :: struct {
-    image_index:                u32,
+    swapchain_image_index:                u32,
 
     graphics_pool:              vk.CommandPool,
     
@@ -66,10 +59,6 @@ Frame_Data :: struct {
     image_available_sem:        vk.Semaphore,
     in_flight_fence:            vk.Fence,
 
-    // TEMP //
-    //////////
-    camera_uniform_buffer:      Gpu_Buffer,
-    camera_uniform_set:         vk.DescriptorSet,
 }
 
 Queue_Families :: struct {
@@ -83,10 +72,11 @@ Queue_Families :: struct {
 }
 
 
-current_frame_data :: #force_inline proc(cg_ctx: ^Graphics_Context) -> ^Frame_Data {
-    return &cg_ctx.frame_data[cg_ctx.current_frame]
+current_frame_data :: #force_inline proc(cg_ctx: ^Graphics_Context) -> (data: ^Frame_Data, index: u32) {
+    return &cg_ctx.frame_data[cg_ctx.current_frame], cg_ctx.current_frame
 }
 
-current_image :: #force_inline proc(cg_ctx: ^Graphics_Context) -> vk.Image {
-    return cg_ctx.swapchain_images[current_frame_data(cg_ctx).image_index]
+current_swapchain_image :: #force_inline proc(cg_ctx: ^Graphics_Context) -> vk.Image {
+    frame_data, _ := current_frame_data(cg_ctx)
+    return cg_ctx.swapchain_images[frame_data.swapchain_image_index]
 }

@@ -610,106 +610,9 @@ destroy_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) {
 }
 
 
-// RENDER PASS
-// ///////////
-
-create_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
-    // TODO(headless): noop if running in headless
-
-    // All attachments used in the entire render pass
-    attachment_descs := []vk.AttachmentDescription {
-        {
-            format          = cg_ctx.swapchain_format,
-            samples         = {._1}, // TODO: Antialiasing
-            loadOp          = .CLEAR,
-            storeOp         = .STORE,
-            stencilLoadOp   = .DONT_CARE,
-            stencilStoreOp  = .DONT_CARE,
-            initialLayout   = .UNDEFINED,
-            finalLayout     = .PRESENT_SRC_KHR,
-        },
-        {
-            format          = cg_ctx.depth_image_format,
-            samples         = {._1},
-            loadOp          = .CLEAR,
-            storeOp         = .STORE,
-            stencilLoadOp   = .CLEAR,
-            stencilStoreOp  = .DONT_CARE,
-            initialLayout   = .UNDEFINED,
-            finalLayout     = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        },
-    }
-
-    // References attachments to be used in a subpass and describes how they're used
-    // One of these slices may be made per subpass
-    color_refs := []vk.AttachmentReference {
-        {
-            attachment  = 0,
-            layout      = .COLOR_ATTACHMENT_OPTIMAL,
-        },
-    }
-    
-    depth_stencil_ref := vk.AttachmentReference {
-        attachment  = 1,
-        layout      = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    }
-
-
-    // Describes all subpasses used in the render pass
-    subpass_descs := []vk.SubpassDescription {
-        {
-            pipelineBindPoint       = .GRAPHICS,
-            colorAttachmentCount    = u32(len(color_refs)),
-            pColorAttachments       = raw_data(color_refs),
-            pDepthStencilAttachment = &depth_stencil_ref,
-        },
-    }
-    
-    // Describes the flow of subpasses
-    subpass_depends := []vk.SubpassDependency {
-        {   // Color
-            srcSubpass      = vk.SUBPASS_EXTERNAL,          // Subpass entry point
-            dstSubpass      = 0,                            // Subpass index 0
-            srcStageMask    = {.COLOR_ATTACHMENT_OUTPUT},
-            srcAccessMask   = {},
-            dstStageMask    = {.COLOR_ATTACHMENT_OUTPUT},
-            dstAccessMask   = {.COLOR_ATTACHMENT_WRITE},
-        },
-        {   // Depth
-            srcSubpass      = vk.SUBPASS_EXTERNAL,          // Subpass entry point
-            dstSubpass      = 0,                            // Subpass index 0
-            srcStageMask    = {.EARLY_FRAGMENT_TESTS, .LATE_FRAGMENT_TESTS},
-            srcAccessMask   = {},
-            dstStageMask    = {.EARLY_FRAGMENT_TESTS, .LATE_FRAGMENT_TESTS},
-            dstAccessMask   = {.DEPTH_STENCIL_ATTACHMENT_WRITE},
-        },
-    }
-    
-
-    render_pass_create_info := vk.RenderPassCreateInfo {
-        sType           = .RENDER_PASS_CREATE_INFO,
-        attachmentCount = u32(len(attachment_descs)),
-        pAttachments    = raw_data(attachment_descs),
-        subpassCount    = u32(len(subpass_descs)),
-        pSubpasses      = raw_data(subpass_descs),
-        dependencyCount = u32(len(subpass_depends)),
-        pDependencies   = raw_data(subpass_depends),
-    }
-
-    res := vk.CreateRenderPass(cg_ctx.device, &render_pass_create_info, nil, &cg_ctx.render_pass)
-    check_result(res) or_return
-
-    return true
-}
-
-
-destroy_builtin_render_pass :: proc(cg_ctx: ^Graphics_Context) {
-    vk.DestroyRenderPass(cg_ctx.device, cg_ctx.render_pass, nil)
-}
-
-create_builtin_pipeline_layout :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+create_pipeline_layout :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) -> (ok: bool) {
     set_layouts := []vk.DescriptorSetLayout{
-        cg_ctx.descriptor_layout_render_pass,
+        render_pass.descriptor_layout,
     }
 
     layout_info := vk.PipelineLayoutCreateInfo {
@@ -717,19 +620,20 @@ create_builtin_pipeline_layout :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) 
         setLayoutCount = u32(len(set_layouts)),
         pSetLayouts = raw_data(set_layouts),
     }
-    res := vk.CreatePipelineLayout(cg_ctx.device, &layout_info, nil, &cg_ctx.builtin_pipeline_layout)
+    res := vk.CreatePipelineLayout(cg_ctx.device, &layout_info, nil, &render_pass.pipeline_layout)
     check_result(res) or_return
 
     return true
 }
 
-destroy_builtin_pipeline_layout :: proc(cg_ctx: ^Graphics_Context) {
-    vk.DestroyPipelineLayout(cg_ctx.device, cg_ctx.builtin_pipeline_layout, nil)
+destroy_pipeline_layout :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) {
+    vk.DestroyPipelineLayout(cg_ctx.device, render_pass.pipeline_layout, nil)
 }
 
-create_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) {
+render_pass_create_uniform_buffer :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) -> (ok: bool) {
     pool_sizes := []vk.DescriptorPoolSize {
         { .UNIFORM_BUFFER, 10 },
+        { .UNIFORM_BUFFER_DYNAMIC, 10 },
     }
 
     pool_info := vk.DescriptorPoolCreateInfo {
@@ -739,25 +643,20 @@ create_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) 
         pPoolSizes      = raw_data(pool_sizes),
     }
 
-    res := vk.CreateDescriptorPool(cg_ctx.device, &pool_info, nil, &cg_ctx.descriptor_pool_render_pass)
+    res := vk.CreateDescriptorPool(cg_ctx.device, &pool_info, nil, &render_pass.descriptor_pool)
     check_result(res) or_return
-    defer if !ok do vk.DestroyDescriptorPool(cg_ctx.device, cg_ctx.descriptor_pool_render_pass, nil)
+    defer if !ok do vk.DestroyDescriptorPool(cg_ctx.device, render_pass.descriptor_pool, nil)
 
     layout_bindings := [] vk.DescriptorSetLayoutBinding {
-        // {   // Scene
-        //     binding         = 0,
-        //     descriptorCount = 1,
-        //     descriptorType  = .UNIFORM_BUFFER,
-        //     stageFlags      = {.VERTEX, .FRAGMENT},
-        // },
-        {   // Render pass
+        // 0: Scene 
+        {   // 1: Render pass
             binding         = 1,
             descriptorCount = 1,
-            descriptorType  = .UNIFORM_BUFFER,
+            descriptorType  = .UNIFORM_BUFFER_DYNAMIC,
             stageFlags      = {.VERTEX},
         },
-        // Material
-        // Instance
+        // 2: Material
+        // 3: Instance
     }
 
     set_info := vk.DescriptorSetLayoutCreateInfo {
@@ -766,52 +665,49 @@ create_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) -> (ok: bool) 
         pBindings       = raw_data(layout_bindings),
     }
 
-    res = vk.CreateDescriptorSetLayout(cg_ctx.device, &set_info, nil, &cg_ctx.descriptor_layout_render_pass)
+    res = vk.CreateDescriptorSetLayout(cg_ctx.device, &set_info, nil, &render_pass.descriptor_layout)
     check_result(res) or_return
-    defer if !ok do vk.DestroyDescriptorSetLayout(cg_ctx.device, cg_ctx.descriptor_layout_render_pass, nil)
+    defer if !ok do vk.DestroyDescriptorSetLayout(cg_ctx.device, render_pass.descriptor_layout, nil)
     
-    for &frame in cg_ctx.frame_data {
-        frame.camera_uniform_buffer = create_buffer(cg_ctx, size_of(cc.Render_Pass_Uniforms), {.UNIFORM_BUFFER}, .CPU_TO_GPU) or_return
+    // for &frame in cg_ctx.frame_data {
+    rp_buffer_size := ubo_size_padded(cg_ctx, type_info_of(render_pass.ubo_type).size) * config.RENDERER_FRAMES_IN_FLIGHT
+    render_pass.uniform_buffer = create_buffer(cg_ctx, rp_buffer_size, {.UNIFORM_BUFFER}, .CPU_TO_GPU) or_return
 
-        desc_set_alloc_info := vk.DescriptorSetAllocateInfo {
-            sType               = .DESCRIPTOR_SET_ALLOCATE_INFO,
-            descriptorPool      = cg_ctx.descriptor_pool_render_pass,
-            descriptorSetCount  = 1,
-            pSetLayouts         = &cg_ctx.descriptor_layout_render_pass,
-        }
-        res = vk.AllocateDescriptorSets(cg_ctx.device, &desc_set_alloc_info, &frame.camera_uniform_set)
-        check_result(res) or_return
-
-        buffer_info := vk.DescriptorBufferInfo {
-            buffer  = frame.camera_uniform_buffer.buffer,
-            offset  = 0,
-            range   = vk.DeviceSize(size_of(cc.Render_Pass_Uniforms)),
-        }
-
-        write_set := vk.WriteDescriptorSet {
-            sType           = .WRITE_DESCRIPTOR_SET,
-            dstBinding      = 1,
-            dstSet          = frame.camera_uniform_set,
-            descriptorCount = 1,
-            descriptorType  = .UNIFORM_BUFFER,
-            pBufferInfo     = &buffer_info,
-        }
-
-        vk.UpdateDescriptorSets(cg_ctx.device, 1, &write_set, 0, nil)
+    desc_set_alloc_info := vk.DescriptorSetAllocateInfo {
+        sType               = .DESCRIPTOR_SET_ALLOCATE_INFO,
+        descriptorPool      = render_pass.descriptor_pool,
+        descriptorSetCount  = 1,
+        pSetLayouts         = &render_pass.descriptor_layout,
     }
+    res = vk.AllocateDescriptorSets(cg_ctx.device, &desc_set_alloc_info, &render_pass.uniform_set)
+    check_result(res) or_return
+
+    buffer_info := vk.DescriptorBufferInfo {
+        buffer  = render_pass.uniform_buffer.buffer,
+        offset  = 0,
+        range   = vk.DeviceSize(size_of(cc.Render_Pass_Uniforms)),
+    }
+
+    write_set := vk.WriteDescriptorSet {
+        sType           = .WRITE_DESCRIPTOR_SET,
+        dstBinding      = 1,
+        dstSet          = render_pass.uniform_set,
+        descriptorCount = 1,
+        descriptorType  = .UNIFORM_BUFFER_DYNAMIC,
+        pBufferInfo     = &buffer_info,
+    }
+
+    vk.UpdateDescriptorSets(cg_ctx.device, 1, &write_set, 0, nil)
     
     return true
 }
 
 
-destroy_builtin_uniform_buffers :: proc(cg_ctx: ^Graphics_Context) {
-    for &frame in cg_ctx.frame_data {
-        // vk.FreeDescriptorSets(cg_ctx.device, cg_ctx.descriptor_pool_render_pass, 1, &frame.camera_uniform_set)
-        destroy_buffer(cg_ctx, &frame.camera_uniform_buffer)
-    }
+render_pass_destroy_uniform_buffer :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) {
+    destroy_buffer(cg_ctx, &render_pass.uniform_buffer)
 
-    vk.DestroyDescriptorSetLayout(cg_ctx.device, cg_ctx.descriptor_layout_render_pass, nil)
-    vk.DestroyDescriptorPool(cg_ctx.device, cg_ctx.descriptor_pool_render_pass, nil)
+    vk.DestroyDescriptorSetLayout(cg_ctx.device, render_pass.descriptor_layout, nil)
+    vk.DestroyDescriptorPool(cg_ctx.device, render_pass.descriptor_pool, nil)
 }
 
 

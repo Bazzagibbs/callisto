@@ -12,6 +12,10 @@ shutdown : proc(^Graphics_Context)
 
 wait_until_idle : proc() 
 
+create_render_pass : proc(render_pass_description: ^Render_Pass_Description) -> (render_pass: Render_Pass, ok: bool)
+
+destroy_render_pass : proc(render_pass: Render_Pass)
+
 create_shader : proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool)
 
 destroy_shader : proc(shader: Shader) 
@@ -31,7 +35,7 @@ destroy_texture : proc(texture: Texture)
 set_clear_color : proc(color: [4]f32)
 
 // upload_uniforms_scene : proc(scene: Scene, uniforms: Scene_Uniforms)
-upload_uniforms_render_pass : proc(/*render_pass: Render_Pass,*/ uniforms: ^cc.Render_Pass_Uniforms)
+upload_uniforms_render_pass : proc(render_pass: Render_Pass, uniforms: ^cc.Render_Pass_Uniforms)
 // upload_uniforms_material : proc(material: Material, uniforms: Material_Uniforms)
 // upload_uniforms_instance : proc(instance: Instance, uniforms: Instance_Uniforms)
 
@@ -49,13 +53,13 @@ cmd_begin_compute : proc()
 cmd_end_compute : proc()
 cmd_submit_compute : proc()
 
-cmd_begin_render_pass : proc() 
+cmd_begin_render_pass : proc(render_pass: Render_Pass) 
 cmd_end_render_pass : proc() 
 
 cmd_bind_shader: proc(shader: Shader)
 
 cmd_bind_uniforms_scene : proc()
-cmd_bind_uniforms_render_pass : proc()
+cmd_bind_uniforms_render_pass : proc(render_pass: Render_Pass)
 cmd_bind_uniforms_material : proc(material: Material) 
 cmd_bind_uniforms_instance : proc()
 

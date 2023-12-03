@@ -51,6 +51,7 @@ Image_Color_Space :: enum {
 
 Shader_Description :: struct {
     material_uniforms_typeid    : typeid,
+    render_pass                 : Render_Pass,
     vertex_shader_data          : []u8,
     fragment_shader_data        : []u8,
     cull_mode                   : Shader_Description_Cull_Mode,

@@ -52,17 +52,17 @@ when config.RENDERER_API == .Vulkan {
         vkb.create_builtin_command_buffers(cg_ctx) or_return
         defer if !ok do vkb.destroy_builtin_command_buffers(cg_ctx)
 
-        vkb.create_builtin_uniform_buffers(cg_ctx) or_return
-        defer if !ok do vkb.destroy_builtin_uniform_buffers(cg_ctx)
+        // vkb.create_builtin_uniform_buffers(cg_ctx) or_return
+        // defer if !ok do vkb.destroy_builtin_uniform_buffers(cg_ctx)
 
-        vkb.create_builtin_pipeline_layout(cg_ctx) or_return
-        defer if !ok do vkb.destroy_builtin_pipeline_layout(cg_ctx)
+        // vkb.create_builtin_pipeline_layout(cg_ctx) or_return
+        // defer if !ok do vkb.destroy_builtin_pipeline_layout(cg_ctx)
 
-        vkb.create_builtin_render_pass(cg_ctx) or_return
-        defer if !ok do vkb.destroy_builtin_render_pass(cg_ctx)
-
-        cg_ctx.render_pass_framebuffers = vkb.create_framebuffers(cg_ctx, cg_ctx.render_pass) or_return
-        defer if !ok do vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
+        // vkb.create_builtin_render_pass(cg_ctx) or_return
+        // defer if !ok do vkb.destroy_builtin_render_pass(cg_ctx)
+        //
+        // cg_ctx.render_pass_framebuffers = vkb.create_framebuffers(cg_ctx, cg_ctx.render_pass) or_return
+        // defer if !ok do vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
 
         vkb.create_sync_structures(cg_ctx) or_return
         defer if !ok do vkb.destroy_sync_structures(cg_ctx)
@@ -76,10 +76,10 @@ when config.RENDERER_API == .Vulkan {
         
         vkb.destroy_allocator(cg_ctx)
         vkb.destroy_sync_structures(cg_ctx)
-        vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
-        vkb.destroy_builtin_pipeline_layout(cg_ctx)
-        vkb.destroy_builtin_uniform_buffers(cg_ctx)
-        vkb.destroy_builtin_render_pass(cg_ctx)
+        // vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
+        // vkb.destroy_builtin_pipeline_layout(cg_ctx)
+        // vkb.destroy_builtin_uniform_buffers(cg_ctx)
+        // vkb.destroy_builtin_render_pass(cg_ctx)
         vkb.destroy_builtin_command_buffers(cg_ctx)
         vkb.destroy_command_pools(cg_ctx)
         vkb.destroy_swapchain(cg_ctx)
@@ -94,6 +94,16 @@ when config.RENDERER_API == .Vulkan {
         vk.DeviceWaitIdle(cg_ctx.device)
     }
 
+    cvk_create_render_pass :: proc(render_pass_desc: ^Render_Pass_Description) -> (render_pass: Render_Pass, ok: bool) {
+        cvk_rp := vkb.create_render_pass(cg_ctx, render_pass_desc) or_return
+        // unimplemented()
+        return vkb.as_render_pass(cvk_rp), false
+    }
+
+    cvk_destroy_render_pass :: proc(render_pass: Render_Pass) {
+        vkb.destroy_render_pass(cg_ctx, vkb.as_cvk_render_pass(render_pass))
+    }
+
     cvk_create_shader :: proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool) { 
         cvk_shader: ^vkb.CVK_Shader
         cvk_shader, ok = vkb.create_graphics_pipeline(cg_ctx, shader_description)
@@ -101,11 +111,11 @@ when config.RENDERER_API == .Vulkan {
             log.error("Failed to create shader")
         }
 
-        return _as_shader(cvk_shader), ok
+        return vkb.as_shader(cvk_shader), ok
     }
 
     cvk_destroy_shader :: proc(shader: Shader) {
-        cvk_shader := _as_cvk_shader(shader)
+        cvk_shader := vkb.as_cvk_shader(shader)
         vkb.destroy_pipeline(cg_ctx, cvk_shader)
     }
 
@@ -142,12 +152,12 @@ when config.RENDERER_API == .Vulkan {
             vkb.populate_binding_attribute_descriptions(&asset_vg, vg)
         }
 
-        mesh = _as_mesh(cvk_mesh)
+        mesh = vkb.as_mesh(cvk_mesh)
         return mesh, true
     }
 
     cvk_destroy_static_mesh :: proc(mesh: Mesh) {
-        cvk_mesh := _as_cvk_mesh(mesh)
+        cvk_mesh := vkb.as_cvk_mesh(mesh)
         for vg in cvk_mesh.vert_groups {
             delete(vg.vertex_buffers)
             delete(vg.vertex_buffer_offsets)
@@ -172,22 +182,23 @@ when config.RENDERER_API == .Vulkan {
         cg_ctx.clear_color = color
     }
 
-    cvk_upload_uniforms_render_pass :: proc(/*render_pass: Render_Pass,*/ uniforms: ^cc.Render_Pass_Uniforms) {
-        
+    cvk_upload_uniforms_render_pass :: proc(render_pass: Render_Pass, uniforms: ^cc.Render_Pass_Uniforms) {
+        cvk_rp := vkb.as_cvk_render_pass(render_pass)
+
         data := mem.byte_slice(uniforms, size_of(cc.Render_Pass_Uniforms))
-        vkb.upload_buffer_data_no_staging(cg_ctx, &vkb.current_frame_data(cg_ctx).camera_uniform_buffer, data)
+        vkb.upload_buffer_data_no_staging(cg_ctx, &cvk_rp.uniform_buffer, data) // TODO: with buffer offset
     }
 
 
     // ==============================================================================
 
     cvk_cmd_begin_graphics :: proc() {
-        frame := vkb.current_frame_data(cg_ctx)
+        frame, _ := vkb.current_frame_data(cg_ctx)
 
         vk.WaitForFences(cg_ctx.device, 1, &frame.in_flight_fence, true, max(u64))
         vk.ResetFences(cg_ctx.device, 1, &frame.in_flight_fence)
 
-        vk.AcquireNextImageKHR(cg_ctx.device, cg_ctx.swapchain, max(u64), frame.image_available_sem, {}, &frame.image_index)
+        vk.AcquireNextImageKHR(cg_ctx.device, cg_ctx.swapchain, max(u64), frame.image_available_sem, {}, &frame.swapchain_image_index)
         vk.ResetCommandBuffer(frame.graphics_command_buffer, {})
 
         begin_info := vk.CommandBufferBeginInfo {
@@ -199,14 +210,15 @@ when config.RENDERER_API == .Vulkan {
     }
 
     cvk_cmd_end_graphics  :: proc() {
-        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
+        frame, _ := vkb.current_frame_data(cg_ctx)
+        graphics_buffer := frame.graphics_command_buffer
         vk.EndCommandBuffer(graphics_buffer)
     }
 
 
     cvk_cmd_submit_graphics :: proc() {
         // TODO(headless): Noop this command
-        frame := vkb.current_frame_data(cg_ctx)
+        frame, _ := vkb.current_frame_data(cg_ctx)
 
         wait_semaphores := []vk.Semaphore { 
             frame.image_available_sem,
@@ -253,9 +265,13 @@ when config.RENDERER_API == .Vulkan {
         unimplemented()
     }
 
-    cvk_cmd_begin_render_pass :: proc() {
-        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
-        framebuffer := cg_ctx.render_pass_framebuffers[vkb.current_frame_data(cg_ctx).image_index]
+    cvk_cmd_begin_render_pass :: proc(render_pass: Render_Pass) {
+        frame, frame_idx    := vkb.current_frame_data(cg_ctx)
+        graphics_buffer     := frame.graphics_command_buffer
+        cvk_rp              := vkb.as_cvk_render_pass(render_pass)
+
+        // framebuffer := cg_ctx.render_pass_framebuffers[vkb.current_frame_data(cg_ctx).swapchain_image_index]
+        framebuffer := vkb.render_pass_get_framebuffer(cg_ctx, cvk_rp)
 
         clear_values := []vk.ClearValue {
             {color          = {float32 = cg_ctx.clear_color}},
@@ -264,7 +280,7 @@ when config.RENDERER_API == .Vulkan {
 
         begin_info := vk.RenderPassBeginInfo {
             sType = .RENDER_PASS_BEGIN_INFO,
-            renderPass = cg_ctx.render_pass,
+            renderPass = cvk_rp.render_pass,
             framebuffer = framebuffer,
             clearValueCount = u32(len(clear_values)),
             pClearValues = raw_data(clear_values),
@@ -277,27 +293,32 @@ when config.RENDERER_API == .Vulkan {
     }
 
     cvk_cmd_end_render_pass :: proc() {
-        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
-        vk.CmdEndRenderPass(graphics_buffer)
+        frame, _ := vkb.current_frame_data(cg_ctx)
+        vk.CmdEndRenderPass(frame.graphics_command_buffer)
     }
 
     cvk_cmd_bind_shader :: proc(shader: Shader) {
-        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
-        cvk_shader := _as_cvk_shader(shader)
-        vk.CmdBindPipeline(graphics_buffer, .GRAPHICS, cvk_shader.pipeline)
+        frame, _ := vkb.current_frame_data(cg_ctx)
+        cvk_shader := vkb.as_cvk_shader(shader)
+        vk.CmdBindPipeline(frame.graphics_command_buffer, .GRAPHICS, cvk_shader.pipeline)
     }
 
     cvk_cmd_bind_uniforms_scene :: proc(/*scene: Scene*/) {
         unimplemented()
     }
-    cvk_cmd_bind_uniforms_render_pass :: proc(/*render_pass: Render_Pass*/) {
+
+    cvk_cmd_bind_uniforms_render_pass :: proc(render_pass: Render_Pass) {
         // Get camera uniform buffer for current frame, ideally from the render_pass struct
-        frame := vkb.current_frame_data(cg_ctx)
-        vk.CmdBindDescriptorSets(frame.graphics_command_buffer, .GRAPHICS, cg_ctx.builtin_pipeline_layout, 0, 1, &frame.camera_uniform_set, 0, nil)
+        cvk_rp := vkb.as_cvk_render_pass(render_pass)
+        frame, frame_idx := vkb.current_frame_data(cg_ctx)
+
+        vk.CmdBindDescriptorSets(frame.graphics_command_buffer, .GRAPHICS, cvk_rp.pipeline_layout, 0, 1, &cvk_rp.uniform_set, 0, nil) // TODO: dynamic offsets
     }
+
     cvk_cmd_bind_uniforms_material :: proc(material: Material) {
         unimplemented()
     }
+
     cvk_cmd_bind_uniforms_instance :: proc() {
         unimplemented()
         // graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
@@ -306,13 +327,13 @@ when config.RENDERER_API == .Vulkan {
 
     // Draws all vertex groups in a mesh using the currently bound shader.
     cvk_cmd_draw_mesh :: proc(mesh: Mesh) {
-        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
-        cvk_mesh := _as_cvk_mesh(mesh)
+        frame, _ := vkb.current_frame_data(cg_ctx)
+        cvk_mesh := vkb.as_cvk_mesh(mesh)
 
         for &vert_group in cvk_mesh.vert_groups {
-            vk.CmdBindIndexBuffer(graphics_buffer, vert_group.vertex_buffers[0], vert_group.idx_buffer_offset, .UINT32)
-            vk.CmdBindVertexBuffers(graphics_buffer, 0, u32(len(vert_group.vertex_input_bindings)), raw_data(vert_group.vertex_buffers), raw_data(vert_group.vertex_buffer_offsets))
-            vk.CmdDraw(graphics_buffer, vert_group.vertex_count, 1, 0, 0)
+            vk.CmdBindIndexBuffer(frame.graphics_command_buffer, vert_group.vertex_buffers[0], vert_group.idx_buffer_offset, .UINT32)
+            vk.CmdBindVertexBuffers(frame.graphics_command_buffer, 0, u32(len(vert_group.vertex_input_bindings)), raw_data(vert_group.vertex_buffers), raw_data(vert_group.vertex_buffer_offsets))
+            vk.CmdDraw(frame.graphics_command_buffer, vert_group.vertex_count, 1, 0, 0)
         }
     }
 
@@ -324,15 +345,17 @@ when config.RENDERER_API == .Vulkan {
     // Warning: this procedure will change GPU state frequently. 
     // Prefer `cmd_draw_model` to draw vertex groups with shared materials/shaders without unnecessary binds.
     cvk_cmd_draw_model_immediate :: proc(model: Model) {
-        graphics_buffer := vkb.current_frame_data(cg_ctx).graphics_command_buffer
-        vk.CmdDraw(graphics_buffer, 3, 1, 0, 0) // TEMP
+        frame, _ := vkb.current_frame_data(cg_ctx)
+        vk.CmdDraw(frame.graphics_command_buffer, 3, 1, 0, 0) // TEMP
     }
 
 
     cvk_cmd_present :: proc() {
+        frame, _ := vkb.current_frame_data(cg_ctx)
+
         // TODO(headless): Noop this command
         wait_semaphores := []vk.Semaphore {
-            vkb.current_frame_data(cg_ctx).present_ready_sem,
+            frame.present_ready_sem,
         }
 
         swapchains := []vk.SwapchainKHR {
@@ -345,7 +368,7 @@ when config.RENDERER_API == .Vulkan {
             pWaitSemaphores     = raw_data(wait_semaphores),
             swapchainCount      = u32(len(swapchains)),
             pSwapchains         = raw_data(swapchains),
-            pImageIndices       = &vkb.current_frame_data(cg_ctx).image_index,
+            pImageIndices       = &frame.swapchain_image_index,
         }
 
         vk.QueuePresentKHR(cg_ctx.graphics_queue, &present_info)
@@ -356,36 +379,6 @@ when config.RENDERER_API == .Vulkan {
 
     // ==============================================================================
 
-    @(private)
-    _as_cvk_shader :: #force_inline proc(shader: Shader) -> ^vkb.CVK_Shader {
-        return transmute(^vkb.CVK_Shader)shader
-    }
-
-    @(private)
-    _as_shader :: #force_inline proc(cvk_shader: ^vkb.CVK_Shader) -> Shader {
-        return transmute(Shader)cvk_shader
-    }
-
-    @(private)
-    _as_cvk_mesh :: #force_inline proc(mesh: Mesh) -> ^vkb.CVK_Mesh {
-        return transmute(^vkb.CVK_Mesh)mesh
-    }
-
-    @(private)
-    _as_mesh :: #force_inline proc(cvk_mesh: ^vkb.CVK_Mesh) -> Mesh {
-        return transmute(Mesh)cvk_mesh
-    }
-
-    @(private)
-    _as_cvk_model :: #force_inline proc(model: Model) -> ^vkb.CVK_Model {
-        return transmute(^vkb.CVK_Model)model
-    }
-
-    @(private)
-    _as_model :: #force_inline proc(cvk_model: ^vkb.CVK_Model) -> Model {
-        return transmute(Model)cvk_model
-    }
-
     // ==============================================================================
     @(init)
     _load_cvk_procs :: proc() {
@@ -393,6 +386,8 @@ when config.RENDERER_API == .Vulkan {
         init                        = cvk_init
         shutdown                    = cvk_shutdown
         wait_until_idle             = cvk_wait_until_idle
+        create_render_pass          = cvk_create_render_pass
+        destroy_render_pass         = cvk_destroy_render_pass
         create_shader               = cvk_create_shader
         destroy_shader              = cvk_destroy_shader
         create_material_from_shader = cvk_create_material_from_shader

@@ -4,6 +4,7 @@ import vk "vendor:vulkan"
 import "core:log"
 import "core:mem"
 import "core:math/linalg"
+import cc "../../common"
 
 
 Pipeline_Info :: struct {
@@ -30,9 +31,21 @@ Pipeline_Info :: struct {
 // CVK_Scene :: struct {
 //     // descriptor_sets
 // }
-// CVK_Render_Pass :: struct {
-//     // descriptor_sets
-// }
+
+CVK_Render_Pass :: struct {
+    render_pass:        vk.RenderPass,
+    framebuffers:       []vk.Framebuffer,
+    pipeline_layout:    vk.PipelineLayout,
+    descriptor_layout:  vk.DescriptorSetLayout,
+    descriptor_pool:    vk.DescriptorPool,
+
+    ubo_type:               typeid,
+    uniform_buffer:         Gpu_Buffer,
+    uniform_set:            vk.DescriptorSet,
+    uniform_offset_stride:  u64,
+
+    current_image_index:    u64,
+}
 
 CVK_Shader :: struct {
     pipeline:   vk.Pipeline,
@@ -65,7 +78,36 @@ CVK_Material :: struct {
     // descriptor_set: CVK_Uniforms,
 }
 
-CVK_Render_Pass :: struct {
-    
+// //////////////////////////////////////////////////////////////////////////
+
+as_cvk_render_pass :: #force_inline proc(render_pass: cc.Render_Pass) -> ^CVK_Render_Pass {
+    return transmute(^CVK_Render_Pass)render_pass
 }
 
+as_render_pass :: #force_inline proc(cvk_render_pass: ^CVK_Render_Pass) -> cc.Render_Pass {
+    return transmute(cc.Render_Pass)cvk_render_pass
+}
+
+as_cvk_shader :: #force_inline proc(shader: cc.Shader) -> ^CVK_Shader {
+    return transmute(^CVK_Shader)shader
+}
+
+as_shader :: #force_inline proc(cvk_shader: ^CVK_Shader) -> cc.Shader {
+    return transmute(cc.Shader)cvk_shader
+}
+
+as_cvk_mesh :: #force_inline proc(mesh: cc.Mesh) -> ^CVK_Mesh {
+    return transmute(^CVK_Mesh)mesh
+}
+
+as_mesh :: #force_inline proc(cvk_mesh: ^CVK_Mesh) -> cc.Mesh {
+    return transmute(cc.Mesh)cvk_mesh
+}
+
+as_cvk_model :: #force_inline proc(model: cc.Model) -> ^CVK_Model {
+    return transmute(^CVK_Model)model
+}
+
+as_model :: #force_inline proc(cvk_model: ^CVK_Model) -> cc.Model {
+    return transmute(cc.Model)cvk_model
+}

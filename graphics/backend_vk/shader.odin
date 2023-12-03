@@ -8,9 +8,12 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     info := create_pipeline_info(2)
     defer destroy_pipeline_info(&info)
 
-    info.device = cg_ctx.device
-    info.render_pass_obj = cg_ctx.render_pass
-    info.cull_mode = _cull_mode_to_vk_cull_mode(shader_description.cull_mode)
+    cvk_render_pass := as_cvk_render_pass(shader_description.render_pass)
+
+    info.device             = cg_ctx.device
+    info.render_pass_obj    = cvk_render_pass.render_pass
+    info.cull_mode          = _cull_mode_to_vk_cull_mode(shader_description.cull_mode)
+
     vert_shader_module, _ := create_shader_module(&info, shader_description.vertex_shader_data)
     frag_shader_module, _ := create_shader_module(&info, shader_description.fragment_shader_data)
     defer destroy_shader_module(&info, vert_shader_module)
@@ -20,12 +23,12 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     info.stages[1] = pipeline_stage(frag_shader_module, {.FRAGMENT})
 
     info.viewport_details = vk.Viewport{
-        x = 0,
-        y = 0,
-        width = f32(cg_ctx.swapchain_extents.width),
-        height = f32(cg_ctx.swapchain_extents.height),
-        minDepth = 0,
-        maxDepth = 1,
+        x           = 0,
+        y           = 0,
+        width       = f32(cg_ctx.swapchain_extents.width),
+        height      = f32(cg_ctx.swapchain_extents.height),
+        minDepth    = 0,
+        maxDepth    = 1,
     }
     info.scissor_details.offset = {0, 0}
     info.scissor_details.extent = cg_ctx.swapchain_extents
@@ -39,7 +42,7 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     pipeline_depth_stencil(&info, shader_description.depth_test, shader_description.depth_write, _compare_op_to_vk_compare_op(shader_description.depth_compare_op))
 
     // This could be moved/managed by render graph?
-    desc_set_layouts := []vk.DescriptorSetLayout {cg_ctx.descriptor_layout_render_pass}
+    desc_set_layouts := []vk.DescriptorSetLayout {cvk_render_pass.descriptor_layout}
 
     pipeline_layout(&info, desc_set_layouts) or_return
     defer if !ok do vk.DestroyPipelineLayout(info.device, info.layout_obj, nil)

@@ -122,3 +122,16 @@ buffer_copy :: proc(cg_ctx: ^Graphics_Context, src_buffer, dst_buffer: vk.Buffer
     vk.FreeCommandBuffers(cg_ctx.device, cg_ctx.transfer_pool, 1, &cmd_buffer)
 }
 
+
+ubo_size_padded :: proc(cg_ctx: ^Graphics_Context, original_struct_size: int) -> int {
+    // From Sascha Willems example: https://github.com/SaschaWillems/Vulkan/tree/master/examples/dynamicuniformbuffer
+
+    align_requirement := int(cg_ctx.physical_device_properties.limits.minUniformBufferOffsetAlignment)
+    aligned_size := original_struct_size
+
+    if align_requirement > 0 {
+        aligned_size = (aligned_size + align_requirement - 1) & ~(align_requirement - 1)
+    }
+
+    return aligned_size
+}
