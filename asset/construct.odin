@@ -10,7 +10,7 @@ Construct :: struct {
 }
 
 Node :: struct {
-    userdata:    rawptr, // TODO: replace with Entity reference. This is just used for mesh asset reference for now.
+    userdata:    rawptr, // TODO(galileo): replace with Entity reference. This is just used for mesh asset reference for now.
     transform:   cc.Transform,
     parent:      int,
     children:    []int,

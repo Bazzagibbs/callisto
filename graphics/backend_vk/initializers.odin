@@ -380,7 +380,7 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
         delete(cg_ctx.swapchain_images)
         delete(cg_ctx.swapchain_views)
     }
-
+    
     swapchain_support := query_swapchain_support(cg_ctx.physical_device, cg_ctx.surface)
     defer delete_swapchain_support(&swapchain_support)
 
@@ -389,7 +389,7 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
     for available_fmt in swapchain_support.formats {
         if available_fmt.format == .B8G8R8A8_SRGB && available_fmt.colorSpace == .SRGB_NONLINEAR {
             swap_surface_fmt = available_fmt
-            cg_ctx.swapchain_format = available_fmt.format
+            cg_ctx.swapchain_render_target.format = available_fmt.format
             break
         }
     }
@@ -426,7 +426,7 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
         swap_extent.height = math.clamp(u32(window_size.y), minImageExtent.height, maxImageExtent.height)
     }
 
-    cg_ctx.swapchain_extents = swap_extent
+    cg_ctx.swapchain_render_target.extent = swap_extent
 
     // prefer triple buffered if supported, otherwise use as many swap images as we can
     image_count := math.clamp(3, swapchain_support.capabilities.minImageCount, swapchain_support.capabilities.maxImageCount)
@@ -461,14 +461,14 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
     res = vk.GetSwapchainImagesKHR(cg_ctx.device, cg_ctx.swapchain, &actual_image_count, nil)
     check_result(res) or_return
 
-    cg_ctx.swapchain_images = make([]vk.Image, actual_image_count)
-    cg_ctx.swapchain_views  = make([]vk.ImageView, actual_image_count)
+    cg_ctx.swapchain_images         = make([]vk.Image, actual_image_count)
+    cg_ctx.swapchain_views          = make([]vk.ImageView, actual_image_count)
     res = vk.GetSwapchainImagesKHR(cg_ctx.device, cg_ctx.swapchain, &actual_image_count, raw_data(cg_ctx.swapchain_images))
     check_result(res) or_return
 
     // Image views
     for swap_img, i in cg_ctx.swapchain_images {
-        cg_ctx.swapchain_views[i] = create_image_view(cg_ctx, cg_ctx.swapchain_format, swap_img, {.COLOR}) or_return
+        cg_ctx.swapchain_views[i] = create_image_view(cg_ctx, cg_ctx.swapchain_render_target.format, swap_img, {.COLOR}) or_return
     }
    
     // Depth
@@ -477,11 +477,10 @@ create_swapchain :: proc(cg_ctx: ^Graphics_Context, window_ctx: ^platform.Window
         height  = swap_extent.height,
         depth   = 1,
     }
-
-    cg_ctx.depth_image_format = .D32_SFLOAT
-
-    cg_ctx.depth_image      = create_image(cg_ctx, cg_ctx.depth_image_format, {.DEPTH_STENCIL_ATTACHMENT}, depth_extent) or_return
-    cg_ctx.depth_image_view = create_image_view(cg_ctx, cg_ctx.depth_image_format, cg_ctx.depth_image.image, {.DEPTH}) or_return
+    cg_ctx.depth_render_target.extent       = {depth_extent.width, depth_extent.height}
+    cg_ctx.depth_render_target.format       = .D32_SFLOAT
+    cg_ctx.depth_render_target.image        = create_image(cg_ctx, cg_ctx.depth_render_target.format, {.DEPTH_STENCIL_ATTACHMENT}, depth_extent) or_return
+    cg_ctx.depth_render_target.image_view   = create_image_view(cg_ctx, cg_ctx.depth_render_target.format, cg_ctx.depth_render_target.image.image, {.DEPTH}) or_return
 
     return true
 }
@@ -610,115 +609,14 @@ destroy_builtin_command_buffers :: proc(cg_ctx: ^Graphics_Context) {
 }
 
 
-create_pipeline_layout :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) -> (ok: bool) {
-    set_layouts := []vk.DescriptorSetLayout{
-        render_pass.descriptor_layout,
-    }
-
-    layout_info := vk.PipelineLayoutCreateInfo {
-        sType = .PIPELINE_LAYOUT_CREATE_INFO,
-        setLayoutCount = u32(len(set_layouts)),
-        pSetLayouts = raw_data(set_layouts),
-    }
-    res := vk.CreatePipelineLayout(cg_ctx.device, &layout_info, nil, &render_pass.pipeline_layout)
-    check_result(res) or_return
-
-    return true
-}
-
-destroy_pipeline_layout :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) {
-    vk.DestroyPipelineLayout(cg_ctx.device, render_pass.pipeline_layout, nil)
-}
-
-render_pass_create_uniform_buffer :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) -> (ok: bool) {
-    pool_sizes := []vk.DescriptorPoolSize {
-        { .UNIFORM_BUFFER, 10 },
-        { .UNIFORM_BUFFER_DYNAMIC, 10 },
-    }
-
-    pool_info := vk.DescriptorPoolCreateInfo {
-        sType           = .DESCRIPTOR_POOL_CREATE_INFO,
-        maxSets         = 10,
-        poolSizeCount   = u32(len(pool_sizes)),
-        pPoolSizes      = raw_data(pool_sizes),
-    }
-
-    res := vk.CreateDescriptorPool(cg_ctx.device, &pool_info, nil, &render_pass.descriptor_pool)
-    check_result(res) or_return
-    defer if !ok do vk.DestroyDescriptorPool(cg_ctx.device, render_pass.descriptor_pool, nil)
-
-    layout_bindings := [] vk.DescriptorSetLayoutBinding {
-        // 0: Scene 
-        {   // 1: Render pass
-            binding         = 1,
-            descriptorCount = 1,
-            descriptorType  = .UNIFORM_BUFFER_DYNAMIC,
-            stageFlags      = {.VERTEX},
-        },
-        // 2: Material
-        // 3: Instance
-    }
-
-    set_info := vk.DescriptorSetLayoutCreateInfo {
-        sType           = .DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        bindingCount    = u32(len(layout_bindings)),
-        pBindings       = raw_data(layout_bindings),
-    }
-
-    res = vk.CreateDescriptorSetLayout(cg_ctx.device, &set_info, nil, &render_pass.descriptor_layout)
-    check_result(res) or_return
-    defer if !ok do vk.DestroyDescriptorSetLayout(cg_ctx.device, render_pass.descriptor_layout, nil)
-    
-    // for &frame in cg_ctx.frame_data {
-    rp_buffer_size := ubo_size_padded(cg_ctx, type_info_of(render_pass.ubo_type).size) * config.RENDERER_FRAMES_IN_FLIGHT
-    render_pass.uniform_buffer = create_buffer(cg_ctx, rp_buffer_size, {.UNIFORM_BUFFER}, .CPU_TO_GPU) or_return
-
-    desc_set_alloc_info := vk.DescriptorSetAllocateInfo {
-        sType               = .DESCRIPTOR_SET_ALLOCATE_INFO,
-        descriptorPool      = render_pass.descriptor_pool,
-        descriptorSetCount  = 1,
-        pSetLayouts         = &render_pass.descriptor_layout,
-    }
-    res = vk.AllocateDescriptorSets(cg_ctx.device, &desc_set_alloc_info, &render_pass.uniform_set)
-    check_result(res) or_return
-
-    buffer_info := vk.DescriptorBufferInfo {
-        buffer  = render_pass.uniform_buffer.buffer,
-        offset  = 0,
-        range   = vk.DeviceSize(size_of(cc.Render_Pass_Uniforms)),
-    }
-
-    write_set := vk.WriteDescriptorSet {
-        sType           = .WRITE_DESCRIPTOR_SET,
-        dstBinding      = 1,
-        dstSet          = render_pass.uniform_set,
-        descriptorCount = 1,
-        descriptorType  = .UNIFORM_BUFFER_DYNAMIC,
-        pBufferInfo     = &buffer_info,
-    }
-
-    vk.UpdateDescriptorSets(cg_ctx.device, 1, &write_set, 0, nil)
-    
-    return true
-}
-
-
-render_pass_destroy_uniform_buffer :: proc(cg_ctx: ^Graphics_Context, render_pass: ^CVK_Render_Pass) {
-    destroy_buffer(cg_ctx, &render_pass.uniform_buffer)
-
-    vk.DestroyDescriptorSetLayout(cg_ctx.device, render_pass.descriptor_layout, nil)
-    vk.DestroyDescriptorPool(cg_ctx.device, render_pass.descriptor_pool, nil)
-}
-
-
-create_framebuffers :: proc(cg_ctx: ^Graphics_Context, render_pass: vk.RenderPass) -> (framebuffers: []vk.Framebuffer, ok: bool) {
+create_swapchain_framebuffers :: proc(cg_ctx: ^Graphics_Context, render_pass: vk.RenderPass) -> (framebuffers: []vk.Framebuffer, ok: bool) {
     framebuffers = make([]vk.Framebuffer, len(cg_ctx.swapchain_images))
 
     for _, i in framebuffers {
 
         attachments := []vk.ImageView {
             cg_ctx.swapchain_views[i],
-            cg_ctx.depth_image_view,
+            cg_ctx.depth_render_target.image_view,
         }
 
         fb_create_info := vk.FramebufferCreateInfo {
@@ -726,8 +624,8 @@ create_framebuffers :: proc(cg_ctx: ^Graphics_Context, render_pass: vk.RenderPas
             renderPass      = render_pass,
             attachmentCount = u32(len(attachments)),
             pAttachments    = raw_data(attachments),
-            width           = cg_ctx.swapchain_extents.width,
-            height          = cg_ctx.swapchain_extents.height,
+            width           = cg_ctx.swapchain_render_target.extent.width,
+            height          = cg_ctx.swapchain_render_target.extent.height,
             layers          = 1,
         }
 

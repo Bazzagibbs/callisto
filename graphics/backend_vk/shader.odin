@@ -25,13 +25,13 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     info.viewport_details = vk.Viewport{
         x           = 0,
         y           = 0,
-        width       = f32(cg_ctx.swapchain_extents.width),
-        height      = f32(cg_ctx.swapchain_extents.height),
+        width       = f32(cvk_render_pass.render_target.extent.width),
+        height      = f32(cvk_render_pass.render_target.extent.height),
         minDepth    = 0,
         maxDepth    = 1,
     }
     info.scissor_details.offset = {0, 0}
-    info.scissor_details.extent = cg_ctx.swapchain_extents
+    info.scissor_details.extent = cvk_render_pass.render_target.extent
 
     pipeline_vertex_input(&info)
     pipeline_input_assembly(&info)
@@ -44,14 +44,14 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
     // This could be moved/managed by render graph?
     desc_set_layouts := []vk.DescriptorSetLayout {cvk_render_pass.descriptor_layout}
 
-    pipeline_layout(&info, desc_set_layouts) or_return
+    pipeline_create_layout(&info, desc_set_layouts) or_return
     defer if !ok do vk.DestroyPipelineLayout(info.device, info.layout_obj, nil)
     // ////////////////////////////////////////////
    
     shader = new(CVK_Shader)
     defer if !ok do free(shader)
 
-    shader.layout = info.layout_obj
+    shader.pipeline_layout = info.layout_obj
     shader.pipeline = pipeline_build_graphics(&info) or_return
 
     return shader, true
@@ -59,7 +59,7 @@ create_graphics_pipeline :: proc(cg_ctx: ^Graphics_Context, shader_description: 
 
 destroy_pipeline :: proc(cg_ctx: ^Graphics_Context, shader: ^CVK_Shader) {
     vk.DestroyPipeline(cg_ctx.device, shader.pipeline, nil)
-    vk.DestroyPipelineLayout(cg_ctx.device, shader.layout, nil)
+    vk.DestroyPipelineLayout(cg_ctx.device, shader.pipeline_layout, nil)
     free(shader)
 }
 
@@ -107,7 +107,8 @@ pipeline_stage :: proc(module: vk.ShaderModule, stage: vk.ShaderStageFlags) -> v
 }
 
 
-pipeline_vertex_input :: proc(info: ^Pipeline_Info) { // TODO: pass vertex attributes used by shader here.
+pipeline_vertex_input :: proc(info: ^Pipeline_Info) { 
+    // TODO(srp): pass vertex attributes used by shader here.
     // For now, just bind all required attributes.
 
     info.vertex_input = vk.PipelineVertexInputStateCreateInfo {
@@ -226,6 +227,24 @@ pipeline_depth_stencil :: proc(info: ^Pipeline_Info, do_depth_test, do_depth_wri
 
     info.depth_stencil = ds_info
 }
+
+pipeline_create_layout :: proc(info: ^Pipeline_Info, desc_set_layouts: []vk.DescriptorSetLayout) -> (ok: bool) {
+    layout_info := vk.PipelineLayoutCreateInfo {
+        sType = .PIPELINE_LAYOUT_CREATE_INFO,
+        setLayoutCount = u32(len(desc_set_layouts)),
+        pSetLayouts = raw_data(desc_set_layouts),
+    }
+    res := vk.CreatePipelineLayout(info.device, &layout_info, nil, &info.layout_obj)
+    check_result(res) or_return
+
+    return true
+}
+
+pipeline_destroy_layout :: proc(cg_ctx: ^Graphics_Context, shader: ^CVK_Shader) {
+    vk.DestroyPipelineLayout(cg_ctx.device, shader.pipeline_layout, nil)
+}
+
+
 
 
 pipeline_bindings := []vk.VertexInputBindingDescription {

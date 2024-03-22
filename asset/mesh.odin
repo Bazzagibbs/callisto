@@ -109,10 +109,10 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
         vert_group.weight_offset    = calculate_buffer_offset([4]u16, info.vertex_count * u32(info.joint_weight_channel_count), &cursor)
         vert_group.extension_offset = calculate_buffer_offset(u8,     info.vertex_count * u32(info.extension_channel_count), &cursor)
         
-        // TODO: attribute extensions
+        // TODO(galileo): attribute extensions
     }
 
-    // TODO: mesh extensions
+    // TODO(galileo): mesh extensions
     // for extension, i in mesh.extensions {}
 
     io.read(file_reader, mesh.buffer)
@@ -173,7 +173,7 @@ serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []
         info.extension_channel_count    = 0
     }
 
-    // TODO: populate extension info
+    // TODO(galileo): populate extension info
 
     // Copy mesh buffer
     mem.copy(&data[cursor], raw_data(mesh.buffer), len(mesh.buffer))

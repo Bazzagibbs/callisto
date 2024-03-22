@@ -9,7 +9,7 @@ Asset :: struct {
     type: Type,
 }
 
-// TODO: Explicitly set enum values
+// TODO(galileo): Explicitly set enum values
 Type :: enum(u32) {
     invalid = 0,
     // Primitives

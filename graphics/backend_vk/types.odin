@@ -34,8 +34,11 @@ Pipeline_Info :: struct {
 
 CVK_Render_Pass :: struct {
     render_pass:        vk.RenderPass,
+    render_target:      ^CVK_Render_Target,
     framebuffers:       []vk.Framebuffer,
-    pipeline_layout:    vk.PipelineLayout,
+    is_present_output:  bool,
+
+    pipeline_layout:    vk.PipelineLayout,      // So it can bind its descriptor set
     descriptor_layout:  vk.DescriptorSetLayout,
     descriptor_pool:    vk.DescriptorPool,
 
@@ -43,13 +46,20 @@ CVK_Render_Pass :: struct {
     uniform_buffer:         Gpu_Buffer,
     uniform_set:            vk.DescriptorSet,
     uniform_offset_stride:  u64,
+    
+}
 
-    current_image_index:    u64,
+CVK_Render_Target :: struct {
+    format:             vk.Format,
+    extent:             vk.Extent2D,
+    image:              Gpu_Image,
+    image_view:         vk.ImageView,
+    image_index:        u32,
 }
 
 CVK_Shader :: struct {
-    pipeline:   vk.Pipeline,
-    layout:     vk.PipelineLayout,
+    pipeline:           vk.Pipeline,
+    pipeline_layout:    vk.PipelineLayout,
 }
 
 CVK_Mesh :: struct {
@@ -86,6 +96,14 @@ as_cvk_render_pass :: #force_inline proc(render_pass: cc.Render_Pass) -> ^CVK_Re
 
 as_render_pass :: #force_inline proc(cvk_render_pass: ^CVK_Render_Pass) -> cc.Render_Pass {
     return transmute(cc.Render_Pass)cvk_render_pass
+}
+
+as_cvk_render_target :: #force_inline proc(render_target: cc.Render_Target) -> ^CVK_Render_Target {
+    return transmute(^CVK_Render_Target)render_target
+}
+
+as_render_target :: #force_inline proc(cvk_render_target: ^CVK_Render_Target) -> cc.Render_Target {
+    return transmute(cc.Render_Target)cvk_render_target
 }
 
 as_cvk_shader :: #force_inline proc(shader: cc.Shader) -> ^CVK_Shader {

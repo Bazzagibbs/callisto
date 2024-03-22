@@ -29,14 +29,16 @@ color32     :: [4]u8
 quat        :: linalg.Quaternionf32
 
 
-Buffer      :: distinct Handle
-Texture     :: distinct Handle
-Mesh        :: distinct Handle
-Shader      :: distinct Handle
-Material    :: distinct Handle
-Model       :: distinct Handle // Contains bundled Mesh and Materials
-Render_Pass :: distinct Handle
+Buffer          :: distinct Handle
+Texture         :: distinct Handle
+Mesh            :: distinct Handle
+Shader          :: distinct Handle
+Material        :: distinct Handle
+Model           :: distinct Handle 
+Render_Pass     :: distinct Handle
+Render_Target   :: distinct Handle
 
+RT_SWAPCHAIN : Render_Target : {}
 
 Texture_Description :: struct {
     image_path              : string,
@@ -88,8 +90,9 @@ Model_Description :: struct {
 }
 
 Render_Pass_Description :: struct {
-    // uniform shape
-    // output target?
+    ubo_type:           typeid,
+    render_target:      Render_Target,
+    is_present_output:  bool,
 }
 
 // Structs
@@ -97,7 +100,7 @@ Render_Pass_Description :: struct {
 
 Axis_Aligned_Bounding_Box :: struct {
     center     : vec3,
-    extents    : vec3, // half of width/breadth/height
+    extent     : vec3, // half of width/breadth/height
 }
 
 Transform :: struct {

@@ -31,7 +31,7 @@ when config.RENDERER_API == .Vulkan {
         vkb.create_instance(cg_ctx) or_return
         defer if !ok do vkb.destroy_instance(cg_ctx)
 
-        // TODO: check if running headless in case we need to skip this
+        // TODO(headless): check if running headless in case we need to skip this
         vkb.create_surface(cg_ctx, window_ctx) or_return
         defer if !ok do vkb.destroy_surface(cg_ctx)
 
@@ -60,13 +60,11 @@ when config.RENDERER_API == .Vulkan {
 
         // vkb.create_builtin_render_pass(cg_ctx) or_return
         // defer if !ok do vkb.destroy_builtin_render_pass(cg_ctx)
-        //
-        // cg_ctx.render_pass_framebuffers = vkb.create_framebuffers(cg_ctx, cg_ctx.render_pass) or_return
-        // defer if !ok do vkb.destroy_framebuffers(cg_ctx, cg_ctx.render_pass_framebuffers)
 
         vkb.create_sync_structures(cg_ctx) or_return
         defer if !ok do vkb.destroy_sync_structures(cg_ctx)
 
+        cg_ctx.current_frame = u32(config.RENDERER_FRAMES_IN_FLIGHT - 1)
 
         return true
     }
@@ -97,7 +95,7 @@ when config.RENDERER_API == .Vulkan {
     cvk_create_render_pass :: proc(render_pass_desc: ^Render_Pass_Description) -> (render_pass: Render_Pass, ok: bool) {
         cvk_rp := vkb.create_render_pass(cg_ctx, render_pass_desc) or_return
         // unimplemented()
-        return vkb.as_render_pass(cvk_rp), false
+        return vkb.as_render_pass(cvk_rp), true
     }
 
     cvk_destroy_render_pass :: proc(render_pass: Render_Pass) {
@@ -186,19 +184,22 @@ when config.RENDERER_API == .Vulkan {
         cvk_rp := vkb.as_cvk_render_pass(render_pass)
 
         data := mem.byte_slice(uniforms, size_of(cc.Render_Pass_Uniforms))
-        vkb.upload_buffer_data_no_staging(cg_ctx, &cvk_rp.uniform_buffer, data) // TODO: with buffer offset
+        vkb.upload_buffer_data_no_staging(cg_ctx, &cvk_rp.uniform_buffer, data) // TODO(srp): with buffer offset
     }
 
 
     // ==============================================================================
 
     cvk_cmd_begin_graphics :: proc() {
+        cg_ctx.current_frame = (cg_ctx.current_frame + 1) % u32(config.RENDERER_FRAMES_IN_FLIGHT)
+       
         frame, _ := vkb.current_frame_data(cg_ctx)
 
         vk.WaitForFences(cg_ctx.device, 1, &frame.in_flight_fence, true, max(u64))
         vk.ResetFences(cg_ctx.device, 1, &frame.in_flight_fence)
 
         vk.AcquireNextImageKHR(cg_ctx.device, cg_ctx.swapchain, max(u64), frame.image_available_sem, {}, &frame.swapchain_image_index)
+
         vk.ResetCommandBuffer(frame.graphics_command_buffer, {})
 
         begin_info := vk.CommandBufferBeginInfo {
@@ -271,7 +272,6 @@ when config.RENDERER_API == .Vulkan {
         cvk_rp              := vkb.as_cvk_render_pass(render_pass)
 
         // framebuffer := cg_ctx.render_pass_framebuffers[vkb.current_frame_data(cg_ctx).swapchain_image_index]
-        framebuffer := vkb.render_pass_get_framebuffer(cg_ctx, cvk_rp)
 
         clear_values := []vk.ClearValue {
             {color          = {float32 = cg_ctx.clear_color}},
@@ -279,14 +279,14 @@ when config.RENDERER_API == .Vulkan {
         }
 
         begin_info := vk.RenderPassBeginInfo {
-            sType = .RENDER_PASS_BEGIN_INFO,
-            renderPass = cvk_rp.render_pass,
-            framebuffer = framebuffer,
+            sType           = .RENDER_PASS_BEGIN_INFO,
+            renderPass      = cvk_rp.render_pass,
+            framebuffer     = vkb.render_pass_get_framebuffer(cg_ctx, cvk_rp),
             clearValueCount = u32(len(clear_values)),
-            pClearValues = raw_data(clear_values),
-            renderArea = vk.Rect2D{
-                offset = {0, 0},
-                extent = cg_ctx.swapchain_extents,
+            pClearValues    = raw_data(clear_values),
+            renderArea      = vk.Rect2D{
+                offset      = {0, 0},
+                extent      = cg_ctx.swapchain_render_target.extent,
             },
         }
         vk.CmdBeginRenderPass(graphics_buffer, &begin_info, .INLINE)
@@ -312,7 +312,11 @@ when config.RENDERER_API == .Vulkan {
         cvk_rp := vkb.as_cvk_render_pass(render_pass)
         frame, frame_idx := vkb.current_frame_data(cg_ctx)
 
-        vk.CmdBindDescriptorSets(frame.graphics_command_buffer, .GRAPHICS, cvk_rp.pipeline_layout, 0, 1, &cvk_rp.uniform_set, 0, nil) // TODO: dynamic offsets
+        ubo_offsets := []u32 {
+            u32(vkb.ubo_size_padded(cg_ctx, type_info_of(cvk_rp.ubo_type).size)),
+        }
+
+        vk.CmdBindDescriptorSets(frame.graphics_command_buffer, .GRAPHICS, cvk_rp.pipeline_layout, 0, 1, &cvk_rp.uniform_set, u32(len(ubo_offsets)), raw_data(ubo_offsets)) // TODO(srp): dynamic offsets
     }
 
     cvk_cmd_bind_uniforms_material :: proc(material: Material) {
@@ -373,7 +377,6 @@ when config.RENDERER_API == .Vulkan {
 
         vk.QueuePresentKHR(cg_ctx.graphics_queue, &present_info)
 
-        cg_ctx.current_frame = (cg_ctx.current_frame + 1) % u32(config.RENDERER_FRAMES_IN_FLIGHT)
     }
 
 

@@ -17,6 +17,7 @@ Shader                  :: cc.Shader
 Material                :: cc.Material 
 Model                   :: cc.Model
 Render_Pass             :: cc.Render_Pass
+Render_Target           :: cc.Render_Target
 
 Texture_Description     :: cc.Texture_Description
 Shader_Description      :: cc.Shader_Description

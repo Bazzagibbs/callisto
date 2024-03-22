@@ -13,7 +13,7 @@ when config.BUILD_PLATFORM == .Desktop {
 
     
     poll_events :: proc() {
-        // TODO: this should only be run once per frame, no matter how many windows there are
+        // TODO(input): this should only be run once per frame, no matter how many windows there are
         glfw.PollEvents()
     }
     
@@ -38,7 +38,7 @@ when config.BUILD_PLATFORM == .Desktop {
         glfw.SetMouseButtonCallback(window_ctx.handle, glfw.MouseButtonProc(_mouse_button_callback))
         glfw.SetScrollCallback(window_ctx.handle, glfw.ScrollProc(_scroll_callback))
         // Joystick
-        // TODO
+        // TODO(input)
 
         return true
     }

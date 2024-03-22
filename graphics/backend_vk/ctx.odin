@@ -33,14 +33,11 @@ Graphics_Context :: struct {
     transfer_command_buffer:    vk.CommandBuffer,
 
     swapchain:                  vk.SwapchainKHR,
-    swapchain_format:           vk.Format,
-    swapchain_extents:          vk.Extent2D,
     swapchain_images:           []vk.Image,
     swapchain_views:            []vk.ImageView,
 
-    depth_image:                Gpu_Image,
-    depth_image_view:           vk.ImageView,
-    depth_image_format:         vk.Format,
+    swapchain_render_target:    CVK_Render_Target, // Note: only metadata, doesn't have image or image_view.
+    depth_render_target:        CVK_Render_Target,
 
     clear_color:                [4]f32,
 

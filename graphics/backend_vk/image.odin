@@ -61,3 +61,14 @@ create_image_view :: proc(cg_ctx: ^Graphics_Context, format: vk.Format, vk_image
 
     return image_view, true
 }
+
+
+// RENDER TARGET
+
+render_target_create :: proc(cg_ctx: ^Graphics_Context) -> (target: CVK_Render_Target, ok: bool) {
+    return {}, true
+}
+
+render_target_destroy :: proc(cg_ctx: ^Graphics_Context, target: ^CVK_Render_Target) {
+
+}
