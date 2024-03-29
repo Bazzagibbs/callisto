@@ -2,6 +2,17 @@ package callisto_common
 
 import "core:math/linalg"
 
+Result :: enum {
+    Ok,
+    Unknown,
+    Out_Of_Memory,
+    Initialization_Failed,
+    Device_Lost,
+    Feature_Not_Present,
+    Format_Not_Supported,
+    Invalid_Handle,
+    Invalid_Asset,
+}
 
 // Aliased types
 Handle      :: distinct rawptr
@@ -27,7 +38,6 @@ MAT4_IDENTITY :: linalg.MATRIX4F32_IDENTITY
 
 color32     :: [4]u8
 quat        :: linalg.Quaternionf32
-
 
 Buffer          :: distinct Handle
 Texture         :: distinct Handle

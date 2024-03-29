@@ -1,71 +1,43 @@
 package callisto_graphics
-
+import "../common"
 import "../asset"
-import "../platform"
-import cc "../common"
 
-bind_context : proc(^Graphics_Context)
+Renderer               :: distinct common.Handle
+Gpu_Image              :: distinct common.Handle
+Gpu_Buffer             :: distinct common.Handle
 
-init : proc(^Graphics_Context, ^platform.Window_Context) -> (ok: bool) 
+Renderer_Create_Info   :: struct {}
+Gpu_Image_Create_Info  :: struct {}
+Gpu_Buffer_Create_Info :: struct {}
+Gpu_Buffer_Upload_Info :: struct {}
 
-shutdown : proc(^Graphics_Context)
 
-wait_until_idle : proc() 
+renderer_create :: proc(description: ^Renderer_Create_Info) -> (r: Renderer, ok: bool) {
+    unimplemented();
+}
 
-create_render_pass : proc(render_pass_description: ^Render_Pass_Description) -> (render_pass: Render_Pass, ok: bool)
+renderer_destroy :: proc(r: Renderer) {
+    unimplemented();
+}
 
-destroy_render_pass : proc(render_pass: Render_Pass)
+gpu_image_create :: proc(r: Renderer, description: ^Gpu_Image_Create_Info) -> (gpu_img: Gpu_Image, ok: bool) {
+    unimplemented();
+}
 
-create_shader : proc(shader_description: ^Shader_Description) -> (shader: Shader, ok: bool)
+gpu_image_destroy :: proc(r: Renderer, gpu_img: Gpu_Image) {
+    unimplemented();
+}
 
-destroy_shader : proc(shader: Shader) 
+gpu_buffer_create :: proc(r: Renderer, description: ^Gpu_Buffer_Create_Info) -> (gpu_buf: Gpu_Buffer, ok: bool) {
+    unimplemented();
+}
 
-create_material_from_shader : proc(shader: Shader) -> (material: Material, ok: bool)
+gpu_buffer_upload :: proc(r: Renderer, description: ^Gpu_Buffer_Upload_Info) -> (ok: bool) {
+    unimplemented();
+}
 
-destroy_material : proc(material: Material)
+gpu_buffer_destroy :: proc(r: Renderer, gpu_buf: Gpu_Buffer) {
+    unimplemented();
+}
 
-create_static_mesh : proc(mesh_asset: ^asset.Mesh) -> (mesh: Mesh, ok: bool)
-
-destroy_static_mesh : proc(mesh: Mesh) 
-
-create_texture : proc(texture_asset: ^asset.Texture) -> (texture: ^Texture, ok: bool)
-
-destroy_texture : proc(texture: Texture) 
-
-set_clear_color : proc(color: [4]f32)
-
-// upload_uniforms_scene : proc(scene: Scene, uniforms: Scene_Uniforms)
-upload_uniforms_render_pass : proc(render_pass: Render_Pass, uniforms: ^cc.Render_Pass_Uniforms)
-// upload_uniforms_material : proc(material: Material, uniforms: Material_Uniforms)
-// upload_uniforms_instance : proc(instance: Instance, uniforms: Instance_Uniforms)
-
-// ==============================================================================
-
-cmd_begin_graphics : proc()
-cmd_end_graphics : proc()
-cmd_submit_graphics : proc()
-
-cmd_begin_transfer : proc()
-cmd_end_transfer : proc()
-cmd_submit_transfer : proc()
-
-cmd_begin_compute : proc()
-cmd_end_compute : proc()
-cmd_submit_compute : proc()
-
-cmd_begin_render_pass : proc(render_pass: Render_Pass) 
-cmd_end_render_pass : proc() 
-
-cmd_bind_shader: proc(shader: Shader)
-
-cmd_bind_uniforms_scene : proc()
-cmd_bind_uniforms_render_pass : proc(render_pass: Render_Pass)
-cmd_bind_uniforms_material : proc(material: Material) 
-cmd_bind_uniforms_instance : proc()
-
-cmd_draw_mesh : proc(mesh: Mesh) 
-cmd_draw_model : proc(model: Model)
-cmd_draw_model_immediate : proc(model: Model)
-
-cmd_present : proc()
 

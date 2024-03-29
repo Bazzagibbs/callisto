@@ -1,3 +1,3 @@
 [submodule "graphics/backend_vk/vulkan-memory-allocator"]
 	path = graphics/backend_vk/vulkan-memory-allocator
-	url = git@github.com:DanielGavin/odin-vma.git
+	url = git@github.com:Bazzagibbs/odin-vma.git

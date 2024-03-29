@@ -6,14 +6,14 @@ Debug_Log_Level_Flag    :: log.Level
 
 Build_Platform_Flag     :: enum {
     Desktop,
-    Android,    // Not implemented
-    IOS,        // Not implemented
-    Web,        // Not implemented
+    // Android,    // Not implemented
+    // IOS,        // Not implemented
+    // Web,        // Not implemented
 }
 
 Renderer_Api_Flag       :: enum {
     Vulkan,
-    WebGPU,     // Not implemented
+    // WebGPU,     // Not implemented
 }
 
 Renderer_Vsync_Flag     :: enum {
