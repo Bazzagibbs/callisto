@@ -93,6 +93,7 @@ or using a custom implementation of the format specification.
 
 ## Project Plan
 
+- 2D sprite/text rendering for basic UI
 - HDRI skybox lighting
 - Audio
 - SHIP A GAME
