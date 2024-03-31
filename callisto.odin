@@ -1,5 +1,6 @@
 package callisto
 
+import "common"
 import "core:log"
 import "platform"
 import "window"
@@ -7,62 +8,41 @@ import "graphics"
 import "input"
 import "debug"
 
-bound_ctx: ^Engine_Context
-
 // Initialize Callisto engine. If successful, call `engine.shutdown()` before exiting the program.
-// Note: engine context will be bound automatically upon initialization.
-init :: proc(engine_ctx: ^Engine_Context) -> (ok: bool) {
+create :: proc(create_info: ^Engine_Create_Info) -> (engine: Engine, res: Result) {
     debug.profile_scope()
     
     log.info("Initializing Callisto engine")
-    
-    ok = platform.init(); if !ok {
-        log.fatal("Platform could not be initialized")
-        return false
-    }
-    defer if !ok do platform.shutdown()
+   
+    // PLATFORM
+    platform.init()
+    res = platform.init(); 
+    check_result(res, "Platform") or_return
+    defer if res != .Ok do platform.destroy()
 
-    ok = window.init(&engine_ctx.window); if !ok {
-        log.fatal("Window could not be initialized")
-        return false
-    }
-    defer if !ok do window.shutdown(&engine_ctx.window)
+    // WINDOW
+    engine.window, res = window.create()
+    check_result(res, "Window") or_return
+    defer if res != .Ok do window.destroy(engine.window)
 
-    platform.set_input_sink(&engine_ctx.window, &engine_ctx.input)
+    // INPUT
+    platform.input_bind(engine.window, &engine.input)
 
-    ok = graphics.init(&engine_ctx.graphics, &engine_ctx.window); if !ok {
-        log.fatal("Renderer could not be initialized")
-        return false
-    }
-    defer if !ok do graphics.shutdown(&engine_ctx.graphics)
+    // RENDERER
+    engine.renderer, res = graphics.renderer_create(create_info.renderer_create_info);
+    check_result(res, "Renderer") or_return;
+    defer if res != .Ok do graphics.renderer_destroy(engine.renderer)
 
-    bind_context(engine_ctx)
-
-    return
+    return engine, .Ok
 }
 // Shut down Callisto engine, cleaning up internal allocations.
-shutdown :: proc(engine_ctx: ^Engine_Context) {
+destroy :: proc(engine: ^Engine) {
     debug.profile_scope()
     
-    graphics.shutdown(&engine_ctx.graphics)
-    window.shutdown(&engine_ctx.window)
+    graphics.renderer_destroy(engine.renderer)
+    window.destroy(engine.window)
+    platform.destroy()
 }
 
 
-
-should_loop :: proc() -> bool {
-    input.flush()
-    platform.poll_events()
-    if window.should_close() == false {
-        return true
-    }
-
-    // graphics.wait_until_idle() // Wait until renderer resources are not in use before starting shutdown
-    return false
-}
-
-bind_context :: proc(engine_ctx: ^Engine_Context) {
-    window.bind_context(&engine_ctx.window)
-    input.bind_context(&engine_ctx.input)
-    graphics.bind_context(&engine_ctx.graphics)
-}
+check_result :: common.check_result

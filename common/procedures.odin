@@ -1,5 +1,14 @@
 package callisto_common
 
+import "core:log"
+
+check_result :: proc(res: Result, message: ..any, sep := " ", location := #caller_location) -> Result {
+    if (res != .Ok) {
+        log.error(message, res, sep, location)
+    }
+    return res
+}
+
 min_max_to_center_extents :: proc(min, max: vec3) -> (center, extents: vec3) {
     center  = 0.5 * (max + min)
     extents = 0.5 * (max - min)

@@ -1,40 +1,37 @@
 package callisto_platform
 
+import "../common"
 import "../config"
 import "vendor:glfw"
 import "core:log"
 
 when config.BUILD_PLATFORM == .Desktop {
 
-    Window_Handle :: glfw.WindowHandle
+    glfw_user_count : uint = 0
 
-    Window_Context :: struct {
-        handle: Window_Handle,
-        input: Input_Context,
+
+    Window_Handle_Glfw :: glfw.WindowHandle
+    
+
+
+    init :: proc() -> (res: common.Result) {
+        ok := glfw.Init()
+        if !ok do return .Initialization_Failed
+
+        glfw_user_count += 1;
+        return .Ok
     }
 
-    init :: proc() -> (ok: bool) {
-        log.info("Initializing platform: GLFW Windows")
+    destroy :: proc() {
+        if glfw_user_count == 0 do return
 
-        if global_user_count <= 0 {
-            ok = bool(glfw.Init())
-            if !ok do return false
-        }
-        global_user_count += 1
-
-        return true
-    }
-
-    shutdown :: proc() {
-        log.info("Shutting down platform")
-        
-        global_user_count -= 1
-        if global_user_count <= 0 {
+        glfw_user_count -= 1;
+        if (glfw_user_count == 0) {
             glfw.Terminate()
         }
     }
 
-    get_vk_proc_address :: glfw.GetInstanceProcAddress
+    get_vk_proc_address      :: glfw.GetInstanceProcAddress
 
     create_vk_window_surface :: glfw.CreateWindowSurface
 }

@@ -1,7 +1,7 @@
 package callisto_platform
 import "core:c"
 
-Input_Context :: struct {
+Input :: struct {
     kbm_down_buffer:        KBM_State,
     kbm_up_buffer:          KBM_State,
     kbm_pressed_buffer:     KBM_State,
