@@ -15,9 +15,3 @@ Renderer_Api_Flag       :: enum {
     Vulkan,
     // WebGPU,     // Not implemented
 }
-
-Renderer_Vsync_Flag     :: enum {
-    Triple_Buffer,
-    Vsync,
-    Off,
-}

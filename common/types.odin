@@ -1,18 +1,9 @@
 package callisto_common
 
 import "core:math/linalg"
+import "core:time"
 
-Result :: enum {
-    Ok,
-    Unknown,
-    Out_Of_Memory,
-    Initialization_Failed,
-    Device_Lost,
-    Feature_Not_Present,
-    Format_Not_Supported,
-    Invalid_Handle,
-    Invalid_Asset,
-}
+
 
 // Aliased types
 Handle      :: distinct rawptr
@@ -39,6 +30,18 @@ MAT4_IDENTITY :: linalg.MATRIX4F32_IDENTITY
 color32     :: [4]u8
 quat        :: linalg.Quaternionf32
 
+Result :: enum {
+    Ok,
+    Unknown,
+    Out_Of_Memory,
+    Initialization_Failed,
+    Device_Lost,
+    Feature_Not_Present,
+    Format_Not_Supported,
+    Invalid_Handle,
+    Invalid_Asset,
+}
+
 Buffer          :: distinct Handle
 Texture         :: distinct Handle
 Mesh            :: distinct Handle
@@ -48,65 +51,19 @@ Model           :: distinct Handle
 Render_Pass     :: distinct Handle
 Render_Target   :: distinct Handle
 
-RT_SWAPCHAIN : Render_Target : {}
-
-Texture_Description :: struct {
-    image_path              : string,
-    color_space             : Image_Color_Space,
-}
-
-Image_Color_Space :: enum {
-    Srgb,
-    Linear,
-}
-
-
-Shader_Description :: struct {
-    material_uniforms_typeid    : typeid,
-    render_pass                 : Render_Pass,
-    vertex_shader_data          : []u8,
-    fragment_shader_data        : []u8,
-    cull_mode                   : Shader_Description_Cull_Mode,
-    depth_test                  : bool,
-    depth_write                 : bool,
-    depth_compare_op            : Compare_Op,
-}
-
-Shader_Description_Cull_Mode :: enum {
-    Back,
-    Front,
-    None,
-}
-
-Compare_Op :: enum {
-    Never,
-    Less,
-    Equal,
-    Less_Or_Equal,
-    Greater,
-    Not_Equal,
-    Greater_Or_Equal,
-    Always,
-}
-
-
-Material_Description :: struct {
-    // shader
-    // uniform values (textures, colors, values)
-}
-
-Model_Description :: struct {
-    model_path              : string,
-}
-
-Render_Pass_Description :: struct {
-    ubo_type:           typeid,
-    render_target:      Render_Target,
-    is_present_output:  bool,
-}
-
 // Structs
 // ///////
+
+Frame_Time :: struct {
+    stopwatch_epoch  : time.Stopwatch, // Since callisto.run()
+    stopwatch_delta  : time.Stopwatch, // Reset every frame
+    scale            : f32,
+
+    delta            : f32,
+    delta_unscaled   : f32,
+    // delta_tick       : f32,
+    maximum_delta    : f32,
+}
 
 Axis_Aligned_Bounding_Box :: struct {
     center     : vec3,

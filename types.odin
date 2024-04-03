@@ -1,50 +1,68 @@
 package callisto
 
-import cc "common"
+import "common"
 import cg "graphics"
 import "input"
 import "window"
 
-Handle                    :: cc.Handle
 
-Result                    :: cc.Result
+Result                    :: common.Result
+Frame_Time                :: common.Frame_Time
 
-uvec2                     :: cc.uvec2
-uvec3                     :: cc.uvec3
-uvec4                     :: cc.uvec4
+Handle                    :: common.Handle
 
-ivec2                     :: cc.ivec2
-ivec3                     :: cc.ivec3
-ivec4                     :: cc.ivec4
+uvec2                     :: common.uvec2
+uvec3                     :: common.uvec3
+uvec4                     :: common.uvec4
 
-vec2                      :: cc.vec2
-vec3                      :: cc.vec3
-vec4                      :: cc.vec4
+ivec2                     :: common.ivec2
+ivec3                     :: common.ivec3
+ivec4                     :: common.ivec4
 
-mat2                      :: cc.mat2
-mat3                      :: cc.mat3
-mat4                      :: cc.mat4
+vec2                      :: common.vec2
+vec3                      :: common.vec3
+vec4                      :: common.vec4
 
-MAT2_IDENTITY             :: cc.MAT2_IDENTITY
-MAT3_IDENTITY             :: cc.MAT3_IDENTITY
-MAT4_IDENTITY             :: cc.MAT4_IDENTITY
+mat2                      :: common.mat2
+mat3                      :: common.mat3
+mat4                      :: common.mat4
 
-color32                   :: cc.color32
+MAT2_IDENTITY             :: common.MAT2_IDENTITY
+MAT3_IDENTITY             :: common.MAT3_IDENTITY
+MAT4_IDENTITY             :: common.MAT4_IDENTITY
 
-quat                      :: cc.quat
+color32                   :: common.color32
 
-Axis_Aligned_Bounding_Box :: cc.Axis_Aligned_Bounding_Box
+quat                      :: common.quat
 
-Transform                 :: cc.Transform
+
+Axis_Aligned_Bounding_Box :: common.Axis_Aligned_Bounding_Box
+
+Transform                 :: common.Transform
 
 Engine :: struct {
-    window:     window.Window,
-    renderer:   cg.Renderer,
-    input:      input.Input,
+    window      : window.Window,
+    renderer    : cg.Renderer,
+    input       : ^input.Input,
+    update_proc : Update_Callback_Proc,
+    tick_proc   : Tick_Callback_Proc,
+    time        : Frame_Time,
+
+    user_data   : rawptr,
 }
 
-Engine_Create_Info :: struct {
-    renderer_create_info: ^cg.Renderer_Create_Info
+
+Engine_Description :: struct {
+    display_description  : ^Display_Description,
+    renderer_description : ^Renderer_Description,
+    update_proc          : Update_Callback_Proc,
+    tick_proc            : Tick_Callback_Proc,
+
+    user_data            : rawptr,
 }
 
-Renderer_Create_Info :: cg.Renderer_Create_Info
+Display_Description  :: common.Display_Description
+Renderer_Description :: common.Renderer_Description
+Update_Callback_Proc :: #type proc(ctx: ^Engine)
+Tick_Callback_Proc   :: #type proc(ctx: ^Engine)
+

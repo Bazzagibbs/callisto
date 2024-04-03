@@ -4,6 +4,7 @@ package callisto_platform
 import "../config"
 import "vendor:glfw"
 import "core:c"
+import "core:fmt"
 
 when config.BUILD_PLATFORM == .Desktop {
 
@@ -48,7 +49,6 @@ when config.BUILD_PLATFORM == .Desktop {
     _mouse_button_callback :: proc(window: glfw.WindowHandle, button, action, mods: c.int) {
         ictx := (^Input)(glfw.GetWindowUserPointer(window))
         if ictx == nil do return
-
         switch Button_Action(action) {
             case .Press:
                 ictx.kbm_down_buffer.mouse_buttons += {Mouse_Button(button)}

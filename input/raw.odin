@@ -1,8 +1,17 @@
 package callisto_input
 
+import "../common"
 import "../debug"
 import "../window"
 import "../platform"
+
+create :: proc() -> (input: ^Input, result: common.Result) {
+    return new(Input), .Ok
+}
+
+destroy :: proc(input: ^Input) {
+    free(input)
+}
 
 // Set up/down state buffers and axis accumulators to zero.
 flush :: proc(input: ^Input) {

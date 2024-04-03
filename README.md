@@ -24,15 +24,21 @@ package main
 include "callisto"
 
 main :: proc() {
-    ok := callisto.init(); if !ok do return
-    defer callisto.shutdown()
+    // This is currently being rewritten, but it goes something along the lines of
+    engine_desc := callisto.Engine_Description {
+        // ... some settings here (window size, vsync etc.)
+        update_proc = loop
+    }
 
-    for callisto.should_loop() {
-        loop()
-    }  
+    engine, res := callisto.create(&engine_desc)
+    if res != .Ok do return
+
+    defer callisto.destroy(&engine)
+
+    callisto.run(&engine)
 }
 
-loop :: proc() {
+loop :: proc(ctx: ^callisto.Engine) {
     // gameplay code here
 }
 ```

@@ -15,13 +15,13 @@ when config.BUILD_PLATFORM == .Desktop {
     }
    
     // Allocates and initializes a Window structure.
-    window_create :: proc(/*Window create info?*/) -> (window: Window, res: cc.Result) {
+    window_create :: proc(description: ^Display_Description) -> (window: Window, res: cc.Result) {
         wnd := new(Window_Desktop)
 
         glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API) // Disable OpenGL
         glfw.WindowHint(glfw.RESIZABLE, 0) /* glfw.FALSE */
 
-        wnd.glfw_handle = glfw.CreateWindow(config.WINDOW_WIDTH, config.WINDOW_HEIGHT, cstring(config.APP_NAME), nil, nil)
+        wnd.glfw_handle = glfw.CreateWindow(description.window_width, description.window_height, cstring(config.APP_NAME), nil, nil)
         if(wnd.glfw_handle == nil) {
             return nil, .Initialization_Failed
         }
@@ -44,9 +44,10 @@ when config.BUILD_PLATFORM == .Desktop {
     window_destroy :: proc(window: Window) {
         wnd := from_handle(window)
         glfw.DestroyWindow(wnd.glfw_handle)
+        free(wnd)
     }
 
-    window_set_fullscreen :: proc(window: Window, fullscreen_mode: Fullscreen_Mode) {
+    window_set_fullscreen :: proc(window: Window, fullscreen_mode: Fullscreen_Flag) {
         unimplemented()
     }
 
@@ -60,6 +61,12 @@ when config.BUILD_PLATFORM == .Desktop {
         wnd := from_handle(window)
         return bool(glfw.WindowShouldClose(wnd.glfw_handle))
     }
+
+    window_present :: proc(window: Window) {
+        wnd := from_handle(window)
+        glfw.SwapBuffers(wnd.glfw_handle)
+    }
+
 
     cursor_set_lock :: proc(window: Window, mode: Cursor_Lock_Mode) {
         wnd := from_handle(window)
