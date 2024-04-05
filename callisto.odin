@@ -39,10 +39,9 @@ create :: proc(description: ^Engine_Description) -> (engine: Engine, res: Result
     platform.input_bind(engine.window, engine.input)
 
     // RENDERER
-    log.warn("TODO: implement renderer")
-    // engine.renderer, res = graphics.renderer_create(description.renderer_description);
-    // check_result(res, "Renderer") or_return;
-    // defer if res != .Ok do graphics.renderer_destroy(engine.renderer)
+    engine.renderer, res = graphics.renderer_create(description);
+    check_result(res, "Renderer") or_return;
+    defer if res != .Ok do graphics.renderer_destroy(engine.renderer)
 
     // TIME
     engine.time.scale = 1
@@ -54,7 +53,8 @@ create :: proc(description: ^Engine_Description) -> (engine: Engine, res: Result
 // Shut down Callisto engine, cleaning up internal allocations.
 destroy :: proc(engine: ^Engine) {
     debug.profile_scope()
-    
+   
+    input.destroy(engine.input)
     graphics.renderer_destroy(engine.renderer)
     window.destroy(engine.window)
     platform.destroy()

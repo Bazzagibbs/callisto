@@ -40,29 +40,15 @@ Axis_Aligned_Bounding_Box :: common.Axis_Aligned_Bounding_Box
 
 Transform                 :: common.Transform
 
-Engine :: struct {
-    window      : window.Window,
-    renderer    : cg.Renderer,
-    input       : ^input.Input,
-    update_proc : Update_Callback_Proc,
-    tick_proc   : Tick_Callback_Proc,
-    time        : Frame_Time,
+Engine :: common.Engine
+Renderer :: common.Renderer
+Window :: common.Window
+Input :: common.Input
 
-    user_data   : rawptr,
-}
-
-
-Engine_Description :: struct {
-    display_description  : ^Display_Description,
-    renderer_description : ^Renderer_Description,
-    update_proc          : Update_Callback_Proc,
-    tick_proc            : Tick_Callback_Proc,
-
-    user_data            : rawptr,
-}
-
-Display_Description  :: common.Display_Description
-Renderer_Description :: common.Renderer_Description
-Update_Callback_Proc :: #type proc(ctx: ^Engine)
-Tick_Callback_Proc   :: #type proc(ctx: ^Engine)
+Engine_Description      :: common.Engine_Description
+Application_Description :: common.Application_Description
+Display_Description     :: common.Display_Description
+Renderer_Description    :: common.Renderer_Description
+Update_Callback_Proc    :: common.Update_Callback_Proc
+Tick_Callback_Proc      :: common.Update_Callback_Proc
 

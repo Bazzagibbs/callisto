@@ -1,5 +1,21 @@
 package callisto_common
 
+Engine_Description :: struct {
+    application_description : ^Application_Description,
+    display_description     : ^Display_Description,
+    renderer_description    : ^Renderer_Description,
+    update_proc             : Update_Callback_Proc,
+    tick_proc               : Tick_Callback_Proc,
+
+    user_data               : rawptr,
+}
+
+Application_Description :: struct {
+    name : string,
+    company : string,
+    version : Version,
+}
+
 Display_Description :: struct {
     vsync         : Display_Vsync_Flag,
     fullscreen    : Display_Fullscreen_Flag,
@@ -20,7 +36,8 @@ Display_Fullscreen_Flag :: enum {
 }
 
 
-Renderer_Description :: struct {}
+Renderer_Description :: struct {
+}
 
 
 Texture_Description :: struct {
@@ -78,3 +95,6 @@ Render_Pass_Description :: struct {
     is_present_output : bool,
 }
 
+Gpu_Image_Description         :: struct {}
+Gpu_Buffer_Description        :: struct {}
+Gpu_Buffer_Upload_Description :: struct {}

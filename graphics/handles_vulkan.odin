@@ -7,9 +7,9 @@ import backend "backend_vk"
 
 when config.RENDERER_API == .Vulkan {
 
-    Renderer_Vk :: backend.Renderer
-    Gpu_Image_Vk :: backend.Gpu_Image
-    Gpu_Buffer_Vk :: backend.Gpu_Buffer
+    Renderer_Impl   :: backend.Renderer_Impl
+    Gpu_Image_Impl  :: backend.Gpu_Image_Impl
+    Gpu_Buffer_Impl :: backend.Gpu_Buffer_Impl
 
     to_handle :: proc {
         to_handle_renderer,
@@ -17,15 +17,15 @@ when config.RENDERER_API == .Vulkan {
         to_handle_gpu_buffer,
     }
 
-    to_handle_renderer :: proc "contextless" (renderer_vk: ^Renderer_Vk) -> (Renderer) {
+    to_handle_renderer :: proc "contextless" (renderer_vk: ^Renderer_Impl) -> (Renderer) {
         return transmute(Renderer)renderer_vk;
     }
 
-    to_handle_gpu_image :: proc "contextless" (gpu_img_vk: ^Gpu_Image_Vk) -> (Gpu_Image) {
+    to_handle_gpu_image :: proc "contextless" (gpu_img_vk: ^Gpu_Image_Impl) -> (Gpu_Image) {
         return transmute(Gpu_Image)gpu_img_vk;
     }
 
-    to_handle_gpu_buffer :: proc "contextless" (gpu_buf_vk: ^Gpu_Buffer_Vk) -> (Gpu_Buffer) {
+    to_handle_gpu_buffer :: proc "contextless" (gpu_buf_vk: ^Gpu_Buffer_Impl) -> (Gpu_Buffer) {
         return transmute(Gpu_Buffer)gpu_buf_vk;
     }
 
@@ -36,16 +36,16 @@ when config.RENDERER_API == .Vulkan {
         from_handle_gpu_buffer,
     }
 
-    from_handle_renderer :: proc "contextless" (handle: Renderer) -> (^Renderer_Vk) {
-        return transmute(^Renderer_Vk)handle;
+    from_handle_renderer :: proc "contextless" (handle: Renderer) -> (^Renderer_Impl) {
+        return transmute(^Renderer_Impl)handle;
     }
 
-    from_handle_gpu_image :: proc "contextless" (handle: Gpu_Image) -> (^Gpu_Image_Vk) {
-        return transmute(^Gpu_Image_Vk)handle;
+    from_handle_gpu_image :: proc "contextless" (handle: Gpu_Image) -> (^Gpu_Image_Impl) {
+        return transmute(^Gpu_Image_Impl)handle;
     }
 
-    from_handle_gpu_buffer :: proc "contextless" (handle: Gpu_Buffer) -> (^Gpu_Buffer_Vk) {
-        return transmute(^Gpu_Buffer_Vk)handle;
+    from_handle_gpu_buffer :: proc "contextless" (handle: Gpu_Buffer) -> (^Gpu_Buffer_Impl) {
+        return transmute(^Gpu_Buffer_Impl)handle;
     }
 
 

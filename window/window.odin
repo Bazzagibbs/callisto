@@ -2,10 +2,10 @@ package callisto_window
 import "../platform"
 import "../common"
 
-Window              :: platform.Window
+Window              :: common.Window
 Fullscreen_Mode     :: common.Display_Fullscreen_Flag
 Display_Description :: common.Display_Description
-Cursor_Lock_Mode    :: platform.Cursor_Lock_Mode
+Cursor_Lock_Mode    :: common.Cursor_Lock_Mode
 
 create              :: platform.window_create
 destroy             :: platform.window_destroy

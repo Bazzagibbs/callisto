@@ -42,6 +42,9 @@ Result :: enum {
     Invalid_Asset,
 }
 
+Window :: distinct Handle
+Renderer :: distinct Handle
+
 Buffer          :: distinct Handle
 Texture         :: distinct Handle
 Mesh            :: distinct Handle
@@ -51,8 +54,30 @@ Model           :: distinct Handle
 Render_Pass     :: distinct Handle
 Render_Target   :: distinct Handle
 
+Gpu_Image       :: distinct Handle
+Gpu_Buffer      :: distinct Handle
+
 // Structs
 // ///////
+
+Engine :: struct {
+    window      : Window,
+    renderer    : Renderer,
+    input       : ^Input,
+    update_proc : Update_Callback_Proc,
+    tick_proc   : Tick_Callback_Proc,
+    time        : Frame_Time,
+
+    user_data   : rawptr,
+}
+
+
+Version :: struct {
+    major : u32,
+    minor : u32,
+    patch : u32,
+}
+
 
 Frame_Time :: struct {
     stopwatch_epoch  : time.Stopwatch, // Since callisto.run()
@@ -65,10 +90,12 @@ Frame_Time :: struct {
     maximum_delta    : f32,
 }
 
+
 Axis_Aligned_Bounding_Box :: struct {
     center     : vec3,
     extent     : vec3, // half of width/breadth/height
 }
+
 
 Transform :: struct {
     translation     : vec3,
@@ -87,3 +114,6 @@ Render_Pass_Uniforms :: struct {
 Instance_Uniforms :: struct {
     model:      mat4,
 }
+
+Update_Callback_Proc :: #type proc(ctx: ^Engine)
+Tick_Callback_Proc   :: #type proc(ctx: ^Engine)

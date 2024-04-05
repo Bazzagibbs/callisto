@@ -1,4 +1,4 @@
-package callisto_platform
+package callisto_common
 import "core:c"
 
 Input :: struct {

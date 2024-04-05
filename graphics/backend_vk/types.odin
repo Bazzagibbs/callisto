@@ -1,9 +1,19 @@
 package callisto_graphics_vulkan
 
 import "../../common"
+import "core:log"
+import vk "vendor:vulkan"
 
-Renderer :: struct {}
+Result :: common.Result
 
-Gpu_Image :: struct {}
+Renderer_Impl :: struct {
+    instance        : vk.Instance,
+    physical_device : vk.PhysicalDevice,
+    device          : vk.Device,
+    logger          : log.Logger,
+    debug_messenger : vk.DebugUtilsMessengerEXT,
+}
 
-Gpu_Buffer :: struct {}
+Gpu_Image_Impl :: struct {}
+
+Gpu_Buffer_Impl :: struct {}

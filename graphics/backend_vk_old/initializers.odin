@@ -18,10 +18,6 @@ INSTANCE_EXTS :: []cstring {}
 
 ENABLE_VALIDATION_LAYERS :: ODIN_DEBUG
 
-VALIDATION_LAYERS :: []cstring {
-    "VK_LAYER_KHRONOS_validation",
-}
-
 DEVICE_EXTS :: []cstring {
     vk.KHR_SWAPCHAIN_EXTENSION_NAME,
 }

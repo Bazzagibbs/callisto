@@ -11,7 +11,6 @@ when config.BUILD_PLATFORM == .Desktop {
 
 
     Window_Handle_Glfw :: glfw.WindowHandle
-    
 
 
     init :: proc() -> (res: common.Result) {
@@ -31,7 +30,7 @@ when config.BUILD_PLATFORM == .Desktop {
         }
     }
 
-    get_vk_proc_address      :: glfw.GetInstanceProcAddress
-
-    create_vk_window_surface :: glfw.CreateWindowSurface
+    get_vk_proc_address        :: glfw.GetInstanceProcAddress
+    get_vk_required_extensions :: glfw.GetRequiredInstanceExtensions
+    create_vk_window_surface   :: glfw.CreateWindowSurface
 }
