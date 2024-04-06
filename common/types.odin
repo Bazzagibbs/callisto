@@ -38,8 +38,10 @@ Result :: enum {
     Device_Lost,
     Feature_Not_Present,
     Format_Not_Supported,
+    Device_Not_Supported,
     Invalid_Handle,
     Invalid_Asset,
+    Invalid_Description,
 }
 
 Window :: distinct Handle

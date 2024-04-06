@@ -17,6 +17,8 @@ create :: proc(description: ^Engine_Description) -> (engine: Engine, res: Result
     
     log.info("Initializing Callisto engine")
 
+    validate_engine_description(description) or_return
+
     engine.user_data   = description.user_data
     engine.update_proc = description.update_proc
     engine.tick_proc   = description.tick_proc
@@ -39,8 +41,8 @@ create :: proc(description: ^Engine_Description) -> (engine: Engine, res: Result
     platform.input_bind(engine.window, engine.input)
 
     // RENDERER
-    engine.renderer, res = graphics.renderer_create(description);
-    check_result(res, "Renderer") or_return;
+    engine.renderer, res = graphics.renderer_create(description, engine.window)
+    check_result(res, "Renderer") or_return
     defer if res != .Ok do graphics.renderer_destroy(engine.renderer)
 
     // TIME
@@ -93,3 +95,43 @@ run :: proc(engine: ^Engine) {
 
 
 check_result :: common.check_result
+
+
+validate_engine_description :: proc(desc: ^Engine_Description) -> (res: Result) {
+    validate_application_description(desc.application_description) or_return
+    validate_display_description(desc.display_description) or_return
+    validate_renderer_description(desc.renderer_description) or_return
+
+    return .Ok
+}
+
+
+validate_application_description :: proc(desc: ^Application_Description) -> (res: Result) {
+    res = .Invalid_Description
+
+    if desc              == nil       do return
+
+    if len(desc.name)    == 0         do return
+    if len(desc.company) == 0         do return
+    if desc.version      == {0, 0, 0} do return
+
+    return .Ok
+}
+
+
+validate_display_description :: proc(desc: ^Display_Description) -> (res: Result) {
+    res = .Invalid_Description
+   
+    if desc == nil do return
+
+    return .Ok
+}
+
+
+validate_renderer_description :: proc(desc: ^Renderer_Description) -> (res: Result) {
+    res = .Invalid_Description
+    
+    if desc == nil do return
+
+    return .Ok
+}

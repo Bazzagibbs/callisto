@@ -7,8 +7,23 @@ import "core:strings"
 import "../../config"
 import vk "vendor:vulkan"
 
+check_result :: proc {
+    check_result_cal,
+    check_result_vk,
+}
 
-check_result :: proc(vkres: vk.Result, loc := #caller_location) -> (res: Result) {
+check_result_cal :: proc(res: Result, loc := #caller_location) -> Result {
+    if res != .Ok {
+        log.error("Renderer error at:", loc, res)
+        when config.DEBUG_BREAKPOINT_ON_RENDERER_ERROR {
+            runtime.trap()
+        }
+    }
+    
+    return res
+}
+
+check_result_vk :: proc(vkres: vk.Result, loc := #caller_location) -> (res: Result) {
     if vkres != .SUCCESS {
         log.error("Renderer error at:", loc, vkres)
         when config.DEBUG_BREAKPOINT_ON_RENDERER_ERROR {
@@ -79,7 +94,10 @@ _default_log_callback :: proc "contextless" (messageSeverity: vk.DebugUtilsMessa
     context = runtime.default_context()
     context.logger = ((^log.Logger)(pUserData))^
     level := _vk_severity_to_log_level(messageSeverity)
-    message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n | ", -1, context.temp_allocator);
+    message, was_alloc := strings.replace(string(pCallbackData.pMessage), " | ", " \n | ", -1);
+    defer if was_alloc {
+        delete(message)
+    }
 
     log.log(level, message)
     when config.DEBUG_BREAKPOINT_ON_RENDERER_ERROR {

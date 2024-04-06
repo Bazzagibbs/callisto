@@ -19,8 +19,8 @@ Application_Description :: struct {
 Display_Description :: struct {
     vsync         : Display_Vsync_Flag,
     fullscreen    : Display_Fullscreen_Flag,
-    window_width  : i32,
-    window_height : i32,
+    window_width  : u32,
+    window_height : u32,
 }
 
 Display_Vsync_Flag :: enum {
@@ -37,6 +37,7 @@ Display_Fullscreen_Flag :: enum {
 
 
 Renderer_Description :: struct {
+    headless: bool,
 }
 
 
@@ -98,3 +99,4 @@ Render_Pass_Description :: struct {
 Gpu_Image_Description         :: struct {}
 Gpu_Buffer_Description        :: struct {}
 Gpu_Buffer_Upload_Description :: struct {}
+

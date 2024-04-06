@@ -4,6 +4,7 @@ import "../asset"
 
 Result                        :: common.Result
 Renderer                      :: common.Renderer
+Window                        :: common.Window
 Gpu_Image                     :: common.Gpu_Image
 Gpu_Buffer                    :: common.Gpu_Buffer
 
@@ -14,8 +15,8 @@ Gpu_Buffer_Description        :: common.Gpu_Buffer_Description
 Gpu_Buffer_Upload_Description :: common.Gpu_Buffer_Upload_Description
 
 
-renderer_create :: proc(create_info: ^Engine_Description) -> (r: Renderer, res: Result) {
-    return _renderer_create(create_info)
+renderer_create :: proc(create_info: ^Engine_Description, window: Window) -> (r: Renderer, res: Result) {
+    return _renderer_create(create_info, window)
 }
 
 renderer_destroy :: proc(r: Renderer) {

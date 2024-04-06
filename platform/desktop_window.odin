@@ -3,6 +3,7 @@ package callisto_platform
 import "core:log"
 import "core:c"
 import "vendor:glfw"
+import vk "vendor:vulkan"
 import "../config"
 import "../platform"
 import "core:strings"
@@ -21,7 +22,7 @@ when config.BUILD_PLATFORM == .Desktop {
         glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API) // Disable OpenGL
         glfw.WindowHint(glfw.RESIZABLE, 0) /* glfw.FALSE */
 
-        wnd.glfw_handle = glfw.CreateWindow(description.window_width, description.window_height, cstring(config.APP_NAME), nil, nil)
+        wnd.glfw_handle = glfw.CreateWindow(i32(description.window_width), i32(description.window_height), cstring(config.APP_NAME), nil, nil)
         if(wnd.glfw_handle == nil) {
             return nil, .Initialization_Failed
         }
@@ -85,22 +86,33 @@ when config.BUILD_PLATFORM == .Desktop {
     }
 
 
-    // Allocates a slice, and _n_ strings. Caller is responsible for deleting strings and slice.
-    get_required_extensions :: proc() -> []cstring {
-        temp_cstrs := glfw.GetRequiredInstanceExtensions()
-
-        exts := make([]cstring, len(temp_cstrs))
-        for cstr, i in temp_cstrs {
-            exts[i], _ = strings.clone_to_cstring(string(cstr))
-        }
-
-        return exts
-    }
-
     get_framebuffer_size :: proc(window: Window) -> (size: cc.ivec2) {
         wnd := from_handle(window)
         size.x, size.y = glfw.GetFramebufferSize(wnd.glfw_handle)
         return
     }
+   
+
+    when config.RENDERER_API == .Vulkan {
+        // Allocates a slice, and _n_ strings. Caller is responsible for deleting strings and slice.
+        get_vk_required_extensions :: proc() -> []cstring {
+            temp_cstrs := glfw.GetRequiredInstanceExtensions()
+
+            exts := make([]cstring, len(temp_cstrs))
+            for cstr, i in temp_cstrs {
+                exts[i], _ = strings.clone_to_cstring(string(cstr))
+            }
+
+            return exts
+        }
+
+
+        create_vk_window_surface :: proc(instance: vk.Instance, window: Window) -> (surface: vk.SurfaceKHR, res: vk.Result) {
+            wnd := from_handle(window)
+            res = glfw.CreateWindowSurface(instance, wnd.glfw_handle, nil, &surface)
+            return
+        }
+    }
+
 
 }
