@@ -30,14 +30,14 @@ DEVICE_FEATURES :: vk.PhysicalDeviceFeatures {}
  // Instance //
 //////////////
 
-create_instance :: proc(r: ^Renderer_Impl, description: ^common.Engine_Description) -> (instance: vk.Instance, res: Result) {
+instance_create :: proc(r: ^Renderer_Impl, description: ^common.Engine_Description) -> (res: Result) {
     vk.load_proc_addresses(rawptr(platform.get_vk_proc_address))
 
     required_exts := make([dynamic]cstring)
     defer delete(required_exts)
 
     when ODIN_DEBUG {
-        if check_validation_layer_support() == false {
+        if _check_validation_layer_support() == false {
             log.error("Validation layers not supported")
             res = .Initialization_Failed
             return
@@ -100,31 +100,31 @@ create_instance :: proc(r: ^Renderer_Impl, description: ^common.Engine_Descripti
         }
     }
 
-    vk_res := vk.CreateInstance(&instance_create_info, nil, &instance)
+    vk_res := vk.CreateInstance(&instance_create_info, nil, &r.instance)
     check_result(vk_res) or_return
 
-    vk.load_proc_addresses(instance)
+    vk.load_proc_addresses(r.instance)
 
     when ODIN_DEBUG {
-        vk_res = vk.CreateDebugUtilsMessengerEXT(instance, &debug_messenger_info, nil, &r.debug_messenger)
+        vk_res = vk.CreateDebugUtilsMessengerEXT(r.instance, &debug_messenger_info, nil, &r.debug_messenger)
         check_result(vk_res)
     }
 
-    return instance, .Ok
+    return .Ok
 }
 
 
-destroy_instance :: proc(r: ^Renderer_Impl, instance: vk.Instance) {
+instance_destroy :: proc(r: ^Renderer_Impl) {
     when ODIN_DEBUG {
         vk.DestroyDebugUtilsMessengerEXT(r.instance, r.debug_messenger, nil)
         log.destroy_console_logger(r.logger)
     }
 
-    vk.DestroyInstance(instance, nil)
+    vk.DestroyInstance(r.instance, nil)
 }
 
 
-check_validation_layer_support :: proc() -> bool {
+_check_validation_layer_support :: proc() -> bool {
     layer_count: u32
     vk.EnumerateInstanceLayerProperties(&layer_count, nil)
 
@@ -159,15 +159,15 @@ check_validation_layer_support :: proc() -> bool {
  //  Surface  //
 ///////////////
 
-create_surface :: proc(r: ^Renderer_Impl, window: common.Window) -> (surface: vk.SurfaceKHR, res: Result) {
+surface_create :: proc(r: ^Renderer_Impl, window: common.Window) -> (res: Result) {
     vk_res: vk.Result
-    surface, vk_res = platform.create_vk_window_surface(r.instance, window)
-    return surface, check_result(vk_res)
+    r.surface, vk_res = platform.create_vk_window_surface(r.instance, window)
+    return check_result(vk_res)
 }
 
 
-destroy_surface :: proc(r: ^Renderer_Impl, surface: vk.SurfaceKHR) {
-    vk.DestroySurfaceKHR(r.instance, surface, nil)
+surface_destroy :: proc(r: ^Renderer_Impl) {
+    vk.DestroySurfaceKHR(r.instance, r.surface, nil)
 }
 
 // =========================================================================================
@@ -177,7 +177,7 @@ destroy_surface :: proc(r: ^Renderer_Impl, surface: vk.SurfaceKHR) {
  // Physical Device //
 /////////////////////
 
-select_physical_device :: proc(r: ^Renderer_Impl) -> (phys_device: vk.PhysicalDevice, phys_device_props: vk.PhysicalDeviceProperties, res: Result) {
+physical_device_select :: proc(r: ^Renderer_Impl) -> (res: Result) {
     phys_device_count: u32
     vk_res := vk.EnumeratePhysicalDevices(r.instance, &phys_device_count, nil)
     check_result(res) or_return
@@ -189,14 +189,15 @@ select_physical_device :: proc(r: ^Renderer_Impl) -> (phys_device: vk.PhysicalDe
 
 
     for phys_device in phys_devices[:phys_device_count] {
-        if is_physical_device_suitable(r, phys_device) {
-            vk.GetPhysicalDeviceProperties(phys_device, &phys_device_props)
-            return phys_device, phys_device_props, .Ok
+        if _is_physical_device_suitable(r, phys_device) {
+            r.physical_device = phys_device
+            vk.GetPhysicalDeviceProperties(phys_device, &r.physical_device_properties)
+            return .Ok
         }
     }
 
     log.error("No suitable physical devices")
-    return {}, {}, .Device_Not_Supported
+    return .Device_Not_Supported
 }
 
 Queue_Family_Query :: struct {
@@ -210,20 +211,20 @@ Queue_Family_Query :: struct {
 }
 
 
-is_physical_device_suitable :: proc(r: ^Renderer_Impl, phys_device: vk.PhysicalDevice) -> (ok: bool) {
+_is_physical_device_suitable :: proc(r: ^Renderer_Impl, phys_device: vk.PhysicalDevice) -> (ok: bool) {
     props: vk.PhysicalDeviceProperties
     feats: vk.PhysicalDeviceFeatures
     vk.GetPhysicalDeviceProperties(phys_device, &props)
     vk.GetPhysicalDeviceFeatures(phys_device, &feats)
 
-    families := find_queue_families(phys_device)
-    families_adequate := is_family_complete(&families)
+    families := _find_queue_families(phys_device)
+    families_adequate := _is_family_complete(&families)
 
-    swap_details := query_swapchain_support(phys_device, r.surface)
-    defer delete_swapchain_support(&swap_details)
+    swap_details := _query_swapchain_support(phys_device, r.surface)
+    defer _delete_swapchain_support(&swap_details)
     swap_adequate := len(swap_details.formats) > 0 && len(swap_details.present_modes) > 0
 
-    suitable := check_device_extension_support(phys_device, DEVICE_EXTS) &&
+    suitable := _check_device_extension_support(phys_device, DEVICE_EXTS) &&
                 families_adequate &&
                 swap_adequate &&
                 props.apiVersion >= API_VERSION
@@ -236,7 +237,7 @@ is_physical_device_suitable :: proc(r: ^Renderer_Impl, phys_device: vk.PhysicalD
 }
 
 
-check_device_extension_support :: proc(phys_device: vk.PhysicalDevice, required_exts: []cstring) -> bool {
+_check_device_extension_support :: proc(phys_device: vk.PhysicalDevice, required_exts: []cstring) -> bool {
     avail_ext_count: u32
     vk.EnumerateDeviceExtensionProperties(phys_device, nil, &avail_ext_count, nil)
     
@@ -257,7 +258,7 @@ check_device_extension_support :: proc(phys_device: vk.PhysicalDevice, required_
     return true
 }
 
-find_queue_families :: proc(phys_device: vk.PhysicalDevice) -> Queue_Family_Query {
+_find_queue_families :: proc(phys_device: vk.PhysicalDevice) -> Queue_Family_Query {
     queue_family_count: u32
     vk.GetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, nil)
     
@@ -281,7 +282,7 @@ find_queue_families :: proc(phys_device: vk.PhysicalDevice) -> Queue_Family_Quer
             families.transfer = u32(i)
         }
 
-        if is_family_complete(&families) {
+        if _is_family_complete(&families) {
             break
         }
     }
@@ -290,7 +291,7 @@ find_queue_families :: proc(phys_device: vk.PhysicalDevice) -> Queue_Family_Quer
 }
 
 
-is_family_complete :: proc(families: ^Queue_Family_Query) -> bool {
+_is_family_complete :: proc(families: ^Queue_Family_Query) -> bool {
     is_complete :=  families.has_compute && 
                     families.has_transfer
 
@@ -302,35 +303,6 @@ is_family_complete :: proc(families: ^Queue_Family_Query) -> bool {
 }
 
 
-Swapchain_Support_Details :: struct {
-    capabilities:   vk.SurfaceCapabilitiesKHR,
-    formats:        []vk.SurfaceFormatKHR,
-    present_modes:  []vk.PresentModeKHR,
-}
-
-query_swapchain_support :: proc(phys_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> Swapchain_Support_Details {
-    details: Swapchain_Support_Details
-
-    vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &details.capabilities)
-    
-    fmt_count: u32
-    vk.GetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &fmt_count, nil)
-    details.formats = make([]vk.SurfaceFormatKHR, fmt_count)
-    vk.GetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &fmt_count, raw_data(details.formats))
-
-    present_mode_count: u32
-    vk.GetPhysicalDeviceSurfacePresentModesKHR(phys_device, surface, &present_mode_count, nil)
-    details.present_modes = make([]vk.PresentModeKHR, present_mode_count)
-    vk.GetPhysicalDeviceSurfacePresentModesKHR(phys_device, surface, &present_mode_count, raw_data(details.present_modes))
-
-    return details
-}
-
-
-delete_swapchain_support :: proc(details: ^Swapchain_Support_Details) {
-    delete(details.formats)
-    delete(details.present_modes)
-}
 
 // =========================================================================================
 
@@ -339,10 +311,10 @@ delete_swapchain_support :: proc(details: ^Swapchain_Support_Details) {
  // Device //
 ////////////
 
-create_device :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) -> (device: vk.Device, queues: Queues, res: Result) {
-    family_query := find_queue_families(r.physical_device)
+device_create :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) -> (res: Result) {
+    family_query := _find_queue_families(r.physical_device)
 
-    queues = Queues {
+    r.queues = Queues {
         compute_family  = family_query.compute,
         graphics_family = family_query.graphics,
         transfer_family = family_query.transfer,
@@ -351,11 +323,11 @@ create_device :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) -> (d
     unique_family_idx_and_queue_counts:= make(map[u32]u32)
     defer delete(unique_family_idx_and_queue_counts)
 
-    unique_family_idx_and_queue_counts[queues.compute_family]  += 1
-    unique_family_idx_and_queue_counts[queues.transfer_family] += 1
+    unique_family_idx_and_queue_counts[r.queues.compute_family]  += 1
+    unique_family_idx_and_queue_counts[r.queues.transfer_family] += 1
 
     if !desc.renderer_description.headless {
-        unique_family_idx_and_queue_counts[queues.graphics_family] += 1
+        unique_family_idx_and_queue_counts[r.queues.graphics_family] += 1
     }
 
     queue_priorities := []f32 { 1, 1, 1, }
@@ -390,21 +362,21 @@ create_device :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) -> (d
         device_create_info.ppEnabledLayerNames = raw_data(validation_layers)
     }
 
-    vk_res := vk.CreateDevice(r.physical_device, &device_create_info, nil, &device)
+    vk_res := vk.CreateDevice(r.physical_device, &device_create_info, nil, &r.device)
     check_result(vk_res) or_return
 
-    unique_family_idx_and_queue_counts[queues.transfer_family] -= 1
-    queue_idx := unique_family_idx_and_queue_counts[queues.transfer_family]
-    vk.GetDeviceQueue(device, queues.transfer_family, queue_idx, &queues.transfer)
+    unique_family_idx_and_queue_counts[r.queues.transfer_family] -= 1
+    queue_idx := unique_family_idx_and_queue_counts[r.queues.transfer_family]
+    vk.GetDeviceQueue(r.device, r.queues.transfer_family, queue_idx, &r.queues.transfer)
     
-    unique_family_idx_and_queue_counts[queues.compute_family] -= 1
-    queue_idx = unique_family_idx_and_queue_counts[queues.compute_family]
-    vk.GetDeviceQueue(device, queues.compute_family, queue_idx, &queues.compute)
+    unique_family_idx_and_queue_counts[r.queues.compute_family] -= 1
+    queue_idx = unique_family_idx_and_queue_counts[r.queues.compute_family]
+    vk.GetDeviceQueue(r.device, r.queues.compute_family, queue_idx, &r.queues.compute)
    
     if !desc.renderer_description.headless {
-        unique_family_idx_and_queue_counts[queues.graphics_family] -= 1
-        queue_idx = unique_family_idx_and_queue_counts[queues.graphics_family]
-        vk.GetDeviceQueue(device, queues.graphics_family, queue_idx, &queues.graphics)
+        unique_family_idx_and_queue_counts[r.queues.graphics_family] -= 1
+        queue_idx = unique_family_idx_and_queue_counts[r.queues.graphics_family]
+        vk.GetDeviceQueue(r.device, r.queues.graphics_family, queue_idx, &r.queues.graphics)
     }
 
     res = .Ok
@@ -412,8 +384,8 @@ create_device :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) -> (d
 }
 
 
-destroy_device :: proc(r: ^Renderer_Impl, device: vk.Device) {
-    vk.DestroyDevice(device, nil)
+device_destroy :: proc(r: ^Renderer_Impl) {
+    vk.DestroyDevice(r.device, nil)
 }
 
 // =========================================================================================
@@ -424,13 +396,18 @@ destroy_device :: proc(r: ^Renderer_Impl, device: vk.Device) {
 ///////////////////
 
 // Each frame in flight needs its own command pool
-// create_command_pools :: proc(r: ^Renderer_Impl, pools: []^Command_Pools) -> (res: Result) {
-//     pool_create_info := vk.CommandPoolCreateInfo {
-//         sType = .COMMAND_POOL_CREATE_INFO,
-//         flags = {.RESET_COMMAND_BUFFER},
-//     }
-//
-//     for pool in pools {
-//         
-//     }
-// }
+command_pools_create :: proc(r: ^Renderer_Impl) -> (res: Result) {
+    // pool_create_info := vk.CommandPoolCreateInfo {
+    //     sType = .COMMAND_POOL_CREATE_INFO,
+    //     flags = {.RESET_COMMAND_BUFFER},
+    // }
+    //
+    // for pool in pools {
+    //     
+    // }
+    return .Unknown
+}
+
+command_pools_destroy :: proc(r: ^Renderer_Impl) {
+
+}

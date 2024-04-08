@@ -96,7 +96,11 @@ Render_Pass_Description :: struct {
     is_present_output : bool,
 }
 
-Gpu_Image_Description         :: struct {}
+Gpu_Image_Description :: struct {
+    format : Gpu_Image_Format,
+    usage  : Gpu_Image_Usage_Flags,
+}
+
 Gpu_Buffer_Description        :: struct {}
 Gpu_Buffer_Upload_Description :: struct {}
 

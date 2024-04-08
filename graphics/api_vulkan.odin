@@ -11,14 +11,13 @@ when config.RENDERER_API == .Vulkan {
         r_vk := new(backend.Renderer_Impl)
         r = to_handle(r_vk)
 
-        defer if res != .Ok do free(r_vk)
+        defer if res != .Ok do _renderer_destroy(r)
 
-        r_vk.instance                   = backend.create_instance(r_vk, description) or_return
-        r_vk.surface                    = backend.create_surface(r_vk, window) or_return
-        r_vk.physical_device,
-        r_vk.physical_device_properties = backend.select_physical_device(r_vk) or_return
-        r_vk.device, 
-        r_vk.queues                     = backend.create_device(r_vk, description) or_return
+        backend.instance_create(r_vk, description) or_return
+        backend.surface_create(r_vk, window) or_return
+        backend.physical_device_select(r_vk) or_return
+        backend.device_create(r_vk, description) or_return
+        backend.swapchain_create(r_vk, description) or_return
 
         return r, .Ok
     }
@@ -26,9 +25,10 @@ when config.RENDERER_API == .Vulkan {
     _renderer_destroy :: proc(r: Renderer) {
         r_vk := from_handle(r)
 
-        backend.destroy_device(r_vk, r_vk.device)
-        backend.destroy_surface(r_vk, r_vk.surface)
-        backend.destroy_instance(r_vk, r_vk.instance)
+        backend.swapchain_destroy(r_vk)
+        backend.device_destroy(r_vk)
+        backend.surface_destroy(r_vk)
+        backend.instance_destroy(r_vk)
 
         free(r_vk)
     }

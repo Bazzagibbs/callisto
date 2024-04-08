@@ -119,3 +119,12 @@ Instance_Uniforms :: struct {
 
 Update_Callback_Proc :: #type proc(ctx: ^Engine)
 Tick_Callback_Proc   :: #type proc(ctx: ^Engine)
+
+// ///////////////////////////////////////////////////////////
+Gpu_Image_Format :: enum {
+}
+
+Gpu_Image_Usage_Flags :: bit_set[Gpu_Image_Usage_Flag]
+Gpu_Image_Usage_Flag  :: enum {
+}
+
