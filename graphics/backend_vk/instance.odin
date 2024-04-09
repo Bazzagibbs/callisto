@@ -396,18 +396,108 @@ device_destroy :: proc(r: ^Renderer_Impl) {
 ///////////////////
 
 // Each frame in flight needs its own command pool
-command_pools_create :: proc(r: ^Renderer_Impl) -> (res: Result) {
-    // pool_create_info := vk.CommandPoolCreateInfo {
-    //     sType = .COMMAND_POOL_CREATE_INFO,
-    //     flags = {.RESET_COMMAND_BUFFER},
-    // }
-    //
-    // for pool in pools {
-    //     
-    // }
-    return .Unknown
+command_structures_create :: proc(r: ^Renderer_Impl) -> (res: Result) {
+    create_info_compute := vk.CommandPoolCreateInfo {
+        sType            = .COMMAND_POOL_CREATE_INFO,
+        flags            = {.RESET_COMMAND_BUFFER},
+        queueFamilyIndex = r.queues.compute_family,
+    }
+
+    create_info_graphics := vk.CommandPoolCreateInfo {
+        sType            = .COMMAND_POOL_CREATE_INFO,
+        flags            = {.RESET_COMMAND_BUFFER},
+        queueFamilyIndex = r.queues.graphics_family,
+    }
+    
+    create_info_transfer := vk.CommandPoolCreateInfo {
+        sType            = .COMMAND_POOL_CREATE_INFO,
+        flags            = {.RESET_COMMAND_BUFFER},
+        queueFamilyIndex = r.queues.transfer_family,
+    }
+    
+    alloc_info := vk.CommandBufferAllocateInfo {
+        sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
+        commandBufferCount = 1,
+        level              = .PRIMARY,
+    }
+    
+
+    vk_res: vk.Result
+    for &frame in r.frames {
+        vk_res = vk.CreateCommandPool(r.device, &create_info_compute, nil, &frame.command_pools.compute)
+        check_result(vk_res) or_return
+        vk_res = vk.CreateCommandPool(r.device, &create_info_graphics, nil, &frame.command_pools.graphics)
+        check_result(vk_res) or_return
+        vk_res = vk.CreateCommandPool(r.device, &create_info_transfer, nil, &frame.command_pools.transfer)
+        check_result(vk_res) or_return
+
+        alloc_info.commandPool = frame.command_pools.compute
+        vk_res = vk.AllocateCommandBuffers(r.device, &alloc_info, &frame.command_buffers.compute)
+        check_result(vk_res) or_return
+        
+        alloc_info.commandPool = frame.command_pools.graphics
+        vk_res = vk.AllocateCommandBuffers(r.device, &alloc_info, &frame.command_buffers.graphics)
+        check_result(vk_res) or_return
+
+        alloc_info.commandPool = frame.command_pools.transfer
+        vk_res = vk.AllocateCommandBuffers(r.device, &alloc_info, &frame.command_buffers.transfer)
+        check_result(vk_res) or_return
+    }
+
+    return .Ok
 }
 
-command_pools_destroy :: proc(r: ^Renderer_Impl) {
 
+command_structures_destroy :: proc(r: ^Renderer_Impl) {
+    for &frame in r.frames {
+        vk.DestroyCommandPool(r.device, frame.command_pools.compute, nil)
+        vk.DestroyCommandPool(r.device, frame.command_pools.graphics, nil)
+        vk.DestroyCommandPool(r.device, frame.command_pools.transfer, nil)
+    }
+}
+
+
+sync_structures_create :: proc(r: ^Renderer_Impl) -> (res: Result) {
+    vk_res: vk.Result
+    
+    fence_create_info := vk.FenceCreateInfo {
+        sType = .FENCE_CREATE_INFO,
+        flags = {.SIGNALED},
+    }
+
+    sem_create_info := vk.SemaphoreCreateInfo {
+        sType = .SEMAPHORE_CREATE_INFO,
+        flags = {},
+    }
+
+    for &frame in r.frames {
+        vk_res = vk.CreateFence(r.device, &fence_create_info, nil, &frame.fence_render)
+        check_result(vk_res) or_return
+        
+        vk_res = vk.CreateSemaphore(r.device, &sem_create_info, nil, &frame.sem_render)
+        check_result(vk_res) or_return
+        vk_res = vk.CreateSemaphore(r.device, &sem_create_info, nil, &frame.sem_swapchain)
+        check_result(vk_res) or_return
+    }
+
+    return .Ok
+}
+
+
+sync_structures_destroy :: proc(r: ^Renderer_Impl) {
+    for &frame in r.frames {
+        vk.DestroyFence(r.device, frame.fence_render, nil)
+        vk.DestroySemaphore(r.device, frame.sem_render, nil)
+        vk.DestroySemaphore(r.device, frame.sem_swapchain, nil)
+    }
+}
+
+
+device_wait_idle :: proc(r: ^Renderer_Impl) {
+    vk.DeviceWaitIdle(r.device)
+}
+
+
+current_frame :: proc(r: ^Renderer_Impl) -> (frame_data: ^Frame_Data) {
+    return &r.frames[r.frame_idx]
 }

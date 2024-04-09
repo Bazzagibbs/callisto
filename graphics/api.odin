@@ -40,7 +40,15 @@ gpu_buffer_upload :: proc(r: Renderer, description: ^Gpu_Buffer_Upload_Descripti
 }
 
 gpu_buffer_destroy :: proc(r: Renderer, gpu_buffer: Gpu_Buffer) {
-    gpu_buffer_destroy(r, gpu_buffer)
+    _gpu_buffer_destroy(r, gpu_buffer)
 }
 
 
+
+cmd_draw_begin :: proc(r: Renderer) {
+    _cmd_draw_begin(r)
+}
+
+cmd_draw_end :: proc(r: Renderer) {
+    _cmd_draw_end(r)
+}

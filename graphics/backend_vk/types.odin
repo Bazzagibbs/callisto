@@ -17,9 +17,11 @@ Renderer_Impl :: struct {
     device                     : vk.Device,
     swapchain_data             : Swapchain_Data,
 
+    frame_idx                  : int,
+    frames                     : [MAX_FRAMES_IN_FLIGHT]Frame_Data,
+    
     logger                     : log.Logger,
     debug_messenger            : vk.DebugUtilsMessengerEXT,
-    frames                     : [MAX_FRAMES_IN_FLIGHT]Frame_Data,
 }
 
 Swapchain_Data :: struct {
@@ -31,7 +33,12 @@ Swapchain_Data :: struct {
 
 
 Frame_Data :: struct {
-    command_pools : Command_Pools,
+    command_pools   : Command_Pools,
+    command_buffers : Command_Buffers,
+
+    sem_swapchain   : vk.Semaphore,
+    sem_render      : vk.Semaphore,
+    fence_render    : vk.Fence,
 }
 
 
@@ -49,6 +56,13 @@ Command_Pools :: struct {
     compute  : vk.CommandPool,
     graphics : vk.CommandPool,
     transfer : vk.CommandPool,
+}
+
+Command_Buffers :: struct {
+    compute  : vk.CommandBuffer,
+    graphics : vk.CommandBuffer,
+    transfer : vk.CommandBuffer,
+    
 }
 
 

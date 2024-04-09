@@ -156,5 +156,3 @@ _swapchain_select_present_mode :: proc(r: ^Renderer_Impl, desc: ^common.Display_
 
     return .FIFO
 }
-
-
