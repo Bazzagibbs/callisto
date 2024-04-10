@@ -28,6 +28,7 @@ Swapchain_Data :: struct {
     swapchain               : vk.SwapchainKHR,
     format                  : vk.Format,
     color_space             : vk.ColorSpaceKHR,
+    image_idx               : u32,
     images                  : []Gpu_Image_Impl,
 }
 
@@ -67,8 +68,9 @@ Command_Buffers :: struct {
 
 
 Gpu_Image_Impl :: struct {
-    image : vk.Image,
-    view  : vk.ImageView,
+    image  : vk.Image,
+    view   : vk.ImageView,
+    layout : vk.ImageLayout,
 }
 
 Gpu_Buffer_Impl :: struct {}

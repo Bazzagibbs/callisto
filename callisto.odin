@@ -80,11 +80,18 @@ run :: proc(engine: ^Engine) {
         }
 
         engine.time.delta = engine.time.delta_unscaled * engine.time.scale
+        
+        // Allow user to submit custom render commands
+        graphics.cmd_graphics_begin(engine.renderer)
        
         // Call user code
         if engine.update_proc != nil {
             engine.update_proc(engine)
         }
+
+        // Built-in render loop
+        graphics.cmd_graphics_end(engine.renderer)
+        graphics.cmd_graphics_present(engine.renderer)
 
         // window.present(engine.window)
         platform.poll_events()

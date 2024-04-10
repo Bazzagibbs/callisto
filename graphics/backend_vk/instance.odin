@@ -23,6 +23,11 @@ DEVICE_EXTS :: []cstring {
 INSTANCE_EXTS :: []cstring {}
 
 DEVICE_FEATURES :: vk.PhysicalDeviceFeatures {}
+
+SYNC_FEATURES_2 :: vk.PhysicalDeviceSynchronization2Features {
+    sType            = .PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+    synchronization2 = true,
+}
 // ==============================
 
 
@@ -345,11 +350,13 @@ device_create :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) -> (r
     }
 
     device_features     := DEVICE_FEATURES
+    sync_features_2     := SYNC_FEATURES_2
     device_exts         := DEVICE_EXTS
     validation_layers   := VALIDATION_LAYERS
 
     device_create_info := vk.DeviceCreateInfo {
         sType                   = .DEVICE_CREATE_INFO,
+        pNext                   = &sync_features_2,
         queueCreateInfoCount    = u32(len(queue_create_infos)),
         pQueueCreateInfos       = raw_data(queue_create_infos),
         pEnabledFeatures        = &device_features,

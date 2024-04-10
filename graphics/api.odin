@@ -45,10 +45,18 @@ gpu_buffer_destroy :: proc(r: Renderer, gpu_buffer: Gpu_Buffer) {
 
 
 
-cmd_draw_begin :: proc(r: Renderer) {
-    _cmd_draw_begin(r)
+cmd_graphics_begin :: proc(r: Renderer) {
+    _cmd_graphics_begin(r)
 }
 
-cmd_draw_end :: proc(r: Renderer) {
-    _cmd_draw_end(r)
+cmd_graphics_end :: proc(r: Renderer) {
+    _cmd_graphics_end(r)
+}
+
+cmd_graphics_present :: proc(r: Renderer) {
+    _cmd_graphics_present(r)
+}
+
+cmd_graphics_clear :: proc(r: Renderer, color: common.vec4) {
+    _cmd_graphics_clear(r, color)
 }

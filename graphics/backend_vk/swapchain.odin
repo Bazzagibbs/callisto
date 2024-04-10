@@ -31,8 +31,7 @@ swapchain_create :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) ->
         imageFormat      = surface_format.format,
         imageColorSpace  = surface_format.colorSpace,
         imageExtent      = extent,
-        imageUsage       = {.COLOR_ATTACHMENT}, 
-        // imageUsage       = {.COLOR_ATTACHMENT, .TRANSFER_DST},
+        imageUsage       = {.COLOR_ATTACHMENT, .TRANSFER_DST}, 
         imageSharingMode = .EXCLUSIVE,
         imageArrayLayers = 1, // Unless stereoscopic/multiview?
         preTransform     = support.capabilities.currentTransform,
@@ -61,6 +60,7 @@ swapchain_create :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) ->
     for image, i in images_temp {
         r.swapchain_data.images[i].image = image
         r.swapchain_data.images[i].view  = _image_view_create_internal(r, image, r.swapchain_data.format, {.COLOR}) or_return
+        r.swapchain_data.images[i].layout = .UNDEFINED
     }
 
     return .Ok
@@ -73,6 +73,10 @@ swapchain_destroy :: proc(r: ^Renderer_Impl) {
     r.swapchain_data.swapchain = {}
 }
 
+
+swapchain_current_image :: proc(r: ^Renderer_Impl) -> ^Gpu_Image_Impl {
+    return &r.swapchain_data.images[r.swapchain_data.image_idx]
+}
 
 _swapchain_images_destroy :: proc(r: ^Renderer_Impl) {
     for gpu_img in r.swapchain_data.images {
