@@ -234,9 +234,9 @@ _is_physical_device_suitable :: proc(r: ^Renderer_Impl, phys_device: vk.Physical
                 swap_adequate &&
                 props.apiVersion >= API_VERSION
 
-    when !config.RENDERER_HEADLESS {
-        suitable &= (props.deviceType == .DISCRETE_GPU)
-    }
+    // when !config.RENDERER_HEADLESS {
+    //     suitable &= (props.deviceType == .DISCRETE_GPU)
+    // }
 
     return suitable
 }
@@ -277,18 +277,26 @@ _find_queue_families :: proc(phys_device: vk.PhysicalDevice) -> Queue_Family_Que
         if .GRAPHICS in family.queueFlags {
             families.has_graphics = true
             families.graphics = u32(i)
+            if _is_family_complete(&families) {
+                break
+            }
+            continue
         }
         if .COMPUTE in family.queueFlags {
             families.has_compute = true
             families.compute = u32(i)
+            if _is_family_complete(&families) {
+                break
+            }
+            continue
         }
         if .TRANSFER in family.queueFlags {
             families.has_transfer = true
             families.transfer = u32(i)
-        }
-
-        if _is_family_complete(&families) {
-            break
+            if _is_family_complete(&families) {
+                break
+            }
+            continue
         }
     }
 
