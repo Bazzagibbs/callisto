@@ -21,6 +21,7 @@ when config.RENDERER_API == .Vulkan {
         backend.surface_create(r_vk, window) or_return
         backend.physical_device_select(r_vk) or_return
         backend.device_create(r_vk, description) or_return
+        backend.allocator_create(r_vk) or_return
         backend.swapchain_create(r_vk, description) or_return
         backend.command_structures_create(r_vk) or_return
         backend.sync_structures_create(r_vk) or_return
@@ -36,6 +37,7 @@ when config.RENDERER_API == .Vulkan {
         backend.sync_structures_destroy(r_vk)
         backend.command_structures_destroy(r_vk)
         backend.swapchain_destroy(r_vk)
+        backend.allocator_destroy(r_vk)
         backend.device_destroy(r_vk)
         backend.surface_destroy(r_vk)
         backend.instance_destroy(r_vk)

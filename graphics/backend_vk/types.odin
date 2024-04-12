@@ -3,6 +3,7 @@ package callisto_graphics_vulkan
 import "../../common"
 import "core:log"
 import vk "vendor:vulkan"
+import vma "vulkan-memory-allocator"
 
 MAX_FRAMES_IN_FLIGHT :: 2
 
@@ -22,6 +23,7 @@ Renderer_Impl :: struct {
     
     logger                     : log.Logger,
     debug_messenger            : vk.DebugUtilsMessengerEXT,
+    allocator                  : vma.Allocator,
 }
 
 Swapchain_Data :: struct {
@@ -30,6 +32,9 @@ Swapchain_Data :: struct {
     color_space             : vk.ColorSpaceKHR,
     image_idx               : u32,
     images                  : []Gpu_Image_Impl,
+    
+    draw_target                : ^Gpu_Image_Impl,
+    draw_extent                : vk.Extent2D,
 }
 
 
@@ -68,9 +73,12 @@ Command_Buffers :: struct {
 
 
 Gpu_Image_Impl :: struct {
-    image  : vk.Image,
-    view   : vk.ImageView,
-    layout : vk.ImageLayout,
+    image      : vk.Image,
+    view       : vk.ImageView,
+    layout     : vk.ImageLayout,
+    format     : vk.Format,
+    extent     : vk.Extent3D,
+    allocation : vma.Allocation,
 }
 
 Gpu_Buffer_Impl :: struct {}

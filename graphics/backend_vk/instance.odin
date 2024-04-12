@@ -1,6 +1,7 @@
 package callisto_graphics_vulkan
 
 import vk "vendor:vulkan"
+import vma "vulkan-memory-allocator"
 import "core:log"
 import "core:strings"
 import "core:runtime"
@@ -505,6 +506,30 @@ sync_structures_destroy :: proc(r: ^Renderer_Impl) {
         vk.DestroySemaphore(r.device, frame.sem_render, nil)
         vk.DestroySemaphore(r.device, frame.sem_swapchain, nil)
     }
+}
+
+
+allocator_create :: proc(r: ^Renderer_Impl) -> (res: Result){
+    vulkan_functions := vma.create_vulkan_functions()
+    allocator_info := vma.AllocatorCreateInfo {
+        vulkanApiVersion = API_VERSION,
+        pVulkanFunctions = &vulkan_functions,
+        instance         = r.instance,
+        physicalDevice   = r.physical_device,
+        device           = r.device,
+        flags            = {.BUFFER_DEVICE_ADDRESS},
+    }
+
+    vk_res: vk.Result
+    vk_res = vma.CreateAllocator(&allocator_info, &r.allocator)
+    check_result(vk_res) or_return
+
+    return .Ok
+}
+
+
+allocator_destroy :: proc(r: ^Renderer_Impl) {
+    vma.DestroyAllocator(r.allocator)
 }
 
 

@@ -99,6 +99,11 @@ Render_Pass_Description :: struct {
 Gpu_Image_Description :: struct {
     format : Gpu_Image_Format,
     usage  : Gpu_Image_Usage_Flags,
+    aspect : Gpu_Image_Aspect_Flags,
+    access : Gpu_Access_Flag,
+    width  : u32,
+    height : u32,
+    depth  : u32,
 }
 
 Gpu_Buffer_Description        :: struct {}

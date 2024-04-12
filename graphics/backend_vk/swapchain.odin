@@ -63,11 +63,23 @@ swapchain_create :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) ->
         r.swapchain_data.images[i].layout = .UNDEFINED
     }
 
+
+    render_target_img_desc := common.Gpu_Image_Description {
+        format = .R16G16B16A16_SFLOAT,
+        usage = {.Color_Attachment, .Transfer_Source, .Transfer_Dest, .Storage},
+        width  = extent.width,
+        height = extent.height,
+        depth  = 1,
+    }
+    r.swapchain_data.draw_target = gpu_image_create(r, &render_target_img_desc) or_return
+    r.swapchain_data.draw_extent = extent
+
     return .Ok
 }
 
 
 swapchain_destroy :: proc(r: ^Renderer_Impl) {
+    gpu_image_destroy(r, r.swapchain_data.draw_target)
     _swapchain_images_destroy(r)
     vk.DestroySwapchainKHR(r.device, r.swapchain_data.swapchain, nil)
     r.swapchain_data.swapchain = {}
