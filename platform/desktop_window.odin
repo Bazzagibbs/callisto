@@ -22,7 +22,7 @@ when config.BUILD_PLATFORM == .Desktop {
         glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API) // Disable OpenGL
         glfw.WindowHint(glfw.RESIZABLE, 0) /* glfw.FALSE */
 
-        wnd.glfw_handle = glfw.CreateWindow(i32(description.window_width), i32(description.window_height), cstring(config.APP_NAME), nil, nil)
+        wnd.glfw_handle = glfw.CreateWindow(i32(description.window_extent.x), i32(description.window_extent.y), cstring(config.APP_NAME), nil, nil)
         if(wnd.glfw_handle == nil) {
             return nil, .Initialization_Failed
         }

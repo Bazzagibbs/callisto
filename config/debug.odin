@@ -8,3 +8,4 @@ DEBUG_PROFILER_ENABLED              : bool                  : false
 DEBUG_PROFILER_OUTPUT_FILE          : string                : "out/profiler_result.spall"
 
 DEBUG_RENDERER_INIT                 : bool                  : false
+DEBUG_RENDERER_OPTIMAL              : bool                  : true

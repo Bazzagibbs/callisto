@@ -61,15 +61,16 @@ swapchain_create :: proc(r: ^Renderer_Impl, desc: ^common.Engine_Description) ->
         r.swapchain_data.images[i].image = image
         r.swapchain_data.images[i].view  = _image_view_create_internal(r, image, r.swapchain_data.format, {.COLOR}) or_return
         r.swapchain_data.images[i].layout = .UNDEFINED
+        r.swapchain_data.images[i].aspect = {.COLOR}
+        r.swapchain_data.images[i].extent = {extent.width, extent.height, 1}
     }
 
 
     render_target_img_desc := common.Gpu_Image_Description {
         format = .R16G16B16A16_SFLOAT,
         usage = {.Color_Attachment, .Transfer_Source, .Transfer_Dest, .Storage},
-        width  = extent.width,
-        height = extent.height,
-        depth  = 1,
+        extent = {extent.width, extent.height, 1},
+        aspect = {.Color},
     }
     r.swapchain_data.draw_target = gpu_image_create(r, &render_target_img_desc) or_return
     r.swapchain_data.draw_extent = extent
@@ -148,8 +149,8 @@ _swapchain_select_extent :: proc(r: ^Renderer_Impl, desc: ^common.Display_Descri
     max := support.capabilities.maxImageExtent
 
     extent := vk.Extent2D { 
-        width  = math.clamp(desc.window_width, min.width, max.width),
-        height = math.clamp(desc.window_height, min.height, max.height),
+        width  = math.clamp(desc.window_extent.x, min.width, max.width),
+        height = math.clamp(desc.window_extent.y, min.height, max.height),
     }
 
     return extent

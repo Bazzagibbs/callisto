@@ -19,8 +19,7 @@ Application_Description :: struct {
 Display_Description :: struct {
     vsync         : Display_Vsync_Flag,
     fullscreen    : Display_Fullscreen_Flag,
-    window_width  : u32,
-    window_height : u32,
+    window_extent : uvec2,
 }
 
 Display_Vsync_Flag :: enum {
@@ -101,9 +100,8 @@ Gpu_Image_Description :: struct {
     usage  : Gpu_Image_Usage_Flags,
     aspect : Gpu_Image_Aspect_Flags,
     access : Gpu_Access_Flag,
-    width  : u32,
-    height : u32,
-    depth  : u32,
+    filter : Gpu_Filter,
+    extent : uvec3,
 }
 
 Gpu_Buffer_Description        :: struct {}

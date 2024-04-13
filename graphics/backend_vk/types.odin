@@ -77,7 +77,11 @@ Gpu_Image_Impl :: struct {
     view       : vk.ImageView,
     layout     : vk.ImageLayout,
     format     : vk.Format,
+    aspect     : vk.ImageAspectFlags,
     extent     : vk.Extent3D,
+    usage      : vk.ImageUsageFlags,
+    filter     : vk.Filter,
+
     allocation : vma.Allocation,
 }
 

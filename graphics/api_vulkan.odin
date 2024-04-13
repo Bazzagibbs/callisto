@@ -90,7 +90,8 @@ when config.RENDERER_API == .Vulkan {
         vk_res = vk.BeginCommandBuffer(cmd, &begin_info)
         _check_result(vk_res)
 
-        backend.cmd_gpu_image_transition(cmd, backend.swapchain_current_image(r_vk), .GENERAL)
+        backend.cmd_gpu_image_transition(cmd, r_vk.swapchain_data.draw_target, .GENERAL, false)
+        backend.cmd_gpu_image_transition(cmd, backend.swapchain_current_image(r_vk), .TRANSFER_DST_OPTIMAL, false)
     }
 
 
@@ -99,8 +100,13 @@ when config.RENDERER_API == .Vulkan {
 
         frame := backend.current_frame(r_vk)
         cmd   := frame.command_buffers.graphics
-        img   := backend.swapchain_current_image(r_vk)
-        backend.cmd_gpu_image_transition(cmd, img, .PRESENT_SRC_KHR)
+
+        draw_target := r_vk.swapchain_data.draw_target
+        swap_target := backend.swapchain_current_image(r_vk)
+
+        backend.cmd_gpu_image_transition(cmd, draw_target, .TRANSFER_SRC_OPTIMAL, true)
+        backend.cmd_gpu_image_transfer(cmd, draw_target, swap_target, {draw_target.extent.width, draw_target.extent.height}, {swap_target.extent.width, swap_target.extent.height})
+        backend.cmd_gpu_image_transition(cmd, swap_target, .PRESENT_SRC_KHR, true)
 
         vk.EndCommandBuffer(cmd)
 
@@ -184,7 +190,17 @@ when config.RENDERER_API == .Vulkan {
             layerCount = 1,
         }
 
-        vk.CmdClearColorImage(cmd, backend.swapchain_current_image(r_vk).image, .GENERAL, &clear_val, 1, &subresource_range)
+        vk.CmdClearColorImage(cmd, r_vk.swapchain_data.draw_target.image, .GENERAL, &clear_val, 1, &subresource_range)
+    }
+
+    _cmd_graphics_image_transfer :: proc(r: Renderer, src, dst: Gpu_Image, src_extent, dst_extent: common.uvec2) {
+        r_vk     := from_handle(r)
+        src_vk   := from_handle(src)
+        dst_vk   := from_handle(dst)
+
+        cmd := backend.current_frame(r_vk).command_buffers.graphics
+
+        backend.cmd_gpu_image_transfer(cmd, src_vk, dst_vk, src_extent, dst_extent)
     }
 
 }

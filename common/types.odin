@@ -337,3 +337,8 @@ Gpu_Access_Flag :: enum {
     Cpu_To_Gpu,
     Gpu_To_Cpu,
 }
+
+Gpu_Filter :: enum {
+    Linear,
+    Nearest,
+}
