@@ -65,6 +65,14 @@ when config.RENDERER_API == .Vulkan {
         unimplemented()
     }
 
+    _gpu_shader_create :: proc(r: Renderer, description: ^Gpu_Shader_Description) -> (gpu_shader: Gpu_Shader, res: Result) {
+        unimplemented()
+    }
+
+    _gpu_shader_destroy :: proc(r: Renderer, gpu_shader: Gpu_Shader) {
+        unimplemented()
+    }
+
 
     _cmd_graphics_begin :: proc(r: Renderer) {
         r_vk := from_handle(r)

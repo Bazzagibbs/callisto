@@ -59,6 +59,7 @@ Render_Target   :: distinct Handle
 
 Gpu_Image       :: distinct Handle
 Gpu_Buffer      :: distinct Handle
+Gpu_Shader      :: distinct Handle
 
 // Structs
 // ///////
@@ -321,6 +322,21 @@ Gpu_Image_Usage_Flag  :: enum {
     Depth_Stencil_Attachment,
     Transient_Attachment,
     Input_Attachment,
+}
+
+
+Gpu_Shader_Description :: struct {
+    layout  : []Gpu_Shader_Resource_Binding,
+    program : []u8,
+}
+
+Gpu_Shader_Resource_Binding :: struct {
+    binding       : u32,
+    resource_type : Gpu_Shader_Resource_Type,
+}
+
+Gpu_Shader_Resource_Type :: enum {
+    Storage_Image,
 }
 
 Gpu_Image_Aspect_Flags :: bit_set[Gpu_Image_Aspect_Flag]

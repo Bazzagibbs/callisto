@@ -7,12 +7,14 @@ Renderer                      :: common.Renderer
 Window                        :: common.Window
 Gpu_Image                     :: common.Gpu_Image
 Gpu_Buffer                    :: common.Gpu_Buffer
+Gpu_Shader                    :: common.Gpu_Shader
 
 Engine_Description            :: common.Engine_Description
 Renderer_Description          :: common.Renderer_Description
 Gpu_Image_Description         :: common.Gpu_Image_Description
 Gpu_Buffer_Description        :: common.Gpu_Buffer_Description
 Gpu_Buffer_Upload_Description :: common.Gpu_Buffer_Upload_Description
+Gpu_Shader_Description        :: common.Gpu_Shader_Description
 
 
 renderer_create :: proc(create_info: ^Engine_Description, window: Window) -> (r: Renderer, res: Result) {
@@ -43,7 +45,13 @@ gpu_buffer_destroy :: proc(r: Renderer, gpu_buffer: Gpu_Buffer) {
     _gpu_buffer_destroy(r, gpu_buffer)
 }
 
+gpu_shader_create :: proc(r: Renderer, description: ^Gpu_Shader_Description) -> (gpu_shader: Gpu_Shader, res: Result) {
+    return _gpu_shader_create(r, description)
+}
 
+gpu_shader_destroy :: proc(r: Renderer, gpu_shader: Gpu_Shader) {
+    _gpu_shader_destroy(r, gpu_shader)
+}
 
 cmd_graphics_begin :: proc(r: Renderer) {
     _cmd_graphics_begin(r)

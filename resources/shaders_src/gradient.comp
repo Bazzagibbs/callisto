@@ -1,0 +1,24 @@
+#version 460
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (rgba16f, set = 0, binding = 0) uniform image2D image;
+
+
+void main() {
+    ivec2 texel_coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(image);
+
+
+    if(texel_coord.x < size.x && texel_coord.y < size.y) {
+        bool is_on_grid_line = gl_LocalInvocationID.x == 0 || gl_LocalInvocationID.y == 0;
+
+        vec4 black = vec4(0.0, 0.0, 0.0, 1.0);
+        vec4 color = black;
+        color.x = float(texel_coord.x) / (size.x);
+        color.y = float(texel_coord.y) / (size.y);
+
+        vec4 out_color = is_on_grid_line ? black : color; 
+        imageStore(image, texel_coord, out_color);
+    }
+}
