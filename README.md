@@ -10,7 +10,7 @@ Desktop game engine written in [Odin](https://odin-lang.org).
 
 **Please look at Callisto Sandbox for the most up-to-date usage of the engine.**
 
-An example application can be found at [Bazzas-Personal-Stuff/callisto-sandbox](https://github.com/bazzas-personal-stuff/callisto-sandbox).
+An example application can be found at [BazzaGibbs/callisto-sandbox](https://github.com/bazzagibbs/callisto-sandbox).
 
 Add the engine somewhere to your project and include it in your app. This example will assume the package is a direct child of your root directory, `project-root-dir/callisto/`
 
