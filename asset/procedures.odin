@@ -1,8 +1,8 @@
 package callisto_asset
 
 import "core:os"
-import "core:runtime"
-import "core:intrinsics"
+import "base:runtime"
+import "base:intrinsics"
 import "core:log"
 import "core:io"
 import "core:mem"

@@ -1,7 +1,7 @@
 package callisto_graphics_vulkan
 
 import "core:log"
-import "core:runtime"
+import "base:runtime"
 import "core:fmt"
 import "core:strings"
 import "../../config"
