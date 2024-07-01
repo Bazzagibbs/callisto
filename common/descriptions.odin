@@ -52,14 +52,13 @@ Image_Color_Space :: enum {
 
 
 Shader_Description :: struct {
-    material_uniforms_typeid    : typeid,
-    render_pass                 : Render_Pass,
-    vertex_shader_data          : []u8,
-    fragment_shader_data        : []u8,
-    cull_mode                   : Shader_Description_Cull_Mode,
-    depth_test                  : bool,
-    depth_write                 : bool,
-    depth_compare_op            : Compare_Op,
+    stage : Shader_Stage_Flag,
+    resource_sets : []Gpu_Resource_Set,
+    program : []u8,
+    // cull_mode                   : Shader_Description_Cull_Mode,
+    // depth_test                  : bool,
+    // depth_write                 : bool,
+    // depth_compare_op            : Compare_Op,
 }
 
 Shader_Description_Cull_Mode :: enum {

@@ -10,31 +10,32 @@ MAX_FRAMES_IN_FLIGHT :: 2
 Result :: common.Result
 
 Renderer_Impl :: struct {
-    instance                   : vk.Instance,
-    surface                    : vk.SurfaceKHR,    
-    physical_device            : vk.PhysicalDevice,
-    physical_device_properties : vk.PhysicalDeviceProperties,
-    queues                     : Queues,
-    device                     : vk.Device,
-    swapchain_data             : Swapchain_Data,
+    instance                    : vk.Instance,
+    surface                     : vk.SurfaceKHR,    
+    physical_device             : vk.PhysicalDevice,
+    physical_device_properties  : vk.PhysicalDeviceProperties,
+    queues                      : Queues,
+    device                      : vk.Device,
+    swapchain_data              : Swapchain_Data,
 
-    frame_idx                  : int,
-    frames                     : [MAX_FRAMES_IN_FLIGHT]Frame_Data,
+    frame_idx                   : int,
+    frames                      : [MAX_FRAMES_IN_FLIGHT]Frame_Data,
     
-    logger                     : log.Logger,
-    debug_messenger            : vk.DebugUtilsMessengerEXT,
-    allocator                  : vma.Allocator,
+    logger                      : log.Logger,
+    debug_messenger             : vk.DebugUtilsMessengerEXT,
+    allocator                   : vma.Allocator,
+    global_descriptor_allocator : Descriptor_Allocator,
 }
 
 Swapchain_Data :: struct {
-    swapchain               : vk.SwapchainKHR,
-    format                  : vk.Format,
-    color_space             : vk.ColorSpaceKHR,
-    image_idx               : u32,
-    images                  : []Gpu_Image_Impl,
+    swapchain    : vk.SwapchainKHR,
+    format       : vk.Format,
+    color_space  : vk.ColorSpaceKHR,
+    image_idx    : u32,
+    images       : []Gpu_Image_Impl,
     
-    draw_target                : ^Gpu_Image_Impl,
-    draw_extent                : vk.Extent2D,
+    draw_target  : ^Gpu_Image_Impl,
+    draw_extent  : vk.Extent2D,
 }
 
 
@@ -71,6 +72,18 @@ Command_Buffers :: struct {
     
 }
 
+Shader_Impl :: struct {
+    desc_set_layouts : []vk.DescriptorSetLayout,
+}
+
+Descriptor_Allocator :: struct {
+    pool : vk.DescriptorPool,
+}
+
+Pool_Size_Ratio :: struct {
+    type  : vk.DescriptorType,
+    ratio : f32,
+}
 
 Gpu_Image_Impl :: struct {
     image      : vk.Image,

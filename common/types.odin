@@ -59,7 +59,6 @@ Render_Target   :: distinct Handle
 
 Gpu_Image       :: distinct Handle
 Gpu_Buffer      :: distinct Handle
-Gpu_Shader      :: distinct Handle
 
 // Structs
 // ///////
@@ -325,17 +324,38 @@ Gpu_Image_Usage_Flag  :: enum {
 }
 
 
-Gpu_Shader_Description :: struct {
-    layout  : []Gpu_Shader_Resource_Binding,
-    program : []u8,
+// Gpu_Shader_Description :: struct {
+//     stage         : Shader_Stage_Flag,
+//     resource_sets : []Gpu_Resource_Set,
+//     program       : []u8,
+// }
+
+Shader_Stage_Flags :: bit_set[Shader_Stage_Flag]
+Shader_Stage_Flag :: enum {
+    Vertex,
+    Fragment,
+    Compute,
+    Tessellation_Control,
+    Tessellation_Evaluation,
+    Geometry,
+    Ray_Generation,
+    Ray_Intersection,
+    Ray_Any_Hit,
+    Ray_Closest_Hit,
+    Ray_Miss,
+    Ray_Callable,
 }
 
-Gpu_Shader_Resource_Binding :: struct {
+Gpu_Resource_Set :: struct {
+    bindings : []Gpu_Resource_Binding,
+}
+
+Gpu_Resource_Binding :: struct {
     binding       : u32,
-    resource_type : Gpu_Shader_Resource_Type,
+    resource_type : Gpu_Resource_Type,
 }
 
-Gpu_Shader_Resource_Type :: enum {
+Gpu_Resource_Type :: enum {
     Storage_Image,
 }
 

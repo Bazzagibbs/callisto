@@ -65,12 +65,29 @@ when config.RENDERER_API == .Vulkan {
         unimplemented()
     }
 
-    _gpu_shader_create :: proc(r: Renderer, description: ^Gpu_Shader_Description) -> (gpu_shader: Gpu_Shader, res: Result) {
-        unimplemented()
+    _shader_create :: proc(r: Renderer, description: ^Shader_Description) -> (shader: Shader, res: Result) {
+        shader_vk := new(backend.Shader_Impl)
+        shader_vk.desc_set_layouts = make([]vk.DescriptorSetLayout, len(description.resource_sets))
+        defer if res != .Ok {
+            delete(shader_vk.desc_set_layouts)
+            free(shader)
+        }
+
+        for &set, i in description.resource_sets {
+            shader_vk.desc_set_layouts[i] = backend.descriptor_set_layout_create(from_handle(r), description.stage, &set) or_return
+        }
+
+        // TODO: Create pipeline
+
+        return to_handle(shader_vk), .Ok
     }
 
-    _gpu_shader_destroy :: proc(r: Renderer, gpu_shader: Gpu_Shader) {
-        unimplemented()
+    _shader_destroy :: proc(r: Renderer, shader: Shader) {
+        shader_vk := from_handle(shader)
+        // TODO: destroy pipeline
+
+        delete(shader_vk.desc_set_layouts)
+        free(shader_vk)
     }
 
 
