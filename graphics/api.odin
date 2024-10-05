@@ -8,6 +8,8 @@ Window                        :: common.Window
 Shader                        :: common.Shader
 Gpu_Image                     :: common.Gpu_Image
 Gpu_Buffer                    :: common.Gpu_Buffer
+Gpu_Resource_Set              :: common.Gpu_Resource_Set
+Gpu_Resource_Binding          :: common.Gpu_Resource_Binding
 
 Engine_Description            :: common.Engine_Description
 Renderer_Description          :: common.Renderer_Description

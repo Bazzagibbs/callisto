@@ -331,7 +331,7 @@ Gpu_Image_Usage_Flag  :: enum {
 // }
 
 Shader_Stage_Flags :: bit_set[Shader_Stage_Flag]
-Shader_Stage_Flag :: enum {
+Shader_Stage_Flag :: enum u32 {
     Vertex,
     Fragment,
     Compute,

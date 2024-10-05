@@ -55,13 +55,13 @@ Shader_Description :: struct {
     stage : Shader_Stage_Flag,
     resource_sets : []Gpu_Resource_Set,
     program : []u8,
-    // cull_mode                   : Shader_Description_Cull_Mode,
+    // cull_mode                   : Shader_Cull_Mode,
     // depth_test                  : bool,
     // depth_write                 : bool,
     // depth_compare_op            : Compare_Op,
 }
 
-Shader_Description_Cull_Mode :: enum {
+Shader_Cull_Mode :: enum {
     Back,
     Front,
     None,

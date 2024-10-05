@@ -2,7 +2,6 @@ package callisto_asset
 
 import "core:io"
 import "core:mem"
-import vk "vendor:vulkan"
 import cc "../common"
 
 
@@ -67,7 +66,7 @@ Vertex_Group        :: struct {
 }
 
 
-load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
+mesh_load_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
     manifest: Galileo_Mesh_Manifest
     io.read_ptr(file_reader, &manifest, size_of(Galileo_Mesh_Manifest))
 
@@ -120,8 +119,10 @@ load_mesh_body :: proc(file_reader: io.Reader, mesh: ^Mesh) -> (ok: bool) {
 }
 
 
-// Allocates using context allocator
-make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
+// Allocates using provided allocator
+mesh_make :: proc(vertex_group_count, buffer_size: int, allocator := context.allocator) -> Mesh {
+    context.allocator = allocator
+
     mesh := Mesh {
         type          = .mesh,
         vertex_groups = make([]Vertex_Group, vertex_group_count),
@@ -132,7 +133,7 @@ make_mesh :: proc(vertex_group_count, buffer_size: int) -> Mesh {
 }
 
 
-delete_mesh :: proc(mesh: ^Mesh) {
+mesh_delete :: proc(mesh: ^Mesh) {
     delete(mesh.vertex_groups)
     delete(mesh.buffer)
     if mesh.name != {} {
@@ -143,7 +144,9 @@ delete_mesh :: proc(mesh: ^Mesh) {
 // Convert a mesh struct to a Galileo Mesh buffer, which can be written to a file.
 // 
 // Allocates using provided allocator
-serialize_mesh :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []u8) {
+mesh_serialize :: proc(mesh: ^Mesh, allocator := context.allocator) -> (data: []u8) {
+    context.allocator = allocator
+
     file_buf_size := size_of(Galileo_Mesh_Manifest) + 
                      len(mesh.vertex_groups) * size_of(Galileo_Vertex_Group_Info) + 
                      // n_extensions * size_of(Galileo_Extension_Info) +
