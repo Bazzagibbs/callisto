@@ -21,21 +21,23 @@ game_state        : rawptr
 main :: proc() {
         // game_dll_load(0)
         game_state = game_callbacks.memory_init()
+        game_callbacks.game_init()
 
+        gameloop: 
         for {
-                flags := game_callbacks.poll_runner_control()
-                if flags != {} {
-                        if .Shutdown in flags do break
-                        if .Reset_Hard in flags { 
-                                game_callbacks.memory_shutdown(game_state)
-                                game_state = game_callbacks.memory_init()
-                        }
-                        if .Reset_Soft in flags {
-                                game_state = game_callbacks.memory_reset(game_state)
-                        } 
+                ctl := game_callbacks.game_render()
+                switch ctl {
+                case .Ok:
+                case .Shutdown:
+                        break gameloop
+                case .Reset_Soft:
+                        game_state = game_callbacks.memory_reset(game_state)
+                        game_callbacks.game_init()
+                case .Reset_Hard:
+                        game_callbacks.memory_shutdown(game_state)
+                        game_state = game_callbacks.memory_init()
+                        game_callbacks.game_init()
                 }
-
-                game_callbacks.render()
 
                 // watch dll for changes
                 // if watch_dll_changed() {
