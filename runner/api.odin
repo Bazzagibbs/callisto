@@ -1,8 +1,12 @@
 package callisto_runner
+import "base:runtime"
 
+// `ctx`: If provided, this context will be used for all callbacks.
+//
 // `memory_init`: Called only the first time the game is started, or on a hard reset. 
-// Callback should return an allocated struct containing the game's memory.
-// Use this procedure to set up persistent systems such as window, input, renderer etc.
+// Callback should return an allocated struct containing the game's memory, and an initialised Context to be passed to other callbacks.
+// If `ctx` is the default value, `runtime.default_context()` will be used. 
+// Use this procedure to set up persistent systems such as window, input, renderer, logger, allocators etc.
 //
 // `memory_load`: Called after a hot reload, when gameplay code has changed but the game state is identical. 
 //
@@ -18,7 +22,7 @@ package callisto_runner
 //
 // `game_render`: Called when the platform is ready to process a frame. 
 Runner_Callbacks :: struct {
-        memory_init         : #type proc() -> (game_memory: rawptr),
+        memory_init         : #type proc() -> (game_memory: rawptr, ctx: runtime.Context),
         memory_load         : #type proc(game_memory: rawptr),
         memory_reset        : #type proc(old_memory: rawptr) -> (new_memory: rawptr),
         memory_shutdown     : #type proc(game_memory: rawptr),
@@ -32,3 +36,5 @@ Runner_Control :: enum {
         Reset_Soft,
         Reset_Hard,
 }
+
+
