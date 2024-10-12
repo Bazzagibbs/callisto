@@ -1,5 +1,6 @@
-package callisto_runner
+package callisto
 import "base:runtime"
+
 
 // `ctx`: If provided, this context will be used for all callbacks.
 //

@@ -7,6 +7,9 @@ import "core:os/os2"
 import "core:io"
 import "core:fmt"
 import "core:time"
+import "core:path/filepath"
+
+when HOT_RELOAD {
 
 DLL_BASE :: "game"
 
@@ -19,7 +22,8 @@ when ODIN_OS == .Windows {
 }
 
 DLL_ORIGINAL :: DLL_BASE + DLL_EXT
-DLL_COPY_FMT_STRING :: DLL_BASE + "_{0}" + DLL_EXT
+DLL_ORIGINAL_FMT_STRING :: "{0}" + filepath.SEPARATOR_STRING + DLL_ORIGINAL
+DLL_COPY_FMT_STRING :: "{0}" + filepath.SEPARATOR_STRING + DLL_BASE + "_{1}" + DLL_EXT
 
 
 Dll_Symbol_Table :: struct {
@@ -36,13 +40,20 @@ Dll_Data :: struct {
 
 
 main :: proc() {
+        fmt.println("[RUNNER] Starting with hot reload")
+
+        exe_dir := get_exe_directory()
+        original_dll_name := fmt.aprintf(DLL_ORIGINAL_FMT_STRING, exe_dir)
+        defer delete(exe_dir)
+        defer delete(original_dll_name)
+                
         game_callbacks            : Runner_Callbacks = {}
         dll_data                  : Dll_Data = {}
         game_state                : rawptr
         ctx                       : runtime.Context
         ok                        : bool
 
-        game_callbacks, dll_data, ok = game_dll_load(0)
+        game_callbacks, dll_data, ok = game_dll_load(0, exe_dir)
         if !ok do return
 
         game_state, ctx = game_callbacks.memory_init()
@@ -65,8 +76,8 @@ main :: proc() {
                 case .Reset_Hard:
                         game_callbacks.memory_shutdown(game_state)
 
-                        game_dll_unload(dll_data)
-                        game_callbacks, dll_data, ok = game_dll_load(dll_data.version, use_existing=true)
+                        game_dll_unload(dll_data, exe_dir)
+                        game_callbacks, dll_data, ok = game_dll_load(dll_data.version, exe_dir)
                         if !ok do return
 
                         game_state, ctx = game_callbacks.memory_init()
@@ -78,12 +89,8 @@ main :: proc() {
                 }
 
                 // watch dll for changes
-                if watch_dll_changed(dll_data) {
-                        // time.sleep(time.Millisecond * 100) // Only needed if odin building directly over the file.
-                        // Not required if using a build script that outputs to something else (e.g. game_staging.dll),
-                        // renaming it when build is complete
-
-                        new_callbacks, new_data, new_ok := game_dll_load(dll_data.version + 1)
+                if watch_dll_changed(dll_data, original_dll_name) {
+                        new_callbacks, new_data, new_ok := game_dll_load(dll_data.version + 1, exe_dir)
                         if new_ok {
                                 game_callbacks = new_callbacks
                                 dll_data = new_data
@@ -93,11 +100,11 @@ main :: proc() {
         }
         
         game_callbacks.memory_shutdown(game_state)
-        game_dll_unload(dll_data)
+        game_dll_unload(dll_data, exe_dir)
 }
 
-watch_dll_changed :: proc(dll_data: Dll_Data) -> (changed: bool) {
-        watched_modified, err := os.last_write_time_by_name(DLL_ORIGINAL)
+watch_dll_changed :: proc(dll_data: Dll_Data, file_name: string) -> (changed: bool) {
+        watched_modified, err := os.last_write_time_by_name(file_name)
         if err != os.ERROR_NONE  {
                 return false
         }
@@ -136,15 +143,15 @@ copy_file :: proc(dst_path, src_path: string) -> (ok: bool) {
 }
 
 
-game_dll_load :: proc(version_number: int, use_existing: bool = false) -> (callbacks: Runner_Callbacks, data: Dll_Data, ok: bool) {
-        dll_copy_name := fmt.tprintf(DLL_COPY_FMT_STRING, version_number)
+game_dll_load :: proc(version_number: int, directory: string) -> (callbacks: Runner_Callbacks, data: Dll_Data, ok: bool) {
+        dll_copy_name := fmt.tprintf(DLL_COPY_FMT_STRING, directory, version_number)
+        dll_original_name := fmt.tprintf(DLL_ORIGINAL_FMT_STRING, directory)
         fmt.println("Loading DLL:", dll_copy_name)
-        if !use_existing {
-                ok = copy_file(dll_copy_name, DLL_ORIGINAL)
-                assert(ok, "Failed to load DLL - Couldn't copy file")
-        }
+
+        ok = copy_file(dll_copy_name, dll_original_name)
+        assert(ok, "Failed to load DLL - Couldn't copy file")
         
-        last_mod_time, err0 := os.last_write_time_by_name(DLL_ORIGINAL)
+        last_mod_time, err0 := os.last_write_time_by_name(dll_original_name)
         assert(err0 == os.ERROR_NONE, "Failed to load DLL - Couldn't get last write time")
         
         data = Dll_Data {
@@ -159,8 +166,8 @@ game_dll_load :: proc(version_number: int, use_existing: bool = false) -> (callb
 }
 
 
-game_dll_unload :: proc(data: Dll_Data) {
-        dll_copy_name := fmt.tprintf(DLL_COPY_FMT_STRING, data.version)
+game_dll_unload :: proc(data: Dll_Data, directory: string) {
+        dll_copy_name := fmt.tprintf(DLL_COPY_FMT_STRING, directory, data.version)
         
         // Probably need a way to fence the game dll if it's multithreaded 
         // to avoid corrupting game state
@@ -170,3 +177,16 @@ game_dll_unload :: proc(data: Dll_Data) {
         did_remove := os.remove(dll_copy_name)
         assert(did_remove == os.ERROR_NONE, "[RUNNER] Failed to delete DLL")
 }
+
+
+get_exe_directory :: proc() -> string {
+        exe := os.args[0]
+        cwd := os.get_current_directory()
+        defer delete(cwd)
+        exe_fullpath := fmt.tprintf("{0}" + filepath.SEPARATOR_STRING + "{1}", cwd, exe)
+
+        return filepath.dir(exe_fullpath)
+}
+
+
+} // when HOT_RELOAD

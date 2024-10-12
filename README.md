@@ -12,6 +12,46 @@ An example application can be found at [BazzaGibbs/callisto-sandbox](https://git
 
 **THIS SECTION IS CURRENTLY BEING REWRITTEN**
 
+## Building your application
+
+The Callisto package must be placed in the root directory of your project.
+
+```
+<project>/
+├── game_code.odin
+├── callisto/
+└── out/
+    ├── game.exe (standalone)
+    ├── game.dll (hot reload)
+    └── runner.exe (hot reload)`
+```
+
+### Hot-reload development build
+
+```bat
+:: Build the runner executable
+.\callisto\build-runner.bat
+:: Build your game DLL
+.\callisto\hot-reload.bat
+:: Run the game
+.\out\runner.exe
+
+:: Make changes to the gameplay code while the game is running
+.\callisto\hot-reload.bat
+```
+
+### Standalone build
+
+```bat
+:: Make a build without hot-reloading for release
+.\callisto\build-standalone-release.bat
+:: or with debug symbols
+.\callisto\build-standalone-debug.bat
+
+:: Run the game
+.\out\game.exe
+```
+
 ## In progress
 
 - Runner and hot reloading
