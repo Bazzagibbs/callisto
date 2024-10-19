@@ -11,7 +11,7 @@ import "core:path/filepath"
 
 when HOT_RELOAD {
 
-DLL_BASE :: "game"
+DLL_BASE :: #config(GAME_NAME, "game")
 
 when ODIN_OS == .Windows {
         DLL_EXT :: ".dll"
