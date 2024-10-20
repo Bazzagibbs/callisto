@@ -52,23 +52,24 @@ if args.config != "reload":
 
 if build_standalone:
     print("Building standalone" + odin_debug_arg)
-    # odin build ./callisto/runner -debug -out=./out/game.exe
-    command = f"odin build {runner_dir} {odin_debug_arg} -out={os.path.join(out_dir, args.name)}{exe_ext}"
+    # odin build . -debug -out=./out/game.exe
+    command = f"odin build . {odin_debug_arg} -out={os.path.join(out_dir, args.name)}{exe_ext}"
     print(command)
     subprocess.run(command, cwd=os.getcwd(), stderr=sys.stderr, stdout=sys.stdout)
 
 
 if build_dll:
     print("Building game DLL")
-    # odin build . -debug -out=./out/staging.dll && mv ./out/staging.dll ./out/game.dll
-    #                                                 ^^^^^ Make sure file watcher doesn't pick it up before compilation is finished
+    # odin build . -debug -build-mode=shared -out=./out/staging.dll -define:GAME_NAME="game" && mv ./out/staging.dll ./out/game.dll
+    #                                                               ^^^^^ Make sure file watcher doesn't pick it up before compilation is finished
     staging_dll_name = os.path.join(out_dir, f"staging{dll_ext}")
     out_dll_name = os.path.join(out_dir, f"{args.name}{dll_ext}")
 
-    command = f"odin build . -build-mode=dll {odin_debug_arg} -out={staging_dll_name}"
+    command = f"odin build . -build-mode=shared {odin_debug_arg} -out={staging_dll_name} -define:HOT_RELOAD=true -define:GAME_NAME={args.name}"
     print(command)
     result = subprocess.run(command, cwd=os.getcwd(), stderr=sys.stderr, stdout=sys.stdout)
     if result.returncode == 0:
+        print("Renaming " + staging_dll_name + " -> " + out_dll_name)
         os.replace(staging_dll_name, out_dll_name)
 
     else:
@@ -80,4 +81,6 @@ if build_runner:
     # odin build ./callisto/runner -debug -out=./out/game.exe -define:HOT_RELOAD=true
     command = f"odin build {runner_dir} {odin_debug_arg} -out={os.path.join(out_dir, args.name)}{exe_ext} -define:HOT_RELOAD=true -define:GAME_NAME={args.name}"
     print(command)
-    subprocess.run(command, cwd=os.getcwd(), stderr=sys.stderr, stdout=sys.stdout)
+    result = subprocess.run(command, cwd=os.getcwd(), stderr=sys.stderr, stdout=sys.stdout)
+    if result.returncode != 0:
+        print("Failed to build runner")
