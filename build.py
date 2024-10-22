@@ -2,9 +2,10 @@ import argparse
 import subprocess
 import sys
 import os
-import re
 
 # This build script is only a little bit complicated because it handles three different use cases cross-platform.
+# Example commands are listed in each build step in this script (`if build_x:`).
+#
 # An alternative would be to create platform-specific build scripts for each config.
 # Standalone config:
 #   - Build ./callisto/runner with -define:HOT_RELOAD=false
@@ -13,19 +14,19 @@ import re
 #   - Build . with -build-mode:dll
 # Game DLL only (for hot reloading):
 #   - Build . with -build-mode:dll
+#
 
 parser = argparse.ArgumentParser()
-parser.add_argument("config", nargs="?", const="reload", default="reload", choices=["reload", "runner", "all", "standalone"])
-parser.add_argument("-debug", action="store_true")
+parser.add_argument("config", nargs="?", const="reload", default="reload", choices=["reload", "runner", "all", "standalone", "release"])
 parser.add_argument("-out", default="./out/", help="The output directory of compiled files")
 parser.add_argument("-name", default="game", help="The base name, without file extension, of the game executable")
 parser.add_argument("-callisto", default="./callisto", help="The relative directory of the Callisto package")
 args = parser.parse_args()
 
-debug_symbols_enabled = args.config in set(["reload", "runner", "all"]) or args.debug
-build_standalone = args.config == "standalone"
-build_dll = args.config in set(["reload", "all"])
-build_runner = args.config in set(["runner", "all"])
+debug_symbols_enabled = args.config in ["reload", "runner", "standalone", "all"]
+build_standalone = args.config in ["standalone", "release"]
+build_dll = args.config in ["reload", "all"]
+build_runner = args.config in ["runner", "all"]
 
 runner_dir = os.path.join(args.callisto, "runner")
 runner_dir = os.path.normpath(runner_dir)
@@ -41,12 +42,12 @@ if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 
 
-# Delete all old hot-reload copies of the game dll
+# Delete all exe-related files from output directory (not assets)
 if args.config != "reload":
-    pattern = r".*_\d*" + dll_ext
-    dll_re = re.compile(pattern)
+    extensions_to_delete = [".exe", ".pdb", ".exp", ".rdi", ".dll", ".so", ".dynlib", ".lib"]
     for f in os.listdir(out_dir):
-        if dll_re.match(f):
+        _, ext = os.path.splitext(f)
+        if ext in extensions_to_delete:
             os.remove(os.path.join(out_dir, f))
 
 
@@ -60,8 +61,9 @@ if build_standalone:
 
 if build_dll:
     print("Building game DLL")
-    # odin build . -debug -build-mode=shared -out=./out/staging.dll -define:GAME_NAME="game" && mv ./out/staging.dll ./out/game.dll
-    #                                                               ^^^^^ Make sure file watcher doesn't pick it up before compilation is finished
+    # odin build . -debug -build-mode=shared -out=./out/staging.dll -define:GAME_NAME="game" 
+    #       && mv ./out/staging.dll ./out/game.dll
+    #       ^^^^^ Make sure file watcher doesn't pick it up before compilation is finished
     staging_dll_name = os.path.join(out_dir, f"staging{dll_ext}")
     out_dll_name = os.path.join(out_dir, f"{args.name}{dll_ext}")
 

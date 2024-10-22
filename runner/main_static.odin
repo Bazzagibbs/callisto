@@ -12,12 +12,12 @@ run :: proc "contextless" (callbacks: Callbacks) {
         callbacks.memory_manager(.Allocate, &game_mem)
         callbacks.init(game_mem)
 
-        // init platform
-
         gameloop:
         for {
                 ctl := callbacks.loop(game_mem)
-                #partial switch ctl {
+                switch ctl {
+                case .Ok:
+                        // Do nothing
                 case .Shutdown, .Reset_Hard: 
                         break gameloop
                 case .Reset_Soft:
