@@ -1,11 +1,19 @@
 package callisto_runner
 import "base:runtime"
+import "core:log"
 
 // The main game loop for standalone builds
-run :: proc "contextless" (callbacks: Callbacks) {
+main_static :: proc "contextless" (callbacks: Callbacks) {
         ctx, track := _callisto_context() 
-        defer _callisto_context_end(ctx, track)
         context = ctx
+        _platform_callback_context = ctx
+       
+        platform: Platform
+        res := _platform_init(&platform)
+        if res != .Ok {
+                log.error("Platform initialization failed:", res)
+                return
+        }
 
         game_mem: rawptr
 

@@ -11,14 +11,13 @@ Profiler :: struct {
 }
 
 
-profiler_create :: proc() -> Profiler {
-        p: Profiler
+profiler_init :: proc(p: ^Profiler) -> (res: Result) {
         when PROFILER {
                 p.ctx = spall.context_create(PROFILER_FILE)
                 p.backing = make([]u8, spall.BUFFER_DEFAULT_SIZE)
                 p.buffer, _ = spall.buffer_create(p.backing)
         }
-        return p
+        return .Ok
 }
 
 profiler_destroy :: proc(p: ^Profiler) {

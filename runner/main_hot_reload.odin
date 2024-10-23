@@ -26,7 +26,7 @@ when ODIN_OS == .Windows {
 }
         
 
-Dll_Error :: enum {
+Dll_Result :: enum {
         Ok,
         Unknown,
         Invalid_File,
@@ -53,24 +53,30 @@ Dll_Data :: struct {
 
 main :: proc() {
         ctx, track := _callisto_context()
-        defer _callisto_context_end(ctx, track)
         context = ctx
+        _platform_callback_context = ctx
 
         exe_dir := get_exe_directory()
         defer delete(exe_dir)
         original_dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
         defer delete(original_dll_path)
 
-
         game_state : rawptr
+        platform   : Platform
+        callbacks  : Callbacks
+        dll_data   : Dll_Data
 
-        callbacks, dll_data, err := game_dll_load(0, exe_dir)
-        if err != .Ok {
-                log.error("DLL load failed:", err)
+        res_platform := _platform_init(&platform)
+        if res_platform != .Ok {
+                log.Error("Platform initialization failed:", res)
                 return
         }
-        
-        log.info("Watching", original_dll_path, "at time", dll_data.last_modified)
+
+        res := game_dll_load(0, exe_dir, &callbacks, &dll_data)
+        if res != .Ok {
+                log.error("DLL load failed:", res)
+                return
+        }
 
         callbacks.memory_manager(.Allocate, &game_state)
         callbacks.init(game_state)
@@ -89,9 +95,9 @@ main :: proc() {
                         callbacks.memory_manager(.Free, &game_state)
 
                         game_dll_unload(dll_data, exe_dir)
-                        callbacks, dll_data, err = game_dll_load(dll_data.version, exe_dir)
-                        if err != .Ok {
-                                log.error("DLL hard reset failed:", err)
+                        res = game_dll_load(dll_data.version, exe_dir, &callbacks, &dll_data)
+                        if res != .Ok {
+                                log.error("DLL hard reset failed:", res)
                                 return
                         }
                        
@@ -99,16 +105,16 @@ main :: proc() {
                         callbacks.init(game_state)
                 }
 
-                        log.info("Hello")
-
                 // watch dll for changes
                 if watch_dll_changed(dll_data, original_dll_path) {
-                        new_callbacks, new_data, new_err := game_dll_load(dll_data.version + 1, exe_dir)
-                        if new_err == .Ok {
+                        new_callbacks: Callbacks
+                        new_data: Dll_Data
+                        new_res := game_dll_load(dll_data.version + 1, exe_dir, &new_callbacks, &new_data)
+                        if new_res == .Ok {
                                 callbacks = new_callbacks
                                 dll_data = new_data
                         } else {
-                                log.error("DLL reload failed for version", dll_data.version + 1, ":", new_err)
+                                log.error("DLL reload failed for version", dll_data.version + 1, ":", new_res)
                         }
                 }
         }
@@ -120,9 +126,8 @@ main :: proc() {
 
 
 watch_dll_changed :: proc(dll_data: Dll_Data, file_name: string) -> (changed: bool) {
-        watched_modified, err := os.last_write_time_by_name(file_name)
-        log.info(watched_modified)
-        if err != os.ERROR_NONE  {
+        watched_modified, res := os.last_write_time_by_name(file_name)
+        if res != os.ERROR_NONE  {
                 return false
         }
 
@@ -131,7 +136,7 @@ watch_dll_changed :: proc(dll_data: Dll_Data, file_name: string) -> (changed: bo
 
 
 // Logic from core:os/os2 - will replace with os2 version when it's stable
-copy_file :: proc(dst_path, src_path: string) -> (err: Dll_Error) {
+copy_file :: proc(dst_path, src_path: string) -> (res: Dll_Result) {
 
         src, res0 := os.open(src_path)
         check_result_os(res0) or_return
@@ -148,16 +153,16 @@ copy_file :: proc(dst_path, src_path: string) -> (err: Dll_Error) {
         check_result_os(res2) or_return
         defer os.close(dst)
         
-        _, io_err := io.copy(io.to_writer(os.stream_from_handle(dst)), io.to_reader(os.stream_from_handle(src)))
-        if io_err != .None {
-                log.error("IO stream copy failed:", err)
+        _, io_res := io.copy(io.to_writer(os.stream_from_handle(dst)), io.to_reader(os.stream_from_handle(src)))
+        if io_res != .None {
+                log.error("IO stream copy failed:", res)
                 return .IO_Error
         }
         return .Ok
 }
 
 
-check_result_os :: proc(errno: os.Errno) -> Dll_Error {
+check_result_os :: proc(errno: os.Errno) -> Dll_Result {
         switch errno {
         case os.ERROR_NONE:
                 return .Ok
@@ -173,7 +178,7 @@ check_result_os :: proc(errno: os.Errno) -> Dll_Error {
 }
 
 
-game_dll_load :: proc(version_number: int, directory: string) -> (callbacks: Callbacks, data: Dll_Data, err: Dll_Error) {
+game_dll_load :: proc(version_number: int, directory: string, out_callbacks: ^Callbacks, out_dll_data: ^Dll_Data) -> (res: Dll_Result) {
         dll_copy_name := fmt.tprintf(DLL_COPY_FMT, directory, version_number)
         dll_original_name := fmt.tprintf(DLL_ORIGINAL_FMT, directory)
         log.info("Loading DLL:", dll_copy_name)
@@ -183,15 +188,15 @@ game_dll_load :: proc(version_number: int, directory: string) -> (callbacks: Cal
         last_mod_time, err0 := os.last_write_time_by_name(dll_original_name)
         check_result_os(err0) or_return
         
-        data = Dll_Data {
+        out_dll_data^ = Dll_Data {
                 version       = version_number,
                 last_modified = last_mod_time,
         }
-        _, ok := dynlib.initialize_symbols(&data.symbol_table, dll_copy_name, handle_field_name="lib")
-        if !ok do return {}, {}, .Initialize_Symbols_Failed
+        _, ok := dynlib.initialize_symbols(&out_dll_data.symbol_table, dll_copy_name, handle_field_name="lib")
+        if !ok do return .Initialize_Symbols_Failed
 
-        callbacks = data.symbol_table.callisto_runner_callbacks()
-        return callbacks, data, .Ok
+        out_callbacks^ = data.symbol_table.callisto_runner_callbacks()
+        return .Ok
 }
 
 

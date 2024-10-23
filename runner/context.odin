@@ -6,7 +6,9 @@ import "core:mem"
 import "core:log"
 import "core:fmt"
 
+_platform_callback_context: runtime.Context
 
+@(deferred_out=_callisto_context_end)
 _callisto_context :: proc "contextless" () -> (ctx: runtime.Context, track: ^mem.Tracking_Allocator) {
         ctx = runtime.default_context()
         context = ctx
