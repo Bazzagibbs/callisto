@@ -2,7 +2,6 @@ package callisto
 import "core:prof/spall"
 import "core:sync"
 import "core:mem"
-import "core:container/"
 
 Profiler :: struct {
         ctx : spall.Context,

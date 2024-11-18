@@ -1,5 +1,9 @@
 package callisto
 
+Window :: struct {
+        _platform : Window_Platform,
+}
+
 Window_Create_Info :: struct {
         name     : string,
         style    : Window_Style_Flags,

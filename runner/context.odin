@@ -1,4 +1,4 @@
-//+private
+#+private
 package callisto_runner
 
 import "base:runtime"
@@ -6,9 +6,6 @@ import "core:mem"
 import "core:log"
 import "core:fmt"
 
-_platform_callback_context: runtime.Context
-
-@(deferred_out=_callisto_context_end)
 _callisto_context :: proc "contextless" () -> (ctx: runtime.Context, track: ^mem.Tracking_Allocator) {
         ctx = runtime.default_context()
         context = ctx
@@ -18,18 +15,21 @@ _callisto_context :: proc "contextless" () -> (ctx: runtime.Context, track: ^mem
                 track = new(mem.Tracking_Allocator)
                 mem.tracking_allocator_init(track, ctx.allocator, ctx.allocator)
                 ctx.allocator = mem.tracking_allocator(track)
-
-                // Console logger
-                opts := log.Options {
-                        .Terminal_Color,
-                        .Level,
-                        .Time,
-                        .Line,
-                        .Procedure,
-                        .Short_File_Path,
-                }
-                ctx.logger = log.create_console_logger(.Debug, opts)
         }
+
+        // TODO: File/virtual console logger when !ODIN_DEBUG
+
+        // Console logger
+        opts := log.Options {
+                .Terminal_Color,
+                .Level,
+                .Time,
+                .Line,
+                .Procedure,
+                .Short_File_Path,
+        }
+        ctx.logger = log.create_console_logger(.Debug, opts)
+
 
         return ctx, track
 }
@@ -47,8 +47,8 @@ _callisto_context_end :: proc "contextless" (ctx: runtime.Context, track: ^mem.T
                 }
 
                 mem.tracking_allocator_destroy(track)
-
-                log.destroy_console_logger(ctx.logger)
         }
+
+        log.destroy_console_logger(ctx.logger)
 }
 
