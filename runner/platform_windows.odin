@@ -44,7 +44,7 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
 }
 
 
-platform_init :: proc(runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: Result) {
+platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: Result) {
         // Maybe get icon from init_info
 
         wndClass := win.WNDCLASSEXW {
@@ -61,6 +61,10 @@ platform_init :: proc(runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: Re
         win.RegisterClassExW(&wndClass)
 
         return .Ok
+}
+
+platform_destroy :: proc (runner: ^Runner) {
+        
 }
 
 

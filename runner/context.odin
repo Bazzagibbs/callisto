@@ -40,10 +40,12 @@ _callisto_context_end :: proc "contextless" (ctx: runtime.Context, track: ^mem.T
 
         when ODIN_DEBUG {
                 for _, leak in track.allocation_map {
-                        log.errorf("%v leaked %m\n", leak.location, leak.size)
+                        // fmt.eprintf("%v leaked %m\n", leak.location, leak.size)
+                        // fmt.println(leak.location, "leaked", leak.size)
+                        fmt.println("leaked", leak.size)
                 }
                 for bad_free in track.bad_free_array {
-                        log.errorf("%v allocation %p was freed badly\n", bad_free.location, bad_free.memory)
+                        fmt.eprintf("%v allocation %p was freed badly\n", bad_free.location, bad_free.memory)
                 }
 
                 mem.tracking_allocator_destroy(track)

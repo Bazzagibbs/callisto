@@ -20,16 +20,17 @@ when HOT_RELOAD {
 
         main :: proc() {
                 ctx, track := _callisto_context()
+                context = ctx
                 defer _callisto_context_end(ctx, track)
 
-                context = ctx
                 
                 runner := cal.Runner {
-                        ctx            = ctx,
-                        should_close   = false,
-                        platform_init  = platform_init,
-                        window_create  = window_create,
-                        window_destroy = window_destroy,
+                        ctx              = ctx,
+                        should_close     = false,
+                        platform_init    = platform_init,
+                        platform_destroy = platform_destroy,
+                        window_create    = window_create,
+                        window_destroy   = window_destroy,
                 }
 
                 exe_dir := get_exe_directory()
@@ -74,6 +75,11 @@ when HOT_RELOAD {
                
                 // destroy
                 runner.symbols.callisto_destroy(runner.app_data)
+                
+                if runner.exit_code != .Ok {
+                        log.error("Exiting with exit code:", runner.exit_code)
+                        os.exit(int(runner.exit_code))
+                }
 
         }
 

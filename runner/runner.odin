@@ -22,3 +22,5 @@ Input_Motion               :: cal.Input_Motion
 Window                     :: cal.Window
 Window_Create_Info         :: cal.Window_Create_Info
 Window_Style_Flags         :: cal.Window_Style_Flags
+
+get_exe_directory          :: cal.get_exe_directory

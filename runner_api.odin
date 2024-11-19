@@ -6,7 +6,9 @@ import "core:dynlib"
 Runner :: struct {
         ctx                      : runtime.Context,
         app_data                 : rawptr,
+
         should_close             : bool,
+        exit_code                : Exit_Code,
 
         symbols                  : Dll_Symbol_Table,
         last_modified            : os.File_Time,
@@ -26,4 +28,15 @@ Dll_Symbol_Table :: struct {
         callisto_destroy : #type proc (app_data: rawptr),
         callisto_event   : #type proc (event: Event, app_data: rawptr),
         callisto_loop    : #type proc (app_data: rawptr),
+}
+
+
+exit :: proc(e: ^Engine, exit_code := Exit_Code.Ok) {
+        e.runner.should_close = true
+        e.runner.exit_code = exit_code
+}
+
+Exit_Code :: enum {
+        Ok = 0,
+        Error = 1,
 }

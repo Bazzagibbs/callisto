@@ -28,22 +28,6 @@ Dll_Result :: enum {
 }
 
 
-get_exe_directory :: proc(allocator := context.allocator) -> string {
-        exe := os.args[0]
-
-        if filepath.is_abs(exe) {
-                return filepath.dir(exe, allocator)
-        } 
-
-        cwd := os.get_current_directory(allocator)
-        defer delete(cwd)
-        exe_fullpath := filepath.join({cwd, exe}, allocator=allocator)
-        defer delete(exe_fullpath)
-
-        return filepath.dir(exe_fullpath, allocator)
-}
-
-
 check_result_os :: proc(errno: os.Errno) -> Dll_Result {
         switch errno {
         case os.ERROR_NONE:

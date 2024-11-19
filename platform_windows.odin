@@ -3,6 +3,7 @@ package callisto
 import win "core:sys/windows"
 import "core:c"
 import "core:log"
+import "core:path/filepath"
 
 Platform :: struct {
         window_icon : win.HICON,
@@ -37,4 +38,13 @@ poll_input_window :: proc(e: ^Engine, window: ^Window) {
                 win.TranslateMessage(&msg)
                 win.DispatchMessageW(&msg)
         }
+}
+
+get_exe_directory :: proc(allocator := context.allocator) -> string {
+        buf : [1024]win.WCHAR
+        len := win.GetModuleFileNameW(nil, &buf[0], 1024)
+
+        str, _ := win.utf16_to_utf8(buf[:len], context.temp_allocator)
+
+        return filepath.dir(str, allocator)
 }
