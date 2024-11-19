@@ -9,22 +9,20 @@ import "core:fmt"
 import "core:time"
 import "core:path/filepath"
 import "core:log"
-
-import cal ".."
+import "core:mem"
 
 when HOT_RELOAD {
 
-        Runner_State_Hot_Reload :: struct {
-        }
-
-
         main :: proc() {
-                ctx, track := _callisto_context()
+                ctx: runtime.Context
+                track: mem.Tracking_Allocator
+                callisto_context_init(&ctx, &track)
+                defer callisto_context_destroy(&ctx, &track)
+
                 context = ctx
-                defer _callisto_context_end(ctx, track)
 
                 
-                runner := cal.Runner {
+                runner := Runner {
                         ctx              = ctx,
                         should_close     = false,
                         platform_init    = platform_init,
@@ -33,7 +31,7 @@ when HOT_RELOAD {
                         window_destroy   = window_destroy,
                 }
 
-                exe_dir := get_exe_directory()
+                exe_dir, _ := get_exe_directory()
                 defer delete(exe_dir)
 
                 original_dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
@@ -43,7 +41,6 @@ when HOT_RELOAD {
                 res := app_dll_load(0, exe_dir, &runner.symbols, &runner.last_modified)
                 assert_messagebox(res == .Ok, "DLL load failed:", res)
 
-                defer app_dll_unload(&runner, exe_dir)
 
 
                 // init
@@ -80,7 +77,6 @@ when HOT_RELOAD {
                         log.error("Exiting with exit code:", runner.exit_code)
                         os.exit(int(runner.exit_code))
                 }
-
         }
 
 
@@ -138,17 +134,6 @@ when HOT_RELOAD {
                 if !ok do return .Initialize_Symbols_Failed
 
                 return .Ok
-        }
-
-
-        app_dll_unload :: proc(runner: ^Runner, directory: string) {
-                dll_copy_name := fmt.tprintf(DLL_COPY_FMT, directory, runner.version)
-                
-                // Probably need a way to fence the game dll if it's multithreaded 
-                // to avoid corrupting game state
-                
-                did_unload := dynlib.unload_library(runner.symbols.lib)
-                did_remove := os.remove(dll_copy_name)
         }
 
 

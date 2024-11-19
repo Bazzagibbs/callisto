@@ -1,20 +1,20 @@
 package callisto_runner
+
 import "base:runtime"
 import "core:log"
 import "core:dynlib"
 import "core:path/filepath"
 import "core:fmt"
 import "core:os"
+import "core:mem"
 
 when !HOT_RELOAD {
 
-        Runner_State_No_Hot_Reload :: struct {
-                symbols : Dll_Symbol_Table,
-        }
-
         main :: proc () {
-                ctx, track := _callisto_context() 
-                defer _callisto_context_end(ctx, track)
+                ctx : runtime.Context
+                track : mem.Tracking_Allocator
+                callisto_context_init(&ctx, &track) 
+                defer callisto_context_destroy(&ctx, &track)
 
                 context = ctx
 
@@ -27,15 +27,14 @@ when !HOT_RELOAD {
                         window_destroy   = window_destroy,
                 }
 
-                app_dir := get_exe_directory()
-                dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, app_dir)
+                exe_dir, _ := get_exe_directory()
+                dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
 
                 _, ok := dynlib.initialize_symbols(&runner.symbols, dll_path, handle_field_name="lib")
                 assert_messagebox(ok, "Failed to load application dll:", dll_path)
 
-                defer dynlib.unload_library(runner.symbols.lib)
                 
-                delete(app_dir)
+                delete(exe_dir)
                 delete(dll_path)
 
                 // init
@@ -53,6 +52,7 @@ when !HOT_RELOAD {
                         log.error("Exiting with exit code:", runner.exit_code)
                         os.exit(int(runner.exit_code))
                 }
+                
         }
 
 }

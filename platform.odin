@@ -1,7 +1,7 @@
 package callisto
 
 Window :: struct {
-        _platform : Window_Platform,
+        _platform : Platform_Window,
 }
 
 Window_Create_Info :: struct {

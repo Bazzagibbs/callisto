@@ -3,7 +3,7 @@ package callisto_runner
 import cal ".."
 
 HOT_RELOAD :: #config(HOT_RELOAD, false)
-APP_NAME  :: #config(APP_NAME, "callisto-app")
+APP_NAME   :: cal.APP_NAME
 
 Result                     :: cal.Result
 Runner                     :: cal.Runner
@@ -23,4 +23,6 @@ Window                     :: cal.Window
 Window_Create_Info         :: cal.Window_Create_Info
 Window_Style_Flags         :: cal.Window_Style_Flags
 
+callisto_context_init      :: cal.callisto_context_init
+callisto_context_destroy   :: cal.callisto_context_destroy
 get_exe_directory          :: cal.get_exe_directory

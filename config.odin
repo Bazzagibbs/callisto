@@ -1,7 +1,8 @@
 package callisto
 
-HOT_RELOAD                :: #config(HOT_RELOAD, false)
-GAME_NAME                 :: #config(GAME_NAME, "game")
+APP_NAME                  :: #config(APP_NAME, "game")
+COMPANY_NAME              :: #config(COMPANY_NAME, "callisto_default_company")
+
 VERBOSE                   :: #config(VERBOSE, false)
 PROFILER                  :: #config(PROFILER, false)
 PROFILER_FILE             :: #config(PROFILER_FILE, "profiler.spall")

@@ -6,6 +6,11 @@ import "core:log"
 import "core:strings"
 import "core:image"
 
+when ODIN_OS != .Windows {
+        #panic("Callisto is currently Windows-only. Other platform layers may be implemented in the future.")
+}
+
+
 Engine :: struct {
         runner   : ^Runner,
         allocator : runtime.Allocator,

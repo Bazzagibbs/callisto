@@ -4,12 +4,14 @@ import win "core:sys/windows"
 import "core:c"
 import "core:log"
 import "core:path/filepath"
+import "core:fmt"
+import "core:strings"
 
 Platform :: struct {
         window_icon : win.HICON,
 }
 
-Window_Platform :: struct {
+Platform_Window :: struct {
         hwnd : win.HWND,
 }
 
@@ -40,11 +42,47 @@ poll_input_window :: proc(e: ^Engine, window: ^Window) {
         }
 }
 
-get_exe_directory :: proc(allocator := context.allocator) -> string {
-        buf : [1024]win.WCHAR
-        len := win.GetModuleFileNameW(nil, &buf[0], 1024)
+// Allocates using the provided allocator
+get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string, res: Result) {
+        buf : [win.MAX_PATH]win.WCHAR
+        len := win.GetModuleFileNameW(nil, &buf[0], win.MAX_PATH)
 
-        str, _ := win.utf16_to_utf8(buf[:len], context.temp_allocator)
+        str, err := win.utf16_to_utf8(buf[:len], context.temp_allocator)
+        translate_error(err) or_return 
 
-        return filepath.dir(str, allocator)
+        return filepath.dir(str, allocator), .Ok
+}
+
+// Allocates using the provided allocator
+get_persistent_directory :: proc(allocator := context.allocator) -> (data_dir: string, res: Result) {
+        buf : [win.MAX_PATH]win.WCHAR
+
+        guid := win.FOLDERID_LocalAppData
+        win.SHGetKnownFolderPath(&guid, 0, nil, (^^u16)(&buf[0]))
+
+        dir, err := win.utf16_to_utf8(buf[:], context.temp_allocator)
+        translate_error(err) or_return
+
+        app_dir := filepath.join({dir, COMPANY_NAME, APP_NAME}, allocator)
+        return app_dir, .Ok
+}
+
+@(private)
+_format_hresult :: proc (hres: win.HRESULT, allocator := context.temp_allocator) -> string {
+        buf: win.wstring
+
+        msg_len := win.FormatMessageW(
+                flags   =  win.FORMAT_MESSAGE_FROM_SYSTEM | win.FORMAT_MESSAGE_IGNORE_INSERTS | win.FORMAT_MESSAGE_ALLOCATE_BUFFER,
+                lpSrc   =  nil,
+                msgId   =  u32(hres),
+                langId  =  0,
+                buf     =  (win.LPWSTR)(&buf),
+                nsize   =  0,
+                args    =  nil
+        )
+
+        out_str, _ := win.utf16_to_utf8(buf[:msg_len], allocator)
+        win.LocalFree(buf)
+
+        return out_str
 }
