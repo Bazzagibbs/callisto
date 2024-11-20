@@ -38,15 +38,15 @@ when !HOT_RELOAD {
                 delete(dll_path)
 
                 // init
-                runner.app_data = runner.symbols.callisto_init(&runner)
+                runner.symbols.callisto_init(&runner)
               
                 // main loop
                 for !runner.should_close {
-                        runner.symbols.callisto_loop(runner.app_data)
+                        runner.symbols.callisto_loop(runner.app_memory)
                 }
 
                 // destroy
-                runner.symbols.callisto_destroy(runner.app_data)
+                runner.symbols.callisto_destroy(runner.app_memory)
 
                 if runner.exit_code != .Ok {
                         log.error("Exiting with exit code:", runner.exit_code)

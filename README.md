@@ -25,9 +25,7 @@ An example application can be found at [BazzaGibbs/callisto-sandbox](https://git
     import "callisto"
 
     @(export)
-    callisto_init :: proc (runner: ^callisto.Runner) -> (user_data: rawptr) {
-        return nil
-    }
+    callisto_init :: proc (runner: ^callisto.Runner) {}
 
     @(export)
     callisto_destroy :: proc (user_data: rawptr) {}
@@ -71,7 +69,7 @@ Development builds include debug symbols and hot-reload functionality.
 ```sh
 # First time compiling, build runner exe and application dll
 cd my_project
-py callisto\build.py development
+py callisto\build.py develop
 .\out\callisto_app.exe
 
 # While app is running the application DLL can be recompiled and reloaded

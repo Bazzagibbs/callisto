@@ -1,5 +1,6 @@
 package callisto
 
+
 Event :: union {
         Window_Event,
         Input_Event,
@@ -51,9 +52,10 @@ Text_Control :: enum {
 }
 
 Input_Event :: struct {
+        window    : Window,
         device_id : i32,
-        motion : Input_Motion,
-        source : Input_Source,
+        motion    : Input_Motion,
+        source    : Input_Source,
 
         position : union {
                 Input_Button_State,
@@ -325,4 +327,10 @@ Input_Source :: enum {
         VR_Capacitive_Finger_Pinky,
         */
 }
+
+
+// Implemented in events_*.odin
+// ============================
+
+// _input_source_translate_* :: proc (int) -> Input_Source
 

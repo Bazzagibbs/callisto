@@ -13,7 +13,7 @@ OUT_DIRECTORY      = "./out"
 # reload
 # - App dll + debug symbols
 #
-# development
+# develop
 # - App dll + debug symbols
 # - Runner + debug symbols + hot reload
 # - Copy assets
@@ -29,14 +29,14 @@ OUT_DIRECTORY      = "./out"
 # - Copy assets
 
 parser = argparse.ArgumentParser()
-parser.add_argument("config", nargs="?", const="reload", default="reload", choices=["reload", "development", "debug", "release"])
+parser.add_argument("config", nargs="?", const="reload", default="reload", choices=["reload", "develop", "debug", "release"])
 parser.add_argument("-out", default=OUT_DIRECTORY, help="The output directory of compiled files")
 args = parser.parse_args()
 
-debug_symbols_enabled = args.config in ["reload", "development, debug"]
-hot_reload_enabled    = args.config in ["reload", "development"]
-build_runner          = args.config in ["development", "debug", "release"]
-copy_assets           = args.config in ["development", "debug", "release"]
+debug_symbols_enabled = args.config in ["reload", "develop", "debug"]
+hot_reload_enabled    = args.config in ["reload", "develop"]
+build_runner          = args.config in ["develop", "debug", "release"]
+copy_assets           = args.config in ["develop", "debug", "release"]
 hide_console          = args.config in ["release"] and sys.platform == "win32"
 
 if os.path.basename(os.getcwd()) == "callisto":

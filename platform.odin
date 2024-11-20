@@ -25,3 +25,26 @@ window_style_default :: #force_inline proc "contextless" () -> Window_Style_Flag
         return {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
 }
 
+window_create :: proc(e: ^Engine, create_info: ^Window_Create_Info, out_window: ^Window) -> (res: Result) {
+        validate_info(create_info)
+        return e.runner->window_create(create_info, out_window)
+}
+
+window_destroy :: proc(e: ^Engine, window: ^Window) {
+        e.runner->window_destroy(window)
+        window^ = {}
+}
+
+pump_input :: proc {
+        pump_input_application,
+        pump_input_window,
+}
+
+// Implemented in platform_*.odin
+
+// Platform                 :: struct
+// Platform_Window          :: struct
+// pump_input_application   :: proc (e: ^Engine)
+// pump_input_window        :: proc (e: ^Engine, window: ^Window)
+// get_exe_directory        :: proc(allocator := context.allocator) -> string
+// get_persistent_directory :: proc(allocator := context.allocator) -> string

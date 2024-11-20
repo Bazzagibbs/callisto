@@ -28,7 +28,7 @@ callisto_context_init :: proc "contextless" (ctx: ^runtime.Context, track: ^mem.
         }
 
         when VERBOSE {
-                level := log.Level.INFO
+                level := log.Level.Info
         } else {
                 level := log.Level.Debug
         }

@@ -12,30 +12,32 @@ when ODIN_OS != .Windows {
 
 
 Engine :: struct {
-        runner   : ^Runner,
+        runner    : ^Runner,
         allocator : runtime.Allocator,
-        app_name : string,
 }
 
 
 Engine_Init_Info :: struct {
-        runner : ^Runner,
-        icon   : ^image.Image,
+        runner     : ^Runner,
+        app_memory : rawptr,
+        icon       : ^image.Image,
 }
+
 
 engine_init :: proc(e: ^Engine, init_info: ^Engine_Init_Info, allocator := context.allocator) -> (res: Result) {
         validate_info(init_info) or_return
 
-        e.runner = init_info.runner
-        e.allocator = allocator
+        e.runner            = init_info.runner
+        e.runner.app_memory = init_info.app_memory
+        e.allocator         = allocator
 
         e.runner->platform_init(init_info)
 
         return .Ok
 }
 
+
 engine_destroy :: proc(e: ^Engine) {
-        delete(e.app_name, e.allocator)
         e.runner->platform_destroy()
         e^ = {}
 

@@ -15,18 +15,7 @@ Platform_Window :: struct {
         hwnd : win.HWND,
 }
 
-
-window_create :: proc(e: ^Engine, create_info: ^Window_Create_Info, out_window: ^Window) -> (res: Result) {
-        return e.runner->window_create(create_info, out_window)
-}
-
-
-poll_input :: proc {
-        poll_input_application,
-        poll_input_window,
-}
-
-poll_input_application :: proc(e: ^Engine) {
+pump_input_application :: proc(e: ^Engine) {
         msg: win.MSG
         for win.PeekMessageW(&msg, nil, 0, 0, win.PM_REMOVE) {
                 win.TranslateMessage(&msg)
@@ -34,7 +23,7 @@ poll_input_application :: proc(e: ^Engine) {
         }
 }
 
-poll_input_window :: proc(e: ^Engine, window: ^Window) {
+pump_input_window :: proc(e: ^Engine, window: ^Window) {
         msg: win.MSG
         for win.PeekMessageW(&msg, window._platform.hwnd, 0, 0, win.PM_REMOVE) {
                 win.TranslateMessage(&msg)
