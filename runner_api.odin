@@ -26,7 +26,7 @@ Dll_Symbol_Table :: struct {
         lib              : dynlib.Library,
         callisto_init    : #type proc (runner: ^Runner) -> (app_data: rawptr),
         callisto_destroy : #type proc (app_data: rawptr),
-        callisto_event   : #type proc (event: Event, app_data: rawptr),
+        callisto_event   : #type proc (event: Event, app_data: rawptr) -> (handled: bool),
         callisto_loop    : #type proc (app_data: rawptr),
 }
 

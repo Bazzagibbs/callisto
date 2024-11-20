@@ -7,7 +7,7 @@ import "core:strings"
 import "core:image"
 
 when ODIN_OS != .Windows {
-        #panic("Callisto is currently Windows-only. Other platform layers may be implemented in the future.")
+        #panic("Callisto currently only supports Windows. Other platform layers may be implemented in the future.")
 }
 
 
@@ -19,9 +19,8 @@ Engine :: struct {
 
 
 Engine_Init_Info :: struct {
-        runner        : ^Runner,
-        app_name      : string,
-        window_icon   : ^image.Image,
+        runner : ^Runner,
+        icon   : ^image.Image,
 }
 
 engine_init :: proc(e: ^Engine, init_info: ^Engine_Init_Info, allocator := context.allocator) -> (res: Result) {
@@ -30,7 +29,6 @@ engine_init :: proc(e: ^Engine, init_info: ^Engine_Init_Info, allocator := conte
         e.runner = init_info.runner
         e.allocator = allocator
 
-        e.app_name = strings.clone(init_info.app_name, e.allocator)
         e.runner->platform_init(init_info)
 
         return .Ok

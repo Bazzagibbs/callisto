@@ -3,6 +3,7 @@ import "core:prof/spall"
 import "core:sync"
 import "core:mem"
 
+// TODO: maybe roll my own that's better suited for realtime?
 Profiler :: struct {
         ctx : spall.Context,
         buffer : spall.Buffer,

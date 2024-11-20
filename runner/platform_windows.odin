@@ -7,6 +7,8 @@ import "core:fmt"
 import "core:os"
 import "core:c"
 
+import cal ".."
+
 
 WIN_CLASS_NAME :: "Callisto Window Class"
 
@@ -27,17 +29,70 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
 
         switch uMsg {
         case win.WM_SIZE:
+                resized_type: Window_Resized_Type
+                switch wParam {
+                case win.SIZE_MAXIMIZED:
+                        resized_type = .Maximized
+                case win.SIZE_MINIMIZED:
+                        resized_type = .Minimized
+                case win.SIZE_MAXHIDE:
+                        resized_type = .Occluded
+                case win.SIZE_MAXSHOW:
+                        resized_type = .Revealed
+                case win.SIZE_RESTORED:
+                        resized_type = .Restored
+                }
+
+                event = Window_Event {
+                        window       = {{hwnd = hWnd}},
+                        type         = .Resized,
+                        resized_type = resized_type,
+                        size         = ([2]i32)(lParam),
+                }
+
+        case win.WM_SIZING:
+                size_rect := (^win.RECT)(uintptr(lParam))
+                size := [2]i32 {
+                        size_rect.right - size_rect.left,
+                        size_rect.bottom - size_rect.top,
+                }
+
+                event = Window_Event {
+                        window       = {{hwnd = hWnd}},
+                        type         = .Resized,
+                        resized_type = .In_Progress,
+                        size         = size,
+                }
+
+
+        case win.WM_MOVE:
+                event = Window_Event {
+                        window = {{hwnd = hWnd}},
+                        type = .Moved,
+                        
+                }
+
         case win.WM_KEYDOWN:
+                event = Input_Event {
+                        device_id = 0, // TODO
+                        source = cal._input_source_translate_windows(lParam),
+                        motion = .Button_Down,
+                }
         case win.WM_KEYUP:
         case win.WM_POINTERDOWN:
         case win.WM_POINTERUP:
         case win.WM_POINTERWHEEL:
         case win.WM_POINTERHWHEEL:
         case win.WM_POINTERUPDATE:
+        case win.WM_QUIT:
+                
         }
 
-        // translate win32 events to callisto event
-        runner.symbols.callisto_event(event, runner.app_data)
+        // TODO: translate win32 events to callisto event
+        handled := runner.symbols.callisto_event(event, runner.app_data)
+        if handled {
+                return win.LRESULT(1)
+        }
         
         
         return win.DefWindowProcW(hWnd, uMsg, wParam, lParam)
@@ -45,15 +100,22 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
 
 
 platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: Result) {
-        // Maybe get icon from init_info
+        hIcon : win.HICON
+
+        if init_info.icon != nil {
+                // TODO: custom icon creation here
+                hIcon = win.LoadIconW(nil, transmute(win.wstring)(win.IDI_APPLICATION))
+        } else {
+                hIcon = win.LoadIconW(nil, transmute(win.wstring)(win.IDI_APPLICATION))
+        }
 
         wndClass := win.WNDCLASSEXW {
                 cbSize        = size_of(win.WNDCLASSEXW),
                 style         = win.CS_HREDRAW | win.CS_VREDRAW,
                 lpfnWndProc   = _window_proc,
                 hInstance     = win.HINSTANCE(win.GetModuleHandleW),
-                hIcon         = win.LoadIconW(nil, transmute(win.wstring)(win.IDI_APPLICATION)),
-                // hCursor       = win.LoadCursorW(nil, transmute(win.wstring)(win.IDC_ARROW)), // might want to change cursor dynamically
+                hIcon         = hIcon,
+                hCursor       = nil, // might want to change cursor dynamically
                 lpszClassName = win.L(WIN_CLASS_NAME),
                 hIconSm       = win.LoadIconW(nil, transmute(win.wstring)(win.IDI_APPLICATION)),
         }
@@ -63,8 +125,9 @@ platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: R
         return .Ok
 }
 
+
 platform_destroy :: proc (runner: ^Runner) {
-        
+        // if using custom icon, destroy it now
 }
 
 
