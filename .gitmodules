@@ -1,0 +1,3 @@
+[submodule "thirdparty/gameinput"]
+	path = thirdparty/gameinput
+	url = git@github.com:Bazzas-Forks/odin-gameinput.git
