@@ -7,8 +7,9 @@ Runner :: struct {
         ctx                      : runtime.Context,
         app_memory               : rawptr,
 
+        event_behaviour          : Event_Behaviour,
         should_close             : bool,
-        exit_code                : Exit_Code,
+        exit_code                : Exit_Code ,
 
         symbols                  : Dll_Symbol_Table,
         last_modified            : os.File_Time,
@@ -20,6 +21,7 @@ Runner :: struct {
         platform_destroy         : #type proc (runner: ^Runner),
         window_create            : #type proc (runner: ^Runner, create_info: ^Window_Create_Info, out_window: ^Window) -> Result,
         window_destroy           : #type proc (runner: ^Runner, window: ^Window),
+        event_pump               : #type proc (runner: ^Runner),
 }
 
 Dll_Symbol_Table :: struct {
@@ -34,9 +36,3 @@ Exit_Code :: enum {
         Ok = 0,
         Error = 1,
 }
-
-exit :: proc(e: ^Engine, exit_code := Exit_Code.Ok) {
-        e.runner.should_close = true
-        e.runner.exit_code = exit_code
-}
-

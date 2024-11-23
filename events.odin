@@ -1,115 +1,146 @@
 package callisto
 
+import "core:math/linalg"
+
+// `.Before_Loop` - Every frame, automatically flush all events from the queue.
+// `.Before_Loop_Wait` - Only draw a frame when there's an event available. Useful for editors or apps that don't need to be constantly updated.
+// `.Manual` - Application code can call `callisto.event_pump()` just before input is needed.
+Event_Behaviour :: enum {
+        Before_Loop,
+        Before_Loop_Wait,
+        Manual,
+}
 
 Event :: union {
         Window_Event,
         Input_Event,
+        // Custom_Event_Dispatch? 
+        // Something to signal that extension event queues should pump now
 }
 
 
 Window_Event :: struct {
         window : Window,
-        type   : Window_Event_Type,
-        using additional_info : struct #raw_union {
-                resized_type: Window_Resized_Type,
-        },
-        using data: struct #raw_union {
-                position: [2]i32,
-                size    : [2]i32,
-        },
+        event : union {
+                Window_Resized,
+                Window_Moved,
+                Window_Opened,
+                Window_Close_Request,
+                Window_Closed,
+                Window_Focus_Gained,
+                Window_Focus_Lost,
+        }
 }
 
 
-Window_Event_Type :: enum {
-        Moved,
-        Resized,
-        Closed,
-        Focus_Gained,
-        Focus_Lost,
+
+Window_Moving :: struct {
+        position : [2]i32
+}
+
+Window_Moved :: struct {
+        position : [2]i32
+}
+
+Window_Resized :: struct {
+        pixel_size  : [2]i32,
+        scaled_size : [2]i32,
+        dpi_scale   : f32,
+        type : Window_Resized_Type
 }
 
 Window_Resized_Type :: enum {
-        In_Progress,
         Fullscreen,
         Minimized,
         Maximized,
         Restored,
         Occluded, // Another window has been maximized over this one
         Revealed, // Another window that was maximized has been un-maximized.
+        Dpi_Changed,
 }
 
-Text_Event :: struct {
-        value       : rune,
-        using state : Input_Button_State,
+Window_Opened        :: struct {
+        position    : [2]i32,
+        pixel_size  : [2]i32,
+        scaled_size : [2]i32,
+        dpi_scale   : f32,
 }
 
-Text_Control :: enum {
-        Backspace,
-        Tab,
-        Carriage_Return,
-        Linefeed,
-        Escape,
-}
+Window_Close_Request :: struct {}
+Window_Closed        :: struct {}
+Window_Focus_Gained  :: struct {}
+Window_Focus_Lost    :: struct {}
+
 
 Input_Event :: struct {
         window    : Window,
         device_id : i32,
-        motion    : Input_Motion,
-        source    : Input_Source,
 
-        position : union {
-                Input_Button_State,
+        event : union {
+                Input_Text,
+                Input_Button,
                 Input_Vector1,
                 Input_Vector2,
                 Input_Vector3,
         },
 }
 
-Input_Button_State :: struct {
-        repeat_count           : i16,
-        hand                   : Input_Hand,   // Used for ctrl/alt/super/shift
-        modifiers              : Input_Modifiers,
-        was_previously_pressed : bool,
-        is_being_released      : bool, 
+
+Input_Button :: struct {
+        source       : Input_Button_Source,
+        hand         : Input_Hand,
+        modifiers    : Input_Button_Modifiers,
+        motion       : Input_Button_Motion,
 }
 
-
-Input_Modifiers :: bit_set[Input_Modifier; u8]
-Input_Modifier :: enum {
-        
+Input_Text :: struct {
+        text         : rune,
+        modifiers    : Input_Button_Modifiers,
+        motion       : Input_Button_Motion,
 }
 
 
 Input_Vector1 :: struct {
-        delta: f32,
-        previous: f32,
+        source   : Input_Vector1_Source,
+        delta    : f32,
+        absolute : f32,
 }
 
 Input_Vector2 :: struct {
-        delta   : [2]f32,
-        absolute: [2]f32,
+        source   : Input_Vector2_Source,
+        delta    : [2]f32,
+        absolute : [2]f32,
 }
 
 
 Input_Vector3 :: struct {
-        delta   : [3]f32,
-        absolute: [3]f32,
+        source   : Input_Vector3_Source,
+        delta    : [3]f32,
+        absolute : [3]f32,
 }
 
-Input_Motion :: enum {
-        Button_Down,
-        Button_Held,
-        Button_Up,
-        Button_Instant, // e.g. scroll wheel up/down
-        Vector,
+Input_Button_Modifiers :: bit_set[Input_Button_Modifier; u8]
+Input_Button_Modifier :: enum {
+        Ctrl,
+        Alt,
+        Shift,
+        Super,
 }
 
+Input_Button_Motion :: enum {
+        Down,
+        Held,
+        Up,
+        Instant, // e.g. scroll wheel up/down
+}
+
+// For keys with no handed-variant, this will be `.Left`
 Input_Hand :: enum {
         Left,
         Right,
 }
 
-Input_Source :: enum {
+Input_Button_Source :: enum {
         Unknown,
         Mouse_Left,
         Mouse_Right,
@@ -133,10 +164,6 @@ Input_Source :: enum {
         // Mouse_15,
         // Mouse_16,
 
-        // Trackpad gestures?
-        // Trackpad_Two_Fingers,
-        // Trackpad_Three_Fingers,
-        // Trackpad_Four_Fingers,
 
         Backspace,
         Tab,
@@ -288,49 +315,73 @@ Input_Source :: enum {
         Numpad_Period,
 
 
-        // Gamepad 0..?
-        Gamepad_North,
-        Gamepad_South,
-        Gampad_East,
-        Gamepad_West,
-        Gamepad_Up,
-        Gamepad_Down,
-        Gamepad_Left,
-        Gamepad_Right,
-        Gamepad_Start,
-        Gamepad_Select,
-        Gamepad_System,
-        Gamepad_Shoulder_Left,
-        Gamepad_Shoulder_Right,
-        Gamepad_Stick_Left,
-        Gamepad_Stick_Right,
-        
-
-        Mouse_Position,        // Vector2
-        Gamepad_Trigger_Left,  // Vector1
-        Gamepad_Trigger_Right, // Vector1
-        Gamepad_Gyroscope,     // Vector3
-        Gamepad_Accelerometer, // Vector3
+        // Gamepad_North,
+        // Gamepad_South,
+        // Gampad_East,
+        // Gamepad_West,
+        // Gamepad_Up,
+        // Gamepad_Down,
+        // Gamepad_Left,
+        // Gamepad_Right,
+        // Gamepad_Start,
+        // Gamepad_Select,
+        // Gamepad_System,
+        // Gamepad_Shoulder_Left,
+        // Gamepad_Shoulder_Right,
+        // Gamepad_Stick_Button_Left,
+        // Gamepad_Stick_Button_Right,
+        // Gamepad_Trigger_Click_Left,
+        // Gamepad_Trigger_Click_Right,
         
         /*
-        Touch_Position,
+        VR_A,
+        VR_B,
+        VR_Menu,
+        VR_System,
+        VR_Grip_Click,
+        VR_Trigger_Click,
 
+        Touch_Position,
         VR_Tracker_Position,
         VR_Tracker_Rotation,
         VR_Touchpad,
         VR_Stick,
-        VR_Trigger,
-        VR_Capacitive_Finger_Thumb,
-        VR_Capacitive_Finger_Index,
-        VR_Capacitive_Finger_Middle,
-        VR_Capacitive_Finger_Ring,
-        VR_Capacitive_Finger_Pinky,
         */
 }
 
+Input_Vector1_Source :: enum {
+        Unknown,
+        // Gamepad_Trigger_Left,
+        // Gamepad_Trigger_Right,
+        // VR_Trigger,
+        // VR_Grip,
+        // Generic_Axis_0, etc.
+}
 
-// Implemented in events_*.odin
-// ============================
+Input_Vector2_Source :: enum {
+        Unknown,
+        Mouse_Position,
+        // Mouse_Position_Raw,
+        // Touch_Position,
+        // Gamepad_Stick_Left,
+        // Gamepad_Stick_Right,
+        // Gamepad_Touch_Position,
+        // VR_Touch_Position,
+        
+        // // Trackpad gestures?
+        // Trackpad_Two_Fingers,
+        // Trackpad_Three_Fingers,
+        // Trackpad_Four_Fingers,
+}
 
-// _input_source_translate_* :: proc (int) -> Input_Source
+Input_Vector3_Source :: enum {
+        Unknown,
+        // Gamepad_Accelerometer,
+        // Gamepad_Gyroscope,
+}
 
+// Pumps all events in the event queue, then returns.
+// Only required if engine was initialized with `event_behaviour = .Manual`
+event_pump :: proc(e: ^Engine) {
+        e.runner->event_pump()
+}

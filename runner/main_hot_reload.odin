@@ -20,16 +20,7 @@ when HOT_RELOAD {
                 defer callisto_context_destroy(&ctx, &track)
 
                 context = ctx
-
-                
-                runner := Runner {
-                        ctx              = ctx,
-                        should_close     = false,
-                        platform_init    = platform_init,
-                        platform_destroy = platform_destroy,
-                        window_create    = window_create,
-                        window_destroy   = window_destroy,
-                }
+                runner := default_runner() 
 
                 exe_dir, _ := get_exe_directory()
                 defer delete(exe_dir)
@@ -48,6 +39,14 @@ when HOT_RELOAD {
 
                 // main loop
                 for !runner.should_close {
+                        switch runner.event_behaviour {
+                        case .Before_Loop:
+                                event_pump(&runner)
+                        case .Before_Loop_Wait:
+                                event_wait(&runner)
+                        case .Manual:
+                        }
+
                         runner.symbols.callisto_loop(runner.app_memory)
 
                         // watch dll for changes
@@ -59,9 +58,9 @@ when HOT_RELOAD {
 
                                 reload_res := app_dll_load(runner.version + 1, exe_dir, &new_runner_symbols, &new_runner_timestamp)
                                 if reload_res == .Ok {
-                                        runner.symbols = new_runner_symbols
+                                        runner.symbols       = new_runner_symbols
                                         runner.last_modified = new_runner_timestamp
-                                        runner.version = new_runner_version
+                                        runner.version       = new_runner_version
 
                                 } else {
                                         log.error("DLL reload failed", new_runner_version, ":", reload_res)

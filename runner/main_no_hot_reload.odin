@@ -17,15 +17,7 @@ when !HOT_RELOAD {
                 defer callisto_context_destroy(&ctx, &track)
 
                 context = ctx
-
-                runner := Runner {
-                        ctx              = ctx,
-                        should_close     = false,
-                        platform_init    = platform_init,
-                        platform_destroy = platform_destroy,
-                        window_create    = window_create,
-                        window_destroy   = window_destroy,
-                }
+                runner := default_runner()
 
                 exe_dir, _ := get_exe_directory()
                 dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
@@ -42,6 +34,14 @@ when !HOT_RELOAD {
               
                 // main loop
                 for !runner.should_close {
+                        switch runner.event_behaviour {
+                        case .Before_Loop:
+                                event_pump(&runner)
+                        case .Before_Loop_Wait:
+                                event_wait(&runner)
+                        case .Manual:
+                        }
+
                         runner.symbols.callisto_loop(runner.app_memory)
                 }
 

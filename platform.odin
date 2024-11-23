@@ -35,16 +35,10 @@ window_destroy :: proc(e: ^Engine, window: ^Window) {
         window^ = {}
 }
 
-pump_input :: proc {
-        pump_input_application,
-        pump_input_window,
-}
-
 // Implemented in platform_*.odin
 
 // Platform                 :: struct
 // Platform_Window          :: struct
-// pump_input_application   :: proc (e: ^Engine)
-// pump_input_window        :: proc (e: ^Engine, window: ^Window)
+// exit                     :: proc(exit_code: Exit_Code)
 // get_exe_directory        :: proc(allocator := context.allocator) -> string
 // get_persistent_directory :: proc(allocator := context.allocator) -> string

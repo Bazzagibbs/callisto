@@ -18,18 +18,20 @@ Engine :: struct {
 
 
 Engine_Init_Info :: struct {
-        runner     : ^Runner,
-        app_memory : rawptr,
-        icon       : ^image.Image,
+        runner            : ^Runner,
+        app_memory        : rawptr,
+        icon              : ^image.Image,
+        event_behaviour   : Event_Behaviour,
 }
 
 
 engine_init :: proc(e: ^Engine, init_info: ^Engine_Init_Info, allocator := context.allocator) -> (res: Result) {
         validate_info(init_info) or_return
 
-        e.runner            = init_info.runner
-        e.runner.app_memory = init_info.app_memory
-        e.allocator         = allocator
+        e.runner                 = init_info.runner
+        e.runner.app_memory      = init_info.app_memory
+        e.runner.event_behaviour = init_info.event_behaviour
+        e.allocator              = allocator
 
         e.runner->platform_init(init_info)
 

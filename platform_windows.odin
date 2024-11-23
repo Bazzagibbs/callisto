@@ -15,20 +15,8 @@ Platform_Window :: struct {
         hwnd : win.HWND,
 }
 
-pump_input_application :: proc(e: ^Engine) {
-        msg: win.MSG
-        for win.PeekMessageW(&msg, nil, 0, 0, win.PM_REMOVE) {
-                win.TranslateMessage(&msg)
-                win.DispatchMessageW(&msg)
-        }
-}
-
-pump_input_window :: proc(e: ^Engine, window: ^Window) {
-        msg: win.MSG
-        for win.PeekMessageW(&msg, window._platform.hwnd, 0, 0, win.PM_REMOVE) {
-                win.TranslateMessage(&msg)
-                win.DispatchMessageW(&msg)
-        }
+exit :: proc(exit_code := Exit_Code.Ok) {
+        win.PostQuitMessage(win.INT(exit_code))
 }
 
 // Allocates using the provided allocator
