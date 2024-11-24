@@ -89,38 +89,38 @@ Input_Event :: struct {
 Input_Button :: struct {
         source       : Input_Button_Source,
         hand         : Input_Hand,
-        modifiers    : Input_Button_Modifiers,
+        modifiers    : Input_Modifiers,
         motion       : Input_Button_Motion,
 }
 
 Input_Text :: struct {
         text         : rune,
-        modifiers    : Input_Button_Modifiers,
+        modifiers    : Input_Modifiers,
         motion       : Input_Button_Motion,
 }
 
 
 Input_Vector1 :: struct {
-        source   : Input_Vector1_Source,
-        delta    : f32,
-        absolute : f32,
+        source    : Input_Vector1_Source,
+        modifiers : Input_Modifiers,
+        value     : f32,
 }
 
 Input_Vector2 :: struct {
-        source   : Input_Vector2_Source,
-        delta    : [2]f32,
-        absolute : [2]f32,
+        source    : Input_Vector2_Source,
+        modifiers : Input_Modifiers,
+        value     : [2]f32,
 }
 
 
 Input_Vector3 :: struct {
-        source   : Input_Vector3_Source,
-        delta    : [3]f32,
-        absolute : [3]f32,
+        source    : Input_Vector3_Source,
+        modifiers : Input_Modifiers,
+        value     : [3]f32,
 }
 
-Input_Button_Modifiers :: bit_set[Input_Button_Modifier; u8]
-Input_Button_Modifier :: enum {
+Input_Modifiers :: bit_set[Input_Modifier; u8]
+Input_Modifier :: enum {
         Ctrl,
         Alt,
         Shift,
@@ -145,25 +145,15 @@ Input_Button_Source :: enum {
         Mouse_Left,
         Mouse_Right,
         Mouse_Middle,
+        Mouse_1 = Mouse_Left,
+        Mouse_2 = Mouse_Right,
+        Mouse_3 = Mouse_Middle,
+        Mouse_4,
+        Mouse_5,
         Mouse_Scroll_Up,
         Mouse_Scroll_Down,
         Mouse_Scroll_Left,
         Mouse_Scroll_Right,
-        Mouse_3,
-        Mouse_4,
-        // Mouse_5, // These need win32 Raw Input
-        // Mouse_6,
-        // Mouse_7,
-        // Mouse_8,
-        // Mouse_9,
-        // Mouse_10,
-        // Mouse_11,
-        // Mouse_12,
-        // Mouse_13,
-        // Mouse_14,
-        // Mouse_15,
-        // Mouse_16,
-
 
         Backspace,
         Tab,
@@ -351,6 +341,8 @@ Input_Button_Source :: enum {
 
 Input_Vector1_Source :: enum {
         Unknown,
+        Mouse_Scroll_Smooth_Vertical,
+        Mouse_Scroll_Smooth_Horizontal, 
         // Gamepad_Trigger_Left,
         // Gamepad_Trigger_Right,
         // VR_Trigger,
@@ -360,8 +352,8 @@ Input_Vector1_Source :: enum {
 
 Input_Vector2_Source :: enum {
         Unknown,
-        Mouse_Position,
-        // Mouse_Position_Raw,
+        Mouse_Position_Cursor,
+        Mouse_Move_Raw,
         // Touch_Position,
         // Gamepad_Stick_Left,
         // Gamepad_Stick_Right,
@@ -378,6 +370,8 @@ Input_Vector3_Source :: enum {
         Unknown,
         // Gamepad_Accelerometer,
         // Gamepad_Gyroscope,
+        // VR_Tracker_Position,
+        // VR_Tracker_Rotation,
 }
 
 // Pumps all events in the event queue, then returns.

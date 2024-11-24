@@ -18,6 +18,7 @@ when !HOT_RELOAD {
 
                 context = ctx
                 runner := default_runner()
+                defer runner_destroy(&runner)
 
                 exe_dir, _ := get_exe_directory()
                 dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)

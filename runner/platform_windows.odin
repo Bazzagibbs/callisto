@@ -8,28 +8,30 @@ import "core:fmt"
 import "core:os"
 import "core:c"
 import "core:unicode/utf8"
+import "core:math"
 
 import cal ".."
 
 
 WIN_CLASS_NAME :: "Callisto Window Class"
+MAX_EVENTS_PER_FRAME :: 128
 
 @(private="file")
-_window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPARAM, lParam: win.LPARAM) -> (result: win.LRESULT)  {
+_window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPARAM, lparam: win.LPARAM) -> (result: win.LRESULT)  {
         result = 0
 
         switch uMsg {
         case win.WM_CREATE:
-                createstruct := transmute(^win.CREATESTRUCTW)(lParam)
+                createstruct := transmute(^win.CREATESTRUCTW)(lparam)
                 runner := (^Runner)(createstruct.lpCreateParams)
-                win.SetWindowLongPtrW(hWnd, win.GWLP_USERDATA, transmute(int)(runner))
+                win.SetWindowLongPtrW(hwnd, win.GWLP_USERDATA, transmute(int)(runner))
 
                 context = runner.ctx
 
                 window_rect : win.RECT
-                win.GetWindowRect(hWnd, &window_rect)
+                win.GetWindowRect(hwnd, &window_rect)
 
-                dpi := win.GetDpiForWindow(hWnd)
+                dpi := win.GetDpiForWindow(hwnd)
                 dpi_scale := f32(dpi) / 96.0
                 pixel_size := [2]i32 {
                         window_rect.right - window_rect.left, 
@@ -37,7 +39,7 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
                 }
 
                 event := Window_Event {
-                        window = {{hWnd}},
+                        window = {{hwnd}},
                         event = Window_Opened {
                                 position = {window_rect.left, window_rect.top},
                                 pixel_size  = pixel_size,
@@ -46,15 +48,15 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
                         },
                 }
 
-                _dispatch_callisto_event(hWnd, event)
+                _dispatch_callisto_event(hwnd, event)
                 return 0
 
         case win.WM_SIZE, win.WM_DPICHANGED:
-                dpi         := win.GetDpiForWindow(hWnd)
+                dpi         := win.GetDpiForWindow(hwnd)
                 dpi_scale   := f32(dpi) / 96.0
                 pixel_size  := [2]i32{ 
-                        i32(win.LOWORD(lParam)), 
-                        i32(win.HIWORD(lParam))
+                        i32(win.LOWORD(lparam)), 
+                        i32(win.HIWORD(lparam))
                 }
 
                 window_event := Window_Resized {
@@ -66,7 +68,7 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
                 if uMsg == win.WM_DPICHANGED {
                         window_event.type = .Dpi_Changed
                 } else {
-                        switch wParam {
+                        switch wparam {
                         case win.SIZE_MAXIMIZED:  window_event.type = .Maximized
                         case win.SIZE_MINIMIZED:  window_event.type = .Minimized
                         case win.SIZE_MAXHIDE:    window_event.type = .Occluded
@@ -75,89 +77,89 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
                         }
                 }
                 event := Window_Event {
-                        window = {{hwnd = hWnd}},
+                        window = {{hwnd = hwnd}},
                         event  = window_event,
                 }
 
-                if _dispatch_callisto_event(hWnd, event) {
+                if _dispatch_callisto_event(hwnd, event) {
                         return 0
                 }
 
         case win.WM_MOVE:
                 event := Window_Event {
-                        window = {{hwnd = hWnd}},
+                        window = {{hwnd = hwnd}},
                         event = Window_Moved {
-                                position = {i32(win.LOWORD(lParam)), i32(win.HIWORD(lParam))}
+                                position = {i32(win.LOWORD(lparam)), i32(win.HIWORD(lparam))}
                         }
                 }
                 
-                if _dispatch_callisto_event(hWnd, event) {
+                if _dispatch_callisto_event(hwnd, event) {
                         return 0
                 }
 
-        case win.WM_KEYDOWN, win.WM_SYSKEYDOWN:
-                source, hand := _input_button_source_translate(wParam)
-                flags := Keystroke_Flags(lParam)
-
-                if flags.extended_key {
-                        hand = .Right
-                }
-
-                input := Input_Button {
-                        source    = source,
-                        hand      = hand,
-                        modifiers = _input_button_get_modifiers(),
-                        motion    = .Down if !flags.previous_down else .Held,
-                }
-
-                event := Input_Event {
-                        window    = {{hwnd = hWnd}},
-                        device_id = 0, // TODO
-                        event = input
-                }
-
-                any_handled := false
-                any_handled |= _dispatch_callisto_event(hWnd, event)
-
-                if flags.repeat > 1 {
-                        input.motion = .Held
-                        event.event  = input
-                        for i in 1..<flags.repeat {
-                                any_handled |= _dispatch_callisto_event(hWnd, event)
-                        }
-                }
-                
-                if any_handled {
-                        return 0
-                }
-
-        case win.WM_KEYUP, win.WM_SYSKEYUP:
-                source, hand := _input_button_source_translate(wParam)
-                flags := Keystroke_Flags(lParam)
-
-                if flags.extended_key {
-                        hand = .Right
-                }
-
-                input := Input_Button {
-                        source    = source,
-                        hand      = hand,
-                        modifiers = _input_button_get_modifiers(),
-                        motion = .Up
-                }
-
-                event := Input_Event {
-                        window    = {{hwnd = hWnd}},
-                        device_id = 0, // TODO
-                        event = input
-                }
-
-                if _dispatch_callisto_event(hWnd, event) {
-                        return 0
-                }
+        // case win.WM_KEYDOWN, win.WM_SYSKEYDOWN:
+        //         source, hand := _input_button_source_translate(wparam)
+        //         flags := Keystroke_Flags(lparam)
+        //
+        //         if flags.extended_key {
+        //                 hand = .Right
+        //         }
+        //
+        //         input := Input_Button {
+        //                 source    = source,
+        //                 hand      = hand,
+        //                 modifiers = _input_button_get_modifiers(),
+        //                 motion    = .Down if !flags.previous_down else .Held,
+        //         }
+        //
+        //         event := Input_Event {
+        //                 window    = {{hwnd = hwnd}},
+        //                 device_id = 0, // TODO
+        //                 event = input
+        //         }
+        //
+        //         any_handled := false
+        //         any_handled |= _dispatch_callisto_event(hwnd, event)
+        //
+        //         if flags.repeat > 1 {
+        //                 input.motion = .Held
+        //                 event.event  = input
+        //                 for i in 1..<flags.repeat {
+        //                         any_handled |= _dispatch_callisto_event(hwnd, event)
+        //                 }
+        //         }
+        //         
+        //         if any_handled {
+        //                 return 0
+        //         }
+        //
+        // case win.WM_KEYUP, win.WM_SYSKEYUP:
+        //         source, hand := _input_button_source_translate(wparam)
+        //         flags := Keystroke_Flags(lparam)
+        //
+        //         if flags.extended_key {
+        //                 hand = .Right
+        //         }
+        //
+        //         input := Input_Button {
+        //                 source    = source,
+        //                 hand      = hand,
+        //                 modifiers = _input_button_get_modifiers(),
+        //                 motion = .Up
+        //         }
+        //
+        //         event := Input_Event {
+        //                 window    = {{hwnd = hwnd}},
+        //                 device_id = 0, // TODO
+        //                 event = input
+        //         }
+        //
+        //         if _dispatch_callisto_event(hwnd, event) {
+        //                 return 0
+        //         }
 
         case win.WM_CHAR:
-                utf16_character := win.WCHAR(wParam)
+                utf16_character := win.WCHAR(wparam)
                 utf8_character: [4]win.CHAR
                 utf8_length := win.WideCharToMultiByte(
                         win.CP_UTF8, 0, 
@@ -166,50 +168,79 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
                 text, _ := utf8.decode_rune_in_bytes(utf8_character[:utf8_length])
 
                 event := Input_Event {
-                        window = {{hWnd}},
+                        window = {{hwnd}},
                         event = Input_Text {
                                 text = text,
-                                modifiers = _input_button_get_modifiers(),
+                                modifiers = _get_input_modifiers(),
                         }
                 }
                 
-                if _dispatch_callisto_event(hWnd, event) {
+                if _dispatch_callisto_event(hwnd, event) {
                         return 0
                 }
 
         case win.WM_MOUSEMOVE:
-                context = _wndproc_runner_from_user_data(hWnd).ctx
-                fmt.println("Mouse move")
-        case win.WM_LBUTTONDOWN:
-                context = _wndproc_runner_from_user_data(hWnd).ctx
-                fmt.println("LMB Down")
-        case win.WM_LBUTTONUP:
-                context = _wndproc_runner_from_user_data(hWnd).ctx
-                fmt.println("LMB Up")
+                mouse_pos := [2]i32{
+                        i32(win.LOWORD(lparam)), 
+                        i32(win.HIWORD(lparam))
+                }
+
+                event := Input_Event {
+                        window = {{hwnd}},
+                        device_id = 0,
+                        event = Input_Vector2 {
+                                source = .Mouse_Position_Cursor,
+                                modifiers = _get_input_modifiers(),
+                                value = {f32(mouse_pos.x), f32(mouse_pos.y)},
+                        },
+                }
+
+                if _dispatch_callisto_event(hwnd, event) {
+                        return 0
+                }
+
+        case win.WM_INPUT:
+                runner := _wndproc_runner_from_user_data(hwnd)
+                context = runner.ctx
+
+                dwSize: win.UINT = size_of(win.RAWINPUT)
+                lpb: [size_of(win.RAWINPUT)]byte
+                size := win.GetRawInputData(win.HRAWINPUT(lparam), win.RID_INPUT, &lpb[0], &dwSize, size_of(win.RAWINPUTHEADER))
+
+                raw := transmute(win.RAWINPUT)lpb
+                raw_type := RawInput_Type(raw.header.dwType)
+
+                switch raw_type {
+                case .Mouse: _dispatch_raw_mouse(hwnd, win.RAWMOUSE(raw.data.mouse))
+                case .Keyboard:
+                case .Hid:
+                }
+
+
 
         case win.WM_CLOSE:
                 event := Window_Event {
-                        window = {{hWnd}},
+                        window = {{hwnd}},
                         event  = Window_Close_Request{},
                 }
 
-                if _dispatch_callisto_event(hWnd, event) {
+                if _dispatch_callisto_event(hwnd, event) {
                         return 1
                 }
 
 
         case win.WM_DESTROY: 
                 event := Window_Event {
-                        window = {{hWnd}},
+                        window = {{hwnd}},
                         event = Window_Closed{},
                 }
 
-                if _dispatch_callisto_event(hWnd, event) {
+                if _dispatch_callisto_event(hwnd, event) {
                         return 1
                 }
 
                 
-                runner := _wndproc_runner_from_user_data(hWnd)
+                runner := _wndproc_runner_from_user_data(hwnd)
                 context = runner.ctx
 
                 // Quit app if not handled
@@ -217,7 +248,7 @@ _window_proc :: proc "stdcall" (hWnd: win.HWND, uMsg: win.UINT, wParam: win.WPAR
                 
         }
 
-        return win.DefWindowProcW(hWnd, uMsg, wParam, lParam)
+        return win.DefWindowProcW(hwnd, uMsg, wparam, lparam)
 }
 
 @(private="file")
@@ -260,7 +291,34 @@ platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: R
 
         atom := win.RegisterClassExW(&wndClass)
         if atom == 0 {
-                log.error("platform_init failed")
+                log.error("RegisterClass failed")
+                return .Platform_Error
+        }
+        
+        rids := []win.RAWINPUTDEVICE {
+                { // keyboard
+                        usUsagePage = win.HID_USAGE_PAGE_GENERIC,
+                        usUsage     = win.HID_USAGE_GENERIC_KEYBOARD,
+                        dwFlags     = 0,
+                        hwndTarget  = nil,
+                },
+                { // mouse
+                        usUsagePage = win.HID_USAGE_PAGE_GENERIC,
+                        usUsage     = win.HID_USAGE_GENERIC_MOUSE,
+                        dwFlags     = 0,
+                        hwndTarget  = nil,
+                },
+                { // gamepad
+                        usUsagePage = win.HID_USAGE_PAGE_GENERIC,
+                        usUsage     = win.HID_USAGE_GENERIC_GAMEPAD,
+                        dwFlags     = 0,
+                        hwndTarget  = nil,
+                },
+        }
+
+        ok := win.RegisterRawInputDevices(raw_data(rids), u32(len(rids)), size_of(win.RAWINPUTDEVICE))
+        if !ok {
+                log.error("RegisterRawInputDevices failed")
                 return .Platform_Error
         }
 
@@ -388,8 +446,8 @@ assert_messagebox :: proc(assertion: bool, message_args: ..any, loc := #caller_l
 }
 
 @(private="file")
-_input_button_get_modifiers :: proc "contextless" () -> Input_Button_Modifiers {
-        mods := Input_Button_Modifiers {}
+_get_input_modifiers :: proc "contextless" () -> Input_Modifiers {
+        mods := Input_Modifiers {}
         if Key_State(win.GetKeyState(win.VK_SHIFT)).is_pressed {
                 mods += {.Shift}
         }
@@ -473,6 +531,24 @@ _input_button_source_translate :: proc "contextless" (key_code: win.WPARAM) -> (
         return
 }
 
+_input_button_mouse_translate :: proc "contextless" (flag: RawInput_Mouse_Button_Flag, data: win.USHORT, mods: Input_Modifiers) -> (union {
+        Input_Text, Input_Button, Input_Vector1, Input_Vector2, Input_Vector3})  {
+        #partial switch flag {
+        case .Left_Down       : return Input_Button {.Mouse_Left, .Left, mods, .Down}
+        case .Left_Up         : return Input_Button {.Mouse_Left, .Left, mods, .Up}
+        case .Right_Down      : return Input_Button {.Mouse_Right, .Left, mods, .Down}
+        case .Right_Up        : return Input_Button {.Mouse_Right, .Left, mods, .Up}
+        case .Middle_Down     : return Input_Button {.Mouse_Middle, .Left, mods, .Down}
+        case .Middle_Up       : return Input_Button {.Mouse_Middle, .Left, mods, .Up}
+        case .Button_4_Down   : return Input_Button {.Mouse_4, .Left, mods, .Down}
+        case .Button_4_Up     : return Input_Button {.Mouse_4, .Left, mods, .Up}
+        case .Button_5_Down   : return Input_Button {.Mouse_5, .Left, mods, .Down}
+        case .Button_5_Up     : return Input_Button {.Mouse_5, .Left, mods, .Up}
+        }
+
+        unreachable()
+}
+
 @(private="file")
 Keystroke_Flags :: bit_field u32 {
         repeat           : u16 | 16,
@@ -489,4 +565,172 @@ Key_State :: bit_field i16 {
         is_toggled : bool | 1,
         _          : u16  | 14,
         is_pressed : bool | 1,
+}
+
+@(private="file")
+RawInput_Type :: enum win.DWORD {
+        Mouse    = 0,
+        Keyboard = 1,
+        Hid      = 2,
+}
+
+@(private="file")
+RawInput_Mouse_Button_Flag :: enum win.USHORT {
+        Left_Down         = 0,
+        Left_Up           = 1,
+        Right_Down        = 2,
+        Right_Up          = 3,
+        Middle_Down       = 4,
+        Middle_Up         = 5,
+        Button_4_Down     = 6,
+        Button_4_Up       = 7,
+        Button_5_Down     = 8,
+        Button_5_Up       = 9,
+        Scroll_Vertical   = 10,
+        Scroll_Horizontal = 11,
+}
+
+@(private="file")
+RawInput_Mouse_Button_Flags :: bit_set[RawInput_Mouse_Button_Flag; win.USHORT]
+
+
+@(private="file")
+_dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOUSE) {
+        runner := _wndproc_runner_from_user_data(hwnd)
+        context = runner.ctx
+
+        if raw_mouse.usFlags != win.MOUSE_MOVE_RELATIVE {
+                return
+        }
+        // Mouse movement
+        if raw_mouse.lLastX != 0 || raw_mouse.lLastY != 0 {
+                context = _wndproc_runner_from_user_data(hwnd).ctx
+                event := Input_Event {
+                        window    = {{hwnd}},
+                        device_id = 0,
+                        event = Input_Vector2 {
+                                source = .Mouse_Move_Raw,
+                                value  = {f32(raw_mouse.lLastX), f32(raw_mouse.lLastY)},
+                        }
+                }
+
+                _dispatch_callisto_event(hwnd, event)
+        }
+
+        // Mouse buttons
+        buttons := transmute(RawInput_Mouse_Button_Flags)(raw_mouse.usButtonFlags)
+        mods := _get_input_modifiers()
+
+        for button in buttons {
+                event := Input_Event {
+                        window    = {{hwnd}},
+                        device_id = 0,
+                }
+
+                if button == .Scroll_Vertical || button == .Scroll_Horizontal {
+                        _dispatch_raw_scroll_wheel(hwnd, runner, button, raw_mouse.usButtonData)
+                } else {
+                        event.event = _input_button_mouse_translate(button, raw_mouse.usButtonData, mods)
+                        _dispatch_callisto_event(hwnd, event)
+                }
+        }
+}
+
+
+// Keeps track of accumulated scroll distance in case the mouse has a smooth-scrolling wheel/trackpad.
+// We still need to be able to send discrete wheel button presses for actions such as scrolling through
+// inventory items.
+@(private="file")
+_dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: RawInput_Mouse_Button_Flag, data: win.USHORT) {
+        mods := _get_input_modifiers()
+        event := Input_Event {
+                window = {{hwnd}},
+                device_id = 0,
+        }
+
+        if button == .Scroll_Vertical {
+                scroll_lines: win.UINT
+                win.SystemParametersInfoW(win.SPI_GETWHEELSCROLLLINES, 0, &scroll_lines, 0)
+                scroll_delta := f32(scroll_lines) * (f32(transmute(win.SHORT)data) / win.WHEEL_DELTA)
+                runner.scroll_accumulator.y += scroll_delta
+
+                if runner.scroll_accumulator.y > f32(scroll_lines) {
+                        steps := math.floor_f32(runner.scroll_accumulator.y / f32(scroll_lines))
+                        runner.scroll_accumulator.y -= steps
+                        event.event = Input_Button {
+                                source    = .Mouse_Scroll_Up,
+                                modifiers = mods,
+                                motion    = .Instant,
+                        }
+
+                        for i in 0..<int(steps) {
+                                _dispatch_callisto_event(hwnd, event)
+                        }
+                } 
+                else if -runner.scroll_accumulator.y > f32(scroll_lines) {
+                        steps := math.floor_f32(-runner.scroll_accumulator.y / f32(scroll_lines))
+                        runner.scroll_accumulator.y += steps
+                        event.event = Input_Button {
+                                source    = .Mouse_Scroll_Down,
+                                modifiers = mods,
+                                motion    = .Instant,
+                        }
+
+                        for i in 0..<int(steps) {
+                                _dispatch_callisto_event(hwnd, event)
+                        }
+                }
+
+                
+                // Dispatch smooth scroll
+                event.event = Input_Vector1 {
+                        source    = .Mouse_Scroll_Smooth_Vertical,
+                        modifiers = mods,
+                        value     = scroll_delta,
+                }
+
+                _dispatch_callisto_event(hwnd, event)
+
+        } else if button == .Scroll_Horizontal {
+                scroll_chars: win.UINT
+                win.SystemParametersInfoW(win.SPI_GETWHEELSCROLLCHARS, 0, &scroll_chars, 0)
+                scroll_delta := f32(scroll_chars) * (f32(transmute(win.SHORT)data) / win.WHEEL_DELTA)
+                runner.scroll_accumulator.x += scroll_delta
+
+                if runner.scroll_accumulator.x > f32(scroll_chars) {
+                        steps := math.floor_f32(runner.scroll_accumulator.x / f32(scroll_chars))
+                        runner.scroll_accumulator.x -= steps
+                        event.event = Input_Button {
+                                source    = .Mouse_Scroll_Right,
+                                modifiers = mods,
+                                motion    = .Instant,
+                        }
+
+                        for i in 0..<int(steps) {
+                                _dispatch_callisto_event(hwnd, event)
+                        }
+                } 
+                else if -runner.scroll_accumulator.x > f32(scroll_chars) {
+                        steps := math.floor_f32(-runner.scroll_accumulator.x / f32(scroll_chars))
+                        runner.scroll_accumulator.x += steps
+                        event.event = Input_Button {
+                                source    = .Mouse_Scroll_Left,
+                                modifiers = mods,
+                                motion    = .Instant,
+                        }
+
+                        for i in 0..<int(steps) {
+                                _dispatch_callisto_event(hwnd, event)
+                        }
+                }
+                
+                // Dispatch smooth scroll
+                event.event = Input_Vector1 {
+                        source    = .Mouse_Scroll_Smooth_Horizontal,
+                        modifiers = mods,
+                        value     = scroll_delta,
+                }
+
+                _dispatch_callisto_event(hwnd, event)
+        }
 }

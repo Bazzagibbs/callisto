@@ -6,6 +6,7 @@ import "core:dynlib"
 Runner :: struct {
         ctx                      : runtime.Context,
         app_memory               : rawptr,
+        scroll_accumulator       : [2]f32,
 
         event_behaviour          : Event_Behaviour,
         should_close             : bool,

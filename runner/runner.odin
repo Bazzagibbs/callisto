@@ -32,8 +32,8 @@ Input_Vector3              :: cal.Input_Vector3
 Input_Hand                 :: cal.Input_Hand
 Input_Button_Source        :: cal.Input_Button_Source
 Input_Button_Motion        :: cal.Input_Button_Motion
-Input_Button_Modifier      :: cal.Input_Button_Modifier
-Input_Button_Modifiers     :: cal.Input_Button_Modifiers
+Input_Modifier             :: cal.Input_Modifier
+Input_Modifiers            :: cal.Input_Modifiers
 Input_Vector1_Source       :: cal.Input_Vector1_Source
 Input_Vector2_Source       :: cal.Input_Vector2_Source
 Input_Vector3_Source       :: cal.Input_Vector3_Source
@@ -58,4 +58,7 @@ default_runner :: proc (ctx := context) -> Runner {
                 window_destroy   = window_destroy,
                 event_pump       = event_pump,
         }
+}
+
+runner_destroy :: proc(runner: ^Runner) {
 }
