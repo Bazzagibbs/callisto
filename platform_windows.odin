@@ -25,22 +25,24 @@ get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string, r
         len := win.GetModuleFileNameW(nil, &buf[0], win.MAX_PATH)
 
         str, err := win.utf16_to_utf8(buf[:len], context.temp_allocator)
-        translate_error(err) or_return 
+        check_error(err) or_return 
 
         return filepath.dir(str, allocator), .Ok
 }
 
 // Allocates using the provided allocator
 get_persistent_directory :: proc(allocator := context.allocator) -> (data_dir: string, res: Result) {
-        buf : [win.MAX_PATH]win.WCHAR
-
+        path : win.PWSTR
         guid := win.FOLDERID_LocalAppData
-        win.SHGetKnownFolderPath(&guid, 0, nil, (^^u16)(&buf[0]))
 
-        dir, err := win.utf16_to_utf8(buf[:], context.temp_allocator)
-        translate_error(err) or_return
+        hres := win.SHGetKnownFolderPath(&guid, win.DWORD(win.KNOWN_FOLDER_FLAG.CREATE), nil, (^win.LPWSTR)(&path))
+
+        dir, err := win.wstring_to_utf8(path, win.MAX_PATH, allocator)
+        check_error(err) or_return
 
         app_dir := filepath.join({dir, COMPANY_NAME, APP_NAME}, allocator)
+        delete(dir, allocator)
+
         return app_dir, .Ok
 }
 

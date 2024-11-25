@@ -6,6 +6,7 @@ import win "core:sys/windows"
 import "core:log"
 import "core:fmt"
 import "core:os"
+import "core:os/os2"
 import "core:c"
 import "core:unicode/utf8"
 import "core:math"
@@ -97,66 +98,6 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                         return 0
                 }
 
-        // case win.WM_KEYDOWN, win.WM_SYSKEYDOWN:
-        //         source, hand := _input_button_source_translate(wparam)
-        //         flags := Keystroke_Flags(lparam)
-        //
-        //         if flags.extended_key {
-        //                 hand = .Right
-        //         }
-        //
-        //         input := Input_Button {
-        //                 source    = source,
-        //                 hand      = hand,
-        //                 modifiers = _input_button_get_modifiers(),
-        //                 motion    = .Down if !flags.previous_down else .Held,
-        //         }
-        //
-        //         event := Input_Event {
-        //                 window    = {{hwnd = hwnd}},
-        //                 device_id = 0, // TODO
-        //                 event = input
-        //         }
-        //
-        //         any_handled := false
-        //         any_handled |= _dispatch_callisto_event(hwnd, event)
-        //
-        //         if flags.repeat > 1 {
-        //                 input.motion = .Held
-        //                 event.event  = input
-        //                 for i in 1..<flags.repeat {
-        //                         any_handled |= _dispatch_callisto_event(hwnd, event)
-        //                 }
-        //         }
-        //         
-        //         if any_handled {
-        //                 return 0
-        //         }
-        //
-        // case win.WM_KEYUP, win.WM_SYSKEYUP:
-        //         source, hand := _input_button_source_translate(wparam)
-        //         flags := Keystroke_Flags(lparam)
-        //
-        //         if flags.extended_key {
-        //                 hand = .Right
-        //         }
-        //
-        //         input := Input_Button {
-        //                 source    = source,
-        //                 hand      = hand,
-        //                 modifiers = _input_button_get_modifiers(),
-        //                 motion = .Up
-        //         }
-        //
-        //         event := Input_Event {
-        //                 window    = {{hwnd = hwnd}},
-        //                 device_id = 0, // TODO
-        //                 event = input
-        //         }
-        //
-        //         if _dispatch_callisto_event(hwnd, event) {
-        //                 return 0
-        //         }
 
         case win.WM_CHAR:
                 utf16_character := win.WCHAR(wparam)
@@ -179,25 +120,25 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                         return 0
                 }
 
-        case win.WM_MOUSEMOVE:
-                mouse_pos := [2]i32{
-                        i32(win.LOWORD(lparam)), 
-                        i32(win.HIWORD(lparam))
-                }
-
-                event := Input_Event {
-                        window = {{hwnd}},
-                        device_id = 0,
-                        event = Input_Vector2 {
-                                source = .Mouse_Position_Cursor,
-                                modifiers = _get_input_modifiers(),
-                                value = {f32(mouse_pos.x), f32(mouse_pos.y)},
-                        },
-                }
-
-                if _dispatch_callisto_event(hwnd, event) {
-                        return 0
-                }
+        // case win.WM_MOUSEMOVE:
+        //         mouse_pos := [2]i32{
+        //                 i32(win.LOWORD(lparam)), 
+        //                 i32(win.HIWORD(lparam))
+        //         }
+        //
+        //         event := Input_Event {
+        //                 window = {{hwnd}},
+        //                 device_id = 0,
+        //                 event = Input_Vector2 {
+        //                         source = .Mouse_Position_Cursor,
+        //                         modifiers = _get_input_modifiers(),
+        //                         value = {f32(mouse_pos.x), f32(mouse_pos.y)},
+        //                 },
+        //         }
+        //
+        //         if _dispatch_callisto_event(hwnd, event) {
+        //                 return 0
+        //         }
 
         case win.WM_INPUT:
                 runner := _wndproc_runner_from_user_data(hwnd)
@@ -225,7 +166,7 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                 }
 
                 if _dispatch_callisto_event(hwnd, event) {
-                        return 1
+                        return 0
                 }
 
 
@@ -236,7 +177,7 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                 }
 
                 if _dispatch_callisto_event(hwnd, event) {
-                        return 1
+                        return 0
                 }
 
                 
@@ -697,8 +638,6 @@ _dispatch_raw_keyboard :: proc (hwnd: win.HWND, data: win.RAWKEYBOARD) -> (handl
         vkey_translated := win.MapVirtualKeyW(win.UINT(scancode), win.MAPVK_VSC_TO_VK_EX)
         button_pair := VKEY_MAPPING[VKey(vkey_translated)]
 
-        fmt.printfln("%x", vkey_translated)
-
         event := Input_Event {
                 window    = {{hwnd}},
                 device_id = 0,
@@ -712,3 +651,4 @@ _dispatch_raw_keyboard :: proc (hwnd: win.HWND, data: win.RAWKEYBOARD) -> (handl
 
         return _dispatch_callisto_event(hwnd, event)
 }
+

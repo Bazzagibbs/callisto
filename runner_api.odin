@@ -2,6 +2,7 @@ package callisto
 import "base:runtime"
 import "core:os"
 import "core:dynlib"
+import "core:log"
 
 Runner :: struct {
         ctx                      : runtime.Context,
@@ -23,6 +24,7 @@ Runner :: struct {
         window_create            : #type proc (runner: ^Runner, create_info: ^Window_Create_Info, out_window: ^Window) -> Result,
         window_destroy           : #type proc (runner: ^Runner, window: ^Window),
         event_pump               : #type proc (runner: ^Runner),
+        logger_proc              : #type proc (logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location),
 }
 
 Dll_Symbol_Table :: struct {

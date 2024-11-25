@@ -11,14 +11,21 @@ import "core:mem"
 when !HOT_RELOAD {
 
         main :: proc () {
+                
                 ctx : runtime.Context
                 track : mem.Tracking_Allocator
                 callisto_context_init(&ctx, &track) 
                 defer callisto_context_destroy(&ctx, &track)
-
                 context = ctx
+
                 runner := default_runner()
-                defer runner_destroy(&runner)
+               
+                opts, level := callisto_logger_options()
+                callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
+                defer callisto_logger_destroy(&ctx.logger)
+                runner.ctx = ctx
+                context    = ctx
+
 
                 exe_dir, _ := get_exe_directory()
                 dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)

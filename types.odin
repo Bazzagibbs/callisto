@@ -17,11 +17,11 @@ Result :: enum {
         Platform_Error,
 }
 
-translate_error :: proc {
-        translate_error_allocator,
+check_error :: proc {
+        check_error_allocator,
 }
 
-translate_error_allocator :: proc "contextless" (err: mem.Allocator_Error) -> Result {
+check_error_allocator :: proc "contextless" (err: mem.Allocator_Error) -> Result {
         switch err {
         case .None, .Mode_Not_Implemented: 
                 return .Ok

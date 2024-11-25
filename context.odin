@@ -9,32 +9,6 @@ callisto_context_init :: proc "contextless" (ctx: ^runtime.Context, track: ^mem.
         ctx^ = runtime.default_context()
         context = ctx^
 
-        // Console logger
-        when ODIN_DEBUG {
-                opts := log.Options {
-                        .Terminal_Color,
-                        .Level,
-                        .Time,
-                        .Line,
-                        .Procedure,
-                        .Short_File_Path,
-                }
-        } else {
-                opts := log.Options {
-                        .Terminal_Color,
-                        .Level,
-                        .Time,
-                }
-        }
-
-        when VERBOSE {
-                level := log.Level.Info
-        } else {
-                level := log.Level.Debug
-        }
-
-        // ctx.logger = callisto_logger_init(&ctx.logger, level, opts)
-        ctx.logger = log.create_console_logger(level, opts)
 
         when ODIN_DEBUG {
                 // Tracking allocator
@@ -64,3 +38,29 @@ callisto_context_destroy :: proc "contextless" (ctx: ^runtime.Context, track: ^m
         // callisto_logger_destroy(&ctx.logger)
 }
 
+callisto_logger_options :: proc "contextless" () -> (opts: log.Options, level: log.Level) {
+        when ODIN_DEBUG {
+                opts = log.Options {
+                        .Terminal_Color,
+                        .Level,
+                        .Time,
+                        .Line,
+                        .Procedure,
+                        .Short_File_Path,
+                }
+        } else {
+                opts = log.Options {
+                        .Terminal_Color,
+                        .Level,
+                        .Time,
+                }
+        }
+
+        when VERBOSE {
+                level = log.Level.Info
+        } else {
+                level = log.Level.Debug
+        }
+
+        return
+}
