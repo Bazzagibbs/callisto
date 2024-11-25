@@ -140,8 +140,13 @@ Input_Hand :: enum {
         Right,
 }
 
-Input_Button_Source :: enum {
-        Unknown,
+// Keyboard buttons are positional, named accordingly to a standard US QWERTY layout.
+// To get text input, consume `Input_Text` events instead.
+//
+// Mouse scroll buttons are for when distinct "steps" are needed, such as swapping items in an inventory.
+// For scrolling text boxes, consume `Input_Vector1` events instead, where the value is the number of lines/characters scrolled.
+Input_Button_Source :: enum u8 {
+        Unknown = 0,
         Mouse_Left,
         Mouse_Right,
         Mouse_Middle,
@@ -263,46 +268,25 @@ Input_Button_Source :: enum {
         F23 = 0x86,
         F24 = 0x87,
 
-        // Keycodes for modified inputs are equal to their unmodified version
-        Exclamation          = _1,
-        At                   = _2,
-        Hash                 = _3,
-        Dollar               = _4,
-        Percent              = _5,
-        Carat                = _6,
-        Ampersand            = _7,
-        Asterix              = _8,
-        Parenthesis_Open     = _9,
-        Parenthesis_Close    = _0,
         Minus,
-        Underscore           = Minus,
         Equals,
-        Plus                 = Equals,
         Bracket_Open,
-        Brace_Open           = Bracket_Open,
         Bracket_Close,
-        Brace_Close          = Bracket_Close,
-        Backward_Slash,
-        Vertical_Bar         = Backward_Slash,
+        Back_Slash,
         Semicolon,
-        Colon                = Semicolon,
         Quote,
-        Double_Quote         = Quote,
         Comma,
-        Angled_Bracket_Open  = Comma,
         Period,
-        Angled_Bracket_Close = Period,
         Forward_Slash,
-        Question             = Forward_Slash,
-        Backtick,
-        Tilde                = Backtick,
+        Back_Tick,
        
         Numpad_Enter,
-        Numpad_Forward_Slash,
-        Numpad_Asterix,
-        Numpad_Minus,
-        Numpad_Plus,
-        Numpad_Period,
+        Numpad_Divide,
+        Numpad_Multiply,
+        Numpad_Subtract,
+        Numpad_Add,
+        Numpad_Decimal,
+        Numpad_Separator, // "." key in cultures where decimal is ","
 
 
         // Gamepad_North,

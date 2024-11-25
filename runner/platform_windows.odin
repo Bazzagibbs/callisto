@@ -211,8 +211,8 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                 raw_type := RawInput_Type(raw.header.dwType)
 
                 switch raw_type {
-                case .Mouse: _dispatch_raw_mouse(hwnd, win.RAWMOUSE(raw.data.mouse))
-                case .Keyboard:
+                case .Mouse: _dispatch_raw_mouse(hwnd, raw.data.mouse)
+                case .Keyboard: _dispatch_raw_keyboard(hwnd, raw.data.keyboard)
                 case .Hid:
                 }
 
@@ -308,12 +308,12 @@ platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: R
                         dwFlags     = 0,
                         hwndTarget  = nil,
                 },
-                { // gamepad
-                        usUsagePage = win.HID_USAGE_PAGE_GENERIC,
-                        usUsage     = win.HID_USAGE_GENERIC_GAMEPAD,
-                        dwFlags     = 0,
-                        hwndTarget  = nil,
-                },
+                // { // gamepad
+                //         usUsagePage = win.HID_USAGE_PAGE_GENERIC,
+                //         usUsage     = win.HID_USAGE_GENERIC_GAMEPAD,
+                //         dwFlags     = 0,
+                //         hwndTarget  = nil,
+                // },
         }
 
         ok := win.RegisterRawInputDevices(raw_data(rids), u32(len(rids)), size_of(win.RAWINPUTDEVICE))
@@ -465,85 +465,22 @@ _get_input_modifiers :: proc "contextless" () -> Input_Modifiers {
         return mods
 }
 
-@(private="file")
-_input_button_source_translate :: proc "contextless" (key_code: win.WPARAM) -> (src: Input_Button_Source, hand: Input_Hand) {
-        src  = .Unknown
-        hand = .Left
-
-        switch key_code {
-        case win.VK_LBUTTON    : src = .Mouse_Left
-        case win.VK_RBUTTON    : src = .Mouse_Right
-        case win.VK_MBUTTON    : src = .Mouse_Middle
-        case win.VK_XBUTTON1   : src = .Mouse_3
-        case win.VK_XBUTTON2   : src = .Mouse_4
-
-        case win.VK_BACK       : src = .Backspace
-        case win.VK_TAB        : src = .Tab
-        case win.VK_RETURN     : src = .Enter
-        case win.VK_SHIFT      : src = .Shift
-        case    win.VK_CONTROL, 
-                win.VK_LCONTROL: src = .Ctrl 
-        case    win.VK_RCONTROL:  { src  = .Ctrl; hand = .Right }
-        case    win.VK_MENU, 
-                win.VK_LMENU   : src = .Alt
-        case    win.VK_RMENU   : { src  = .Alt; hand = .Right }
-        case win.VK_CAPITAL    : src = .Caps_Lock
-        case win.VK_ESCAPE     : src = .Esc
-
-        case win.VK_SPACE      : src = .Space
-        case win.VK_PRIOR      : src = .Page_Up
-        case win.VK_NEXT       : src = .Page_Down
-        case win.VK_END        : src = .End
-        case win.VK_HOME       : src = .Home
-        case win.VK_LEFT       : src = .Left
-        case win.VK_UP         : src = .Up
-        case win.VK_RIGHT      : src = .Right
-        case win.VK_DOWN       : src = .Down
-        case win.VK_SNAPSHOT   : src = .Print_Screen
-        case win.VK_INSERT     : src = .Insert
-        case win.VK_DELETE     : src = .Delete
-        // numbers, letters
-        case    0x30..=0x39,
-                0x41..=0x5a    : src = Input_Button_Source(key_code)
-        case    win.VK_LWIN,
-                win.VK_RWIN    : src = .Super
-        // numpad, function keys
-        case    0x60..=0x69,
-                0x70..=0x87    : src = Input_Button_Source(key_code)
-
-        case win.VK_NUMLOCK    : src = .Num_Lock
-        case win.VK_SCROLL     : src = .Scroll_Lock
-        case win.VK_OEM_1      : src = .Semicolon
-        case win.VK_OEM_PLUS   : src = .Plus
-        case win.VK_OEM_COMMA  : src = .Comma
-        case win.VK_OEM_MINUS  : src = .Minus
-        case win.VK_OEM_PERIOD : src = .Period
-        case win.VK_OEM_2      : src = .Forward_Slash
-        case win.VK_OEM_3      : src = .Backtick
-        case win.VK_OEM_4      : src = .Bracket_Open
-        case win.VK_OEM_5      : src = .Backward_Slash
-        case win.VK_OEM_6      : src = .Bracket_Close
-        case win.VK_OEM_7      : src = .Quote
-        case win.VK_OEM_8      : src = .Unknown
-        case win.VK_DECIMAL    : src = .Period
-        }
-
-        return
-}
 
 _input_button_mouse_translate :: proc "contextless" (flag: RawInput_Mouse_Button_Flag, data: win.USHORT, mods: Input_Modifiers) -> (union {
         Input_Text, Input_Button, Input_Vector1, Input_Vector2, Input_Vector3})  {
-        #partial switch flag {
-        case .Left_Down       : return Input_Button {.Mouse_Left, .Left, mods, .Down}
-        case .Left_Up         : return Input_Button {.Mouse_Left, .Left, mods, .Up}
-        case .Right_Down      : return Input_Button {.Mouse_Right, .Left, mods, .Down}
-        case .Right_Up        : return Input_Button {.Mouse_Right, .Left, mods, .Up}
-        case .Middle_Down     : return Input_Button {.Mouse_Middle, .Left, mods, .Down}
-        case .Middle_Up       : return Input_Button {.Mouse_Middle, .Left, mods, .Up}
-        case .Button_4_Down   : return Input_Button {.Mouse_4, .Left, mods, .Down}
-        case .Button_4_Up     : return Input_Button {.Mouse_4, .Left, mods, .Up}
-        case .Button_5_Down   : return Input_Button {.Mouse_5, .Left, mods, .Down}
-        case .Button_5_Up     : return Input_Button {.Mouse_5, .Left, mods, .Up}
+        switch flag {
+        case .Left_Down         : return Input_Button {.Mouse_Left, .Left, mods, .Down}
+        case .Left_Up           : return Input_Button {.Mouse_Left, .Left, mods, .Up}
+        case .Right_Down        : return Input_Button {.Mouse_Right, .Left, mods, .Down}
+        case .Right_Up          : return Input_Button {.Mouse_Right, .Left, mods, .Up}
+        case .Middle_Down       : return Input_Button {.Mouse_Middle, .Left, mods, .Down}
+        case .Middle_Up         : return Input_Button {.Mouse_Middle, .Left, mods, .Up}
+        case .Button_4_Down     : return Input_Button {.Mouse_4, .Left, mods, .Down}
+        case .Button_4_Up       : return Input_Button {.Mouse_4, .Left, mods, .Up}
+        case .Button_5_Down     : return Input_Button {.Mouse_5, .Left, mods, .Down}
+        case .Button_5_Up       : return Input_Button {.Mouse_5, .Left, mods, .Up}
+        case .Scroll_Vertical   : unreachable()
+        case .Scroll_Horizontal : unreachable()
         }
 
         unreachable()
@@ -595,13 +532,16 @@ RawInput_Mouse_Button_Flags :: bit_set[RawInput_Mouse_Button_Flag; win.USHORT]
 
 
 @(private="file")
-_dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOUSE) {
+_dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOUSE) -> (handled: bool) {
         runner := _wndproc_runner_from_user_data(hwnd)
         context = runner.ctx
 
         if raw_mouse.usFlags != win.MOUSE_MOVE_RELATIVE {
-                return
+                return false
         }
+
+        any_handled := false
+
         // Mouse movement
         if raw_mouse.lLastX != 0 || raw_mouse.lLastY != 0 {
                 context = _wndproc_runner_from_user_data(hwnd).ctx
@@ -614,7 +554,7 @@ _dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOU
                         }
                 }
 
-                _dispatch_callisto_event(hwnd, event)
+                any_handled |= _dispatch_callisto_event(hwnd, event)
         }
 
         // Mouse buttons
@@ -628,12 +568,14 @@ _dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOU
                 }
 
                 if button == .Scroll_Vertical || button == .Scroll_Horizontal {
-                        _dispatch_raw_scroll_wheel(hwnd, runner, button, raw_mouse.usButtonData)
+                        any_handled |= _dispatch_raw_scroll_wheel(hwnd, runner, button, raw_mouse.usButtonData)
                 } else {
                         event.event = _input_button_mouse_translate(button, raw_mouse.usButtonData, mods)
-                        _dispatch_callisto_event(hwnd, event)
+                        any_handled |= _dispatch_callisto_event(hwnd, event)
                 }
         }
+
+        return any_handled
 }
 
 
@@ -641,13 +583,14 @@ _dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOU
 // We still need to be able to send discrete wheel button presses for actions such as scrolling through
 // inventory items.
 @(private="file")
-_dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: RawInput_Mouse_Button_Flag, data: win.USHORT) {
+_dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: RawInput_Mouse_Button_Flag, data: win.USHORT) -> (handled: bool) {
         mods := _get_input_modifiers()
         event := Input_Event {
                 window = {{hwnd}},
                 device_id = 0,
         }
 
+        any_handled := false
         if button == .Scroll_Vertical {
                 scroll_lines: win.UINT
                 win.SystemParametersInfoW(win.SPI_GETWHEELSCROLLLINES, 0, &scroll_lines, 0)
@@ -664,7 +607,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                         }
 
                         for i in 0..<int(steps) {
-                                _dispatch_callisto_event(hwnd, event)
+                                any_handled |= _dispatch_callisto_event(hwnd, event)
                         }
                 } 
                 else if -runner.scroll_accumulator.y > f32(scroll_lines) {
@@ -677,7 +620,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                         }
 
                         for i in 0..<int(steps) {
-                                _dispatch_callisto_event(hwnd, event)
+                                any_handled |= _dispatch_callisto_event(hwnd, event)
                         }
                 }
 
@@ -689,7 +632,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                         value     = scroll_delta,
                 }
 
-                _dispatch_callisto_event(hwnd, event)
+                any_handled |= _dispatch_callisto_event(hwnd, event)
 
         } else if button == .Scroll_Horizontal {
                 scroll_chars: win.UINT
@@ -707,7 +650,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                         }
 
                         for i in 0..<int(steps) {
-                                _dispatch_callisto_event(hwnd, event)
+                                any_handled |= _dispatch_callisto_event(hwnd, event)
                         }
                 } 
                 else if -runner.scroll_accumulator.x > f32(scroll_chars) {
@@ -720,7 +663,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                         }
 
                         for i in 0..<int(steps) {
-                                _dispatch_callisto_event(hwnd, event)
+                                any_handled |= _dispatch_callisto_event(hwnd, event)
                         }
                 }
                 
@@ -731,6 +674,41 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                         value     = scroll_delta,
                 }
 
-                _dispatch_callisto_event(hwnd, event)
+                any_handled |= _dispatch_callisto_event(hwnd, event)
         }
+
+        return any_handled
+}
+
+
+@(private="file")
+_dispatch_raw_keyboard :: proc (hwnd: win.HWND, data: win.RAWKEYBOARD) -> (handled: bool) {
+        if data.VKey > u16(max(u8)) || data.MakeCode == 0xff {
+                return false
+        }
+
+        scancode_ext_byte := 
+                0xe0 if (data.Flags & win.RI_KEY_E0) != 0 else
+                0xe1 if (data.Flags & win.RI_KEY_E1) != 0 else
+                0x00
+
+        scancode := win.MAKEWORD(data.MakeCode & 0x7f, scancode_ext_byte)
+
+        vkey_translated := win.MapVirtualKeyW(win.UINT(scancode), win.MAPVK_VSC_TO_VK_EX)
+        button_pair := VKEY_MAPPING[VKey(vkey_translated)]
+
+        fmt.printfln("%x", vkey_translated)
+
+        event := Input_Event {
+                window    = {{hwnd}},
+                device_id = 0,
+                event = Input_Button {
+                        source    = button_pair.button,
+                        hand      = button_pair.hand,
+                        modifiers = _get_input_modifiers(),
+                        motion    = .Up if data.Flags & win.RI_KEY_BREAK != 0 else .Down,
+                }
+        }
+
+        return _dispatch_callisto_event(hwnd, event)
 }
