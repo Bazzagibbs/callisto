@@ -1,7 +1,6 @@
 package callisto
 import "base:intrinsics"
 import "base:runtime"
-import "core:encoding/cbor"
 import "core:reflect"
 import "core:strconv"
 import "core:log"

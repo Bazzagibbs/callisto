@@ -55,14 +55,20 @@ odin_app_name_arg     = f"-define:APP_NAME={APP_NAME}"
 odin_company_name_arg = f"-define:COMPANY_NAME={COMPANY_NAME}"
 odin_subsystem_arg    = "-subsystem:windows" if hide_console else ""
 
+
 COLOR_DIM = '\033[2;37m'
 COLOR_END = '\033[0m'
 
+ok = True
+
 # Create output directory
 if not os.path.exists(out_dir):
-    print(f"Creating directory {out_dir}")
-    os.makedirs(out_dir)
-
+    try:
+        print(f"Creating directory {out_dir}")
+        os.makedirs(out_dir)
+    except Exception as e:
+        print(e)
+        exit(1)
 
 # Delete all exe-related files from output directory (not assets)
 if args.config != "reload":
@@ -81,10 +87,11 @@ if build_runner:
     result = subprocess.run(command, cwd=os.getcwd(), stderr=sys.stderr, stdout=sys.stdout)
     if result.returncode != 0:
         print("\n[---] Failed to build runner")
+        ok = False
 
 
 print("\n[+] Building app DLL")
-                  # odin build . -debug -build-mode=shared -out=./out/staging.dll -define:APP_NAME="callisto_application" -define:COMPANY_NAME="callisto_default_company"
+# odin build . -debug -build-mode=shared -out=./out/staging.dll -define:APP_NAME="callisto_application" -define:COMPANY_NAME="callisto_default_company"
 #       && mv ./out/staging.dll ./out/game.dll
 #       ^^^^^ Make sure file watcher doesn't pick it up before compilation is finished
 staging_dll_name = os.path.join(out_dir, f"staging{dll_ext}")
@@ -94,10 +101,18 @@ command = f"odin build . -build-mode=shared {odin_debug_arg} -out={staging_dll_n
 print(COLOR_DIM + "    > " + command + COLOR_END)
 result = subprocess.run(command, cwd=os.getcwd(), stderr=sys.stderr, stdout=sys.stdout)
 if result.returncode == 0:
-    print("Renaming " + staging_dll_name + " -> " + out_dll_name)
-    os.replace(staging_dll_name, out_dll_name)
+    print("[+] Renaming " + staging_dll_name + " -> " + out_dll_name)
+    try:
+        os.replace(staging_dll_name, out_dll_name)
+    except Exception as e:
+        print("\n[---] Failed to rename DLL: " + e)
+        ok = False
 
 else:
     print("\n[---] Failed to compile DLL")
+    ok = False
 
+if not ok:
+    exit(1)
 
+print("[+++] Compilation complete\n")

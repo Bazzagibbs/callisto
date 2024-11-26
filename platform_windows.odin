@@ -26,7 +26,7 @@ get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string) {
         len := win.GetModuleFileNameW(nil, &buf[0], win.MAX_PATH)
 
         str, err := win.utf16_to_utf8(buf[:len], context.temp_allocator)
-        assert(err == .None, "Failed to acquire executable directory")
+        assert(err == .None && str != "", "Failed to acquire executable directory")
 
         return filepath.dir(str, allocator)
 }
@@ -36,13 +36,14 @@ get_persistent_directory :: proc(create_if_not_exist := true, allocator := conte
         path : ^win.WCHAR
         guid := win.FOLDERID_LocalAppData
 
-        hres := win.SHGetKnownFolderPath(&guid, win.DWORD(win.KNOWN_FOLDER_FLAG.CREATE), nil, &path)
+        hres := win.SHGetKnownFolderPath(&guid, 0, nil, &path)
         defer win.CoTaskMemFree(path)
+
 
         assert(check_hresult(hres) == .Ok, "Failed to acquire persitent directory")
        
-        dir, err := win.wstring_to_utf8(path, win.MAX_PATH, allocator)
-        assert(err == .None, "Failed to acquire persistent directory")
+        dir, err := win.wstring_to_utf8(path, -1, allocator)
+        assert(err == .None && dir != "", "Failed to acquire persistent directory")
 
         app_dir := filepath.join({dir, COMPANY_NAME, APP_NAME}, allocator)
         delete(dir, allocator)

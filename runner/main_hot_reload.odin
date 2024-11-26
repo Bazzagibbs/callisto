@@ -24,7 +24,6 @@ when HOT_RELOAD {
                 runner := default_runner() 
 
                 opts, level := callisto_logger_options()
-                fmt.println(level, opts)
                 callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
                 defer callisto_logger_destroy(&ctx.logger)
                 runner.ctx = ctx
