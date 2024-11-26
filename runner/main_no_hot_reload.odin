@@ -27,7 +27,7 @@ when !HOT_RELOAD {
                 context    = ctx
 
 
-                exe_dir, _ := get_exe_directory()
+                exe_dir := get_exe_directory()
                 dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
 
                 _, ok := dynlib.initialize_symbols(&runner.symbols, dll_path, handle_field_name="lib")

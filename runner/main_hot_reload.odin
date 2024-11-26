@@ -31,7 +31,7 @@ when HOT_RELOAD {
                 context    = ctx
 
 
-                exe_dir, _ := get_exe_directory()
+                exe_dir := get_exe_directory()
                 defer delete(exe_dir)
 
                 original_dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
@@ -98,40 +98,17 @@ when HOT_RELOAD {
         }
 
 
-        // Logic from core:os/os2 - will replace with os2 version when it's stable
-        copy_file :: proc(dst_path, src_path: string) -> (res: Dll_Result) {
-
-                src, res0 := os.open(src_path)
-                check_result_os(res0) or_return
-                defer os.close(src)
-
-                info, res1 := os.fstat(src)
-                check_result_os(res1) or_return
-                defer os.file_info_delete(info)
-                if info.is_dir {
-                        return .Invalid_File
-                }
-
-                dst, res2 := os.open(dst_path, os.O_RDWR | os.O_CREATE | os.O_TRUNC, int(info.mode) & 0o777)
-                check_result_os(res2) or_return
-                defer os.close(dst)
-                
-                _, io_res := io.copy(io.to_writer(os.stream_from_handle(dst)), io.to_reader(os.stream_from_handle(src)))
-                if io_res != .None {
-                        log.error("IO stream copy failed:", res)
-                        return .IO_Error
-                }
-                return .Ok
-        }
-
-
         app_dll_load :: proc(version_number: int, directory: string, symbols: ^Dll_Symbol_Table, timestamp: ^os.File_Time) -> (res: Dll_Result) {
 
                 dll_copy_name := fmt.tprintf(DLL_COPY_FMT, directory, version_number)
                 dll_original_name := fmt.tprintf(DLL_ORIGINAL_FMT, directory)
                 log.info("Loading DLL:", dll_copy_name)
 
-                copy_file(dll_copy_name, dll_original_name) or_return
+                err_copy := os2.copy_file(dll_copy_name, dll_original_name)
+                if err_copy != nil {
+                        log.error("File copy failed:", err_copy)
+                        return .IO_Error
+                }
                 
                 last_mod_time, err0 := os.last_write_time_by_name(dll_original_name)
                 check_result_os(err0) or_return

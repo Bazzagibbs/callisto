@@ -12,7 +12,7 @@ Profiler :: struct {
 
 
 profiler_init :: proc(p: ^Profiler) -> (res: Result) {
-        when PROFILER {
+        when PROFILER_ENABLED {
                 p.ctx = spall.context_create(PROFILER_FILE)
                 p.backing = make([]u8, spall.BUFFER_DEFAULT_SIZE)
                 p.buffer, _ = spall.buffer_create(p.backing)
@@ -21,7 +21,7 @@ profiler_init :: proc(p: ^Profiler) -> (res: Result) {
 }
 
 profiler_destroy :: proc(p: ^Profiler) {
-        when PROFILER {
+        when PROFILER_ENABLED {
                 spall.buffer_destroy(&p.ctx, &p.buffer)
                 spall.context_destroy(&p.ctx)
                 delete(p.backing)
@@ -31,13 +31,13 @@ profiler_destroy :: proc(p: ^Profiler) {
 
 @(deferred_in=_profile_scope_end)
 profile_scope :: proc(p: ^Profiler, loc := #caller_location) {
-        when PROFILER {
+        when PROFILER_ENABLED {
                 spall._buffer_begin(&p.ctx, &p.buffer, loc.procedure, "", loc)
         }
 }
 
 _profile_scope_end :: proc(p: ^Profiler, loc := #caller_location) {
-        when PROFILER {
+        when PROFILER_ENABLED {
                 spall._buffer_end(&p.ctx, &p.buffer)
         }
 }
