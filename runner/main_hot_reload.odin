@@ -10,6 +10,7 @@ import "core:time"
 import "core:path/filepath"
 import "core:log"
 import "core:mem"
+import cal ".."
 
 when HOT_RELOAD {
 
@@ -17,20 +18,20 @@ when HOT_RELOAD {
 
                 ctx: runtime.Context
                 track: mem.Tracking_Allocator
-                callisto_context_init(&ctx, &track)
-                defer callisto_context_destroy(&ctx, &track)
+                cal.callisto_context_init(&ctx, &track)
+                defer cal.callisto_context_destroy(&ctx, &track)
                 context = ctx
                 
                 runner := default_runner() 
 
-                opts, level := callisto_logger_options()
-                callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
-                defer callisto_logger_destroy(&ctx.logger)
+                opts, level := cal.callisto_logger_options()
+                cal.callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
+                defer cal.callisto_logger_destroy(&ctx.logger)
                 runner.ctx = ctx
                 context    = ctx
 
 
-                exe_dir := get_exe_directory()
+                exe_dir := cal.get_exe_directory()
                 defer delete(exe_dir)
 
                 original_dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
@@ -59,7 +60,7 @@ when HOT_RELOAD {
 
                         // watch dll for changes
                         if timestamp, changed := watch_dll_changed(&runner, original_dll_path); changed {
-                                new_runner_symbols : Dll_Symbol_Table
+                                new_runner_symbols : cal.Dll_Symbol_Table
                                 new_runner_timestamp : os.File_Time
                                 new_runner_version := runner.version + 1
 
@@ -87,7 +88,7 @@ when HOT_RELOAD {
         }
 
 
-        watch_dll_changed :: proc(runner: ^Runner, file_name: string) -> (timestamp: os.File_Time, changed: bool) {
+        watch_dll_changed :: proc(runner: ^cal.Runner, file_name: string) -> (timestamp: os.File_Time, changed: bool) {
                 watched_modified, res := os.last_write_time_by_name(file_name)
                 if res != os.ERROR_NONE  {
                         return watched_modified, false
@@ -97,7 +98,7 @@ when HOT_RELOAD {
         }
 
 
-        app_dll_load :: proc(version_number: int, directory: string, symbols: ^Dll_Symbol_Table, timestamp: ^os.File_Time) -> (res: Dll_Result) {
+        app_dll_load :: proc(version_number: int, directory: string, symbols: ^cal.Dll_Symbol_Table, timestamp: ^os.File_Time) -> (res: Dll_Result) {
 
                 dll_copy_name := fmt.tprintf(DLL_COPY_FMT, directory, version_number)
                 dll_original_name := fmt.tprintf(DLL_ORIGINAL_FMT, directory)

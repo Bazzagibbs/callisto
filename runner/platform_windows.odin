@@ -24,7 +24,7 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
         switch uMsg {
         case win.WM_CREATE:
                 createstruct := transmute(^win.CREATESTRUCTW)(lparam)
-                runner := (^Runner)(createstruct.lpCreateParams)
+                runner := (^cal.Runner)(createstruct.lpCreateParams)
                 win.SetWindowLongPtrW(hwnd, win.GWLP_USERDATA, transmute(int)(runner))
 
                 context = runner.ctx
@@ -39,9 +39,9 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                         window_rect.bottom - window_rect.top
                 }
 
-                event := Window_Event {
+                event := cal.Window_Event {
                         window = {{hwnd}},
-                        event = Window_Opened {
+                        event = cal.Window_Opened {
                                 position = {window_rect.left, window_rect.top},
                                 pixel_size  = pixel_size,
                                 scaled_size = {i32(f32(pixel_size.x) / dpi_scale), i32(f32(pixel_size.y) / dpi_scale)},
@@ -60,7 +60,7 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                         i32(win.HIWORD(lparam))
                 }
 
-                window_event := Window_Resized {
+                window_event := cal.Window_Resized {
                         pixel_size  = pixel_size,
                         scaled_size = {i32(f32(pixel_size.x) / dpi_scale), i32(f32(pixel_size.y) / dpi_scale)},
                         dpi_scale   = dpi_scale,
@@ -77,7 +77,7 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                         case win.SIZE_RESTORED:   window_event.type = .Restored
                         }
                 }
-                event := Window_Event {
+                event := cal.Window_Event {
                         window = {{hwnd = hwnd}},
                         event  = window_event,
                 }
@@ -87,9 +87,9 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                 }
 
         case win.WM_MOVE:
-                event := Window_Event {
+                event := cal.Window_Event {
                         window = {{hwnd = hwnd}},
-                        event = Window_Moved {
+                        event = cal.Window_Moved {
                                 position = {i32(win.LOWORD(lparam)), i32(win.HIWORD(lparam))}
                         }
                 }
@@ -108,9 +108,9 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
 
                 text, _ := utf8.decode_rune_in_bytes(utf8_character[:utf8_length])
 
-                event := Input_Event {
+                event := cal.Input_Event {
                         window = {{hwnd}},
-                        event = Input_Text {
+                        event = cal.Input_Text {
                                 text = text,
                                 modifiers = _get_input_modifiers(),
                         }
@@ -160,9 +160,9 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
 
 
         case win.WM_CLOSE:
-                event := Window_Event {
+                event := cal.Window_Event {
                         window = {{hwnd}},
-                        event  = Window_Close_Request{},
+                        event  = cal.Window_Close_Request{},
                 }
 
                 if _dispatch_callisto_event(hwnd, event) {
@@ -171,9 +171,9 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
 
 
         case win.WM_DESTROY: 
-                event := Window_Event {
+                event := cal.Window_Event {
                         window = {{hwnd}},
-                        event = Window_Closed{},
+                        event = cal.Window_Closed{},
                 }
 
                 if _dispatch_callisto_event(hwnd, event) {
@@ -193,12 +193,12 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
 }
 
 @(private="file")
-_wndproc_runner_from_user_data :: #force_inline proc "contextless" (hwnd: win.HWND) -> ^Runner {
-        return transmute(^Runner)win.GetWindowLongPtrW(hwnd, win.GWLP_USERDATA)
+_wndproc_runner_from_user_data :: #force_inline proc "contextless" (hwnd: win.HWND) -> ^cal.Runner {
+        return transmute(^cal.Runner)win.GetWindowLongPtrW(hwnd, win.GWLP_USERDATA)
 }
 
 @(private="file")
-_dispatch_callisto_event :: #force_inline proc "contextless" (hwnd: win.HWND, event: Event) -> (handled: bool) {
+_dispatch_callisto_event :: #force_inline proc "contextless" (hwnd: win.HWND, event: cal.Event) -> (handled: bool) {
         runner := _wndproc_runner_from_user_data(hwnd)
         if runner == nil {
                 return false
@@ -208,7 +208,7 @@ _dispatch_callisto_event :: #force_inline proc "contextless" (hwnd: win.HWND, ev
         return runner.symbols.callisto_event(event, runner.app_memory)
 }
 
-platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: Result) {
+platform_init :: proc (runner: ^cal.Runner, init_info: ^cal.Engine_Init_Info) -> (res: cal.Result) {
         hIcon : win.HICON
 
         if init_info.icon != nil {
@@ -267,12 +267,12 @@ platform_init :: proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> (res: R
 }
 
 
-platform_destroy :: proc (runner: ^Runner) {
+platform_destroy :: proc (runner: ^cal.Runner) {
         // if using custom icon, destroy it now
 }
 
 
-window_create :: proc (runner: ^Runner, create_info: ^Window_Create_Info, out_window: ^Window) -> (res: Result) {
+window_init :: proc (runner: ^cal.Runner, window: ^cal.Window, create_info: ^cal.Window_Init_Info) -> (res: cal.Result) {
         dwStyle : win.DWORD
 
         pos  := [2]c.int{win.CW_USEDEFAULT, win.CW_USEDEFAULT}
@@ -293,7 +293,7 @@ window_create :: proc (runner: ^Runner, create_info: ^Window_Create_Info, out_wi
 
         win.SetProcessDpiAwarenessContext(win.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE)
 
-        out_window._platform.hwnd = win.CreateWindowExW(
+        window._platform.hwnd = win.CreateWindowExW(
                 dwExStyle    = win.WS_EX_OVERLAPPEDWINDOW,
                 lpClassName  = win.L(WIN_CLASS_NAME),
                 lpWindowName = raw_data(win.utf8_to_utf16(create_info.name)),
@@ -308,7 +308,7 @@ window_create :: proc (runner: ^Runner, create_info: ^Window_Create_Info, out_wi
                 lpParam      = runner
         )
 
-        if out_window._platform.hwnd == nil {
+        if window._platform.hwnd == nil {
                 log.error("window_create failed")
                 return .Platform_Error
         }
@@ -318,17 +318,17 @@ window_create :: proc (runner: ^Runner, create_info: ^Window_Create_Info, out_wi
 }
 
 
-window_destroy :: proc (runner: ^Runner, window: ^Window) {
+window_destroy :: proc (runner: ^cal.Runner, window: ^cal.Window) {
         win.DestroyWindow(window._platform.hwnd)
 }
 
 
-event_pump :: proc (runner: ^Runner) {
+event_pump :: proc (runner: ^cal.Runner) {
         msg: win.MSG
         for win.PeekMessageW(&msg, nil, 0, 0, win.PM_REMOVE) {
                 if msg.message == win.WM_QUIT {
                         runner.should_close = true
-                        runner.exit_code = Exit_Code(msg.wParam)
+                        runner.exit_code = cal.Exit_Code(msg.wParam)
                 }
 
                 win.TranslateMessage(&msg)
@@ -337,12 +337,12 @@ event_pump :: proc (runner: ^Runner) {
 }
 
 
-event_wait :: proc (runner: ^Runner) {
+event_wait :: proc (runner: ^cal.Runner) {
         msg: win.MSG
         // Blocks until there's a message in the queue
         if win.GetMessageW(&msg, nil, 0, 0) == 0 {
                 runner.should_close = true
-                runner.exit_code = Exit_Code(msg.wParam)
+                runner.exit_code = cal.Exit_Code(msg.wParam)
         }
 
         win.TranslateMessage(&msg)
@@ -350,7 +350,7 @@ event_wait :: proc (runner: ^Runner) {
 }
 
 @(private="file")
-_window_style_to_win32 :: proc(style: Window_Style_Flags) -> win.DWORD {
+_window_style_to_win32 :: proc(style: cal.Window_Style_Flags) -> win.DWORD {
         dwStyle := win.WS_OVERLAPPED | win.WS_VISIBLE
 
         if .Border in style {
@@ -387,8 +387,8 @@ assert_messagebox :: proc(assertion: bool, message_args: ..any, loc := #caller_l
 }
 
 @(private="file")
-_get_input_modifiers :: proc "contextless" () -> Input_Modifiers {
-        mods := Input_Modifiers {}
+_get_input_modifiers :: proc "contextless" () -> cal.Input_Modifiers {
+        mods := cal.Input_Modifiers {}
         if Key_State(win.GetKeyState(win.VK_SHIFT)).is_pressed {
                 mods += {.Shift}
         }
@@ -407,19 +407,19 @@ _get_input_modifiers :: proc "contextless" () -> Input_Modifiers {
 }
 
 
-_input_button_mouse_translate :: proc "contextless" (flag: RawInput_Mouse_Button_Flag, data: win.USHORT, mods: Input_Modifiers) -> (union {
-        Input_Text, Input_Button, Input_Vector1, Input_Vector2, Input_Vector3})  {
+_input_button_mouse_translate :: proc "contextless" (flag: RawInput_Mouse_Button_Flag, data: win.USHORT, mods: cal.Input_Modifiers) -> (union {
+        cal.Input_Text, cal.Input_Button, cal.Input_Vector1, cal.Input_Vector2, cal.Input_Vector3})  {
         switch flag {
-        case .Left_Down         : return Input_Button {.Mouse_Left, .Left, mods, .Down}
-        case .Left_Up           : return Input_Button {.Mouse_Left, .Left, mods, .Up}
-        case .Right_Down        : return Input_Button {.Mouse_Right, .Left, mods, .Down}
-        case .Right_Up          : return Input_Button {.Mouse_Right, .Left, mods, .Up}
-        case .Middle_Down       : return Input_Button {.Mouse_Middle, .Left, mods, .Down}
-        case .Middle_Up         : return Input_Button {.Mouse_Middle, .Left, mods, .Up}
-        case .Button_4_Down     : return Input_Button {.Mouse_4, .Left, mods, .Down}
-        case .Button_4_Up       : return Input_Button {.Mouse_4, .Left, mods, .Up}
-        case .Button_5_Down     : return Input_Button {.Mouse_5, .Left, mods, .Down}
-        case .Button_5_Up       : return Input_Button {.Mouse_5, .Left, mods, .Up}
+        case .Left_Down         : return cal.Input_Button {.Mouse_Left, .Left, mods, .Down}
+        case .Left_Up           : return cal.Input_Button {.Mouse_Left, .Left, mods, .Up}
+        case .Right_Down        : return cal.Input_Button {.Mouse_Right, .Left, mods, .Down}
+        case .Right_Up          : return cal.Input_Button {.Mouse_Right, .Left, mods, .Up}
+        case .Middle_Down       : return cal.Input_Button {.Mouse_Middle, .Left, mods, .Down}
+        case .Middle_Up         : return cal.Input_Button {.Mouse_Middle, .Left, mods, .Up}
+        case .Button_4_Down     : return cal.Input_Button {.Mouse_4, .Left, mods, .Down}
+        case .Button_4_Up       : return cal.Input_Button {.Mouse_4, .Left, mods, .Up}
+        case .Button_5_Down     : return cal.Input_Button {.Mouse_5, .Left, mods, .Down}
+        case .Button_5_Up       : return cal.Input_Button {.Mouse_5, .Left, mods, .Up}
         case .Scroll_Vertical   : unreachable()
         case .Scroll_Horizontal : unreachable()
         }
@@ -486,10 +486,10 @@ _dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOU
         // Mouse movement
         if raw_mouse.lLastX != 0 || raw_mouse.lLastY != 0 {
                 context = _wndproc_runner_from_user_data(hwnd).ctx
-                event := Input_Event {
+                event := cal.Input_Event {
                         window    = {{hwnd}},
                         device_id = 0,
-                        event = Input_Vector2 {
+                        event = cal.Input_Vector2 {
                                 source = .Mouse_Move_Raw,
                                 value  = {f32(raw_mouse.lLastX), f32(raw_mouse.lLastY)},
                         }
@@ -503,7 +503,7 @@ _dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOU
         mods := _get_input_modifiers()
 
         for button in buttons {
-                event := Input_Event {
+                event := cal.Input_Event {
                         window    = {{hwnd}},
                         device_id = 0,
                 }
@@ -524,9 +524,9 @@ _dispatch_raw_mouse :: proc "contextless" (hwnd: win.HWND, raw_mouse: win.RAWMOU
 // We still need to be able to send discrete wheel button presses for actions such as scrolling through
 // inventory items.
 @(private="file")
-_dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: RawInput_Mouse_Button_Flag, data: win.USHORT) -> (handled: bool) {
+_dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^cal.Runner, button: RawInput_Mouse_Button_Flag, data: win.USHORT) -> (handled: bool) {
         mods := _get_input_modifiers()
-        event := Input_Event {
+        event := cal.Input_Event {
                 window = {{hwnd}},
                 device_id = 0,
         }
@@ -541,7 +541,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                 if runner.scroll_accumulator.y > f32(scroll_lines) {
                         steps := math.floor_f32(runner.scroll_accumulator.y / f32(scroll_lines))
                         runner.scroll_accumulator.y -= steps
-                        event.event = Input_Button {
+                        event.event = cal.Input_Button {
                                 source    = .Mouse_Scroll_Up,
                                 modifiers = mods,
                                 motion    = .Instant,
@@ -554,7 +554,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                 else if -runner.scroll_accumulator.y > f32(scroll_lines) {
                         steps := math.floor_f32(-runner.scroll_accumulator.y / f32(scroll_lines))
                         runner.scroll_accumulator.y += steps
-                        event.event = Input_Button {
+                        event.event = cal.Input_Button {
                                 source    = .Mouse_Scroll_Down,
                                 modifiers = mods,
                                 motion    = .Instant,
@@ -567,7 +567,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
 
                 
                 // Dispatch smooth scroll
-                event.event = Input_Vector1 {
+                event.event = cal.Input_Vector1 {
                         source    = .Mouse_Scroll_Smooth_Vertical,
                         modifiers = mods,
                         value     = scroll_delta,
@@ -584,7 +584,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                 if runner.scroll_accumulator.x > f32(scroll_chars) {
                         steps := math.floor_f32(runner.scroll_accumulator.x / f32(scroll_chars))
                         runner.scroll_accumulator.x -= steps
-                        event.event = Input_Button {
+                        event.event = cal.Input_Button {
                                 source    = .Mouse_Scroll_Right,
                                 modifiers = mods,
                                 motion    = .Instant,
@@ -597,7 +597,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                 else if -runner.scroll_accumulator.x > f32(scroll_chars) {
                         steps := math.floor_f32(-runner.scroll_accumulator.x / f32(scroll_chars))
                         runner.scroll_accumulator.x += steps
-                        event.event = Input_Button {
+                        event.event = cal.Input_Button {
                                 source    = .Mouse_Scroll_Left,
                                 modifiers = mods,
                                 motion    = .Instant,
@@ -609,7 +609,7 @@ _dispatch_raw_scroll_wheel :: proc (hwnd: win.HWND, runner: ^Runner, button: Raw
                 }
                 
                 // Dispatch smooth scroll
-                event.event = Input_Vector1 {
+                event.event = cal.Input_Vector1 {
                         source    = .Mouse_Scroll_Smooth_Horizontal,
                         modifiers = mods,
                         value     = scroll_delta,
@@ -638,10 +638,10 @@ _dispatch_raw_keyboard :: proc (hwnd: win.HWND, data: win.RAWKEYBOARD) -> (handl
         vkey_translated := win.MapVirtualKeyW(win.UINT(scancode), win.MAPVK_VSC_TO_VK_EX)
         button_pair := VKEY_MAPPING[VKey(vkey_translated)]
 
-        event := Input_Event {
+        event := cal.Input_Event {
                 window    = {{hwnd}},
                 device_id = 0,
-                event = Input_Button {
+                event = cal.Input_Button {
                         source    = button_pair.button,
                         hand      = button_pair.hand,
                         modifiers = _get_input_modifiers(),

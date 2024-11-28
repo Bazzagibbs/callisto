@@ -4,7 +4,7 @@ Window :: struct {
         _platform : Platform_Window,
 }
 
-Window_Create_Info :: struct {
+Window_Init_Info :: struct {
         name     : string,
         style    : Window_Style_Flags,
         position : Maybe([2]int),
@@ -25,9 +25,9 @@ window_style_default :: #force_inline proc "contextless" () -> Window_Style_Flag
         return {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
 }
 
-window_create :: proc(e: ^Engine, create_info: ^Window_Create_Info, out_window: ^Window) -> (res: Result) {
-        validate_info(create_info)
-        return e.runner->window_create(create_info, out_window)
+window_init :: proc(e: ^Engine, w: ^Window, init_info: ^Window_Init_Info) -> (res: Result) {
+        validate_info(init_info)
+        return e.runner->window_init(w, init_info)
 }
 
 window_destroy :: proc(e: ^Engine, window: ^Window) {

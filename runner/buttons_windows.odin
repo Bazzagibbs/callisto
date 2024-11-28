@@ -1,6 +1,7 @@
 package callisto_runner
 
 import win "core:sys/windows"
+import cal ".."
 
 VKey :: enum u8 {
         UNKNOWN = 0x00,
@@ -266,8 +267,8 @@ VKey_Flag :: enum {
 VKey_Flags :: bit_set[VKey_Flag; u16]
 
 Button_Hand_Pair :: struct #packed {
-        button : Input_Button_Source,
-        hand   : Input_Hand,
+        button : cal.Input_Button_Source,
+        hand   : cal.Input_Hand,
 }
 
 VKEY_MAPPING := #sparse [VKey]Button_Hand_Pair {

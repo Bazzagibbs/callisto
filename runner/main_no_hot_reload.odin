@@ -7,6 +7,7 @@ import "core:path/filepath"
 import "core:fmt"
 import "core:os"
 import "core:mem"
+import cal ".."
 
 when !HOT_RELOAD {
 
@@ -14,20 +15,20 @@ when !HOT_RELOAD {
                 
                 ctx : runtime.Context
                 track : mem.Tracking_Allocator
-                callisto_context_init(&ctx, &track) 
-                defer callisto_context_destroy(&ctx, &track)
+                cal.callisto_context_init(&ctx, &track) 
+                defer cal.callisto_context_destroy(&ctx, &track)
                 context = ctx
 
                 runner := default_runner()
                
-                opts, level := callisto_logger_options()
-                callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
-                defer callisto_logger_destroy(&ctx.logger)
+                opts, level := cal.callisto_logger_options()
+                cal.callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
+                defer cal.callisto_logger_destroy(&ctx.logger)
                 runner.ctx = ctx
                 context    = ctx
 
 
-                exe_dir := get_exe_directory()
+                exe_dir := cal.get_exe_directory()
                 dll_path := fmt.aprintf(DLL_ORIGINAL_FMT, exe_dir)
 
                 _, ok := dynlib.initialize_symbols(&runner.symbols, dll_path, handle_field_name="lib")

@@ -21,7 +21,7 @@ Runner :: struct {
 
         platform_init            : #type proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> Result,
         platform_destroy         : #type proc (runner: ^Runner),
-        window_create            : #type proc (runner: ^Runner, create_info: ^Window_Create_Info, out_window: ^Window) -> Result,
+        window_init              : #type proc (runner: ^Runner, window: ^Window, init_info: ^Window_Init_Info) -> Result,
         window_destroy           : #type proc (runner: ^Runner, window: ^Window),
         event_pump               : #type proc (runner: ^Runner),
         logger_proc              : #type proc (logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location),
