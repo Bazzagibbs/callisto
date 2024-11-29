@@ -1,7 +1,7 @@
 package callisto_gpu
 
 import "core:os/os2"
-import vk "vendor:vulkan"
+import vk "../vendor_mod/vulkan"
 import "core:dynlib"
 import "../common"
 
@@ -11,8 +11,8 @@ import "../common"
 // Doing so will break the ability to port to a different renderer in the future.
 Device :: struct {
         // I'm so sorry but it must be done for hot reload support
-        using vtable_loader   : VK_Loader_VTable,
-        using vtable_instance : VK_Instance_VTable,
+        using vtable_loader   : vk.Loader_VTable,
+        using vtable_instance : vk.Instance_VTable,
         using vtable_device   : vk.Device_VTable,
 
         instance              : vk.Instance,

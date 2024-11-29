@@ -1,6 +1,6 @@
 package callisto_gpu
 
-import vk "vendor:vulkan"
+import vk "../vendor_mod/vulkan"
 import "../config"
 import "core:log"
 
@@ -98,7 +98,7 @@ _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Res
                 d.DestroyInstance(d.instance, nil)
         }
 
-        _vk_load_proc_addresses_instance_vtable(d.instance, d.GetInstanceProcAddr, &d.vtable_instance)
+        vk.load_proc_addresses_instance_vtable(d.instance, d.GetInstanceProcAddr, &d.vtable_instance)
 
 
         when VK_VALIDATION_LAYER {
@@ -116,7 +116,7 @@ _vk_physical_device_select :: proc(d: ^Device, init_info: ^Device_Init_Info) -> 
 
 
 _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result) {
-        load_proc_addresses_device_vtable(d.device, d.GetDeviceProcAddr, &d.vtable_device)
+        vk.load_proc_addresses_device_vtable(d.device, d.GetDeviceProcAddr, &d.vtable_device)
         unimplemented()
 }
 

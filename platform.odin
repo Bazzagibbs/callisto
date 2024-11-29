@@ -24,8 +24,6 @@ event_pump :: proc(e: ^Engine) {
 
 // Implemented in platform_*.odin
 
-// Platform                 :: struct
-// Platform_Window          :: struct
 // exit                     :: proc(exit_code: Exit_Code)
 // get_exe_directory        :: proc(allocator := context.allocator) -> string
 // get_persistent_directory :: proc(allocator := context.allocator) -> string

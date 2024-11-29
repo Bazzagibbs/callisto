@@ -5,7 +5,7 @@ import "core:path/filepath"
 import "core:os/os2"
 import "core:strings"
 import "core:log"
-import vk "vendor:vulkan"
+import vk "../vendor_mod/vulkan"
 import "../config"
 
 // when RHI == "vulkan"

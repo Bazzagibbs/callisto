@@ -5,7 +5,7 @@ import "core:dynlib"
 import "core:log"
 import "../config"
 
-import vk "vendor:vulkan"
+import vk "../vendor_mod/vulkan"
 
 Runner :: struct {
         ctx                      : runtime.Context,

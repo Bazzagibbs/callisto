@@ -2,7 +2,7 @@ package callisto_gpu
 
 import "base:runtime"
 import win "core:sys/windows"
-import vk "vendor:vulkan"
+import vk "../vendor_mod/vulkan"
 import "../config"
 
 // when config.RHI == "vulkan"
@@ -17,5 +17,5 @@ _vk_loader :: proc (d: ^Device) {
                 panic("Failed to load Vulkan procs")
         }
 
-        _vk_load_proc_addresses_loader_vtable(get_instance_proc_address, &d.vtable_loader)
+        vk.load_proc_addresses_loader_vtable(get_instance_proc_address, &d.vtable_loader)
 }
