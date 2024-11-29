@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import sys
 import os
+import shutil
 
 APP_NAME           = "callisto_app"
 COMPANY_NAME       = "callisto_default_company"
@@ -43,10 +44,12 @@ if os.path.basename(os.getcwd()) == "callisto":
     print("ERROR: build script called from callisto package. Call this script from the root directory of your project.")
     exit(1)
 
-runner_dir            = os.path.normpath(os.path.join(CALLISTO_DIRECTORY, "runner"))
-out_dir               = os.path.normpath(os.path.join(os.getcwd(), args.out))
-exe_ext               = ".exe" if sys.platform == "win32" else ""
-dll_ext               = ".dll" if sys.platform == "win32" else ".so"
+runner_dir     = os.path.normpath(os.path.join(CALLISTO_DIRECTORY, "runner"))
+out_dir        = os.path.normpath(os.path.join(os.getcwd(), args.out))
+data_dest_dir  = os.path.normpath(os.path.join(out_dir, "data"))
+
+exe_ext        = ".exe" if sys.platform=="win32" else ""
+dll_ext        = ".dll" if sys.platform=="win32" else ".so"
 
 
 odin_debug_arg        = "-debug" if debug_symbols_enabled else ""
@@ -55,6 +58,11 @@ odin_app_name_arg     = f"-define:APP_NAME={APP_NAME}"
 odin_company_name_arg = f"-define:COMPANY_NAME={COMPANY_NAME}"
 odin_subsystem_arg    = "-subsystem:windows" if hide_console else ""
 
+asset_src_dir   = os.path.normpath(ASSET_DIRECTORY)
+asset_dest_dir  = os.path.normpath(os.path.join(data_dest_dir, "assets"))
+libs_src_subdir = "debug" if debug_symbols_enabled else "release"
+libs_src_dir    = os.path.normpath(os.path.join(CALLISTO_DIRECTORY, "shipping_libs", libs_src_subdir))
+libs_dest_dir   = os.path.normpath(os.path.join(data_dest_dir, "libs"))
 
 COLOR_DIM = '\033[2;37m'
 COLOR_END = '\033[0m'
@@ -70,9 +78,25 @@ if not os.path.exists(out_dir):
         print(e)
         exit(1)
 
+            
+
+
 # Delete all exe-related files from output directory (not assets)
+print("Args config: " + args.config)
 if args.config != "reload":
     extensions_to_delete = [".exe", ".pdb", ".exp", ".rdi", ".dll", ".so", ".dynlib", ".lib"]
+    try:
+        if os.path.exists(data_dest_dir):
+            shutil.rmtree(data_dest_dir)
+
+        shutil.copytree(libs_src_dir, libs_dest_dir)
+        if os.path.exists(asset_src_dir):
+            shutil.copytree(asset_src_dir, asset_dest_dir)
+
+    except Exception as e:
+        print(e)
+        exit(1)
+
     for f in os.listdir(out_dir):
         _, ext = os.path.splitext(f)
         if ext in extensions_to_delete:

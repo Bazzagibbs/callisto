@@ -12,7 +12,6 @@ import "core:io"
 import "core:bytes"
 
 HOT_RELOAD :: #config(HOT_RELOAD, false)
-APP_NAME   :: cal.APP_NAME
 
 NO_LOG_FILE :: #config(NO_LOG_FILE, false)
 LOG_FILE_MAX_SIZE := #config(LOG_MAX_FILE_SIZE, 10_000_000) // 10 MB x 2 files

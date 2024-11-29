@@ -11,8 +11,8 @@ APP_VERSION_PATCH         :: #config(APP_VERSION_PATCH, 1)
 
 COMPANY_NAME              :: #config(COMPANY_NAME, "callisto_default_company")
 
-SHIPPING_LIBS_PATH        :: #config(SHIPPING_LIBS_PATH, "data/libs")
-ASSET_DB_PATH             :: #config(ASSET_DB_PATH, "data/assetdb")
+SHIPPING_LIBS_PATH        :: "data/libs"
+ASSET_DB_PATH             :: "data/assets"
 
 VERBOSE                   :: ODIN_DEBUG || #config(VERBOSE, false)
 PROFILER_ENABLED          :: #config(PROFILER_ENABLED, false)
