@@ -89,6 +89,7 @@ if args.config != "reload":
         if os.path.exists(data_dest_dir):
             shutil.rmtree(data_dest_dir)
 
+        # TODO(RHI): only copy subdirs if built with the corresponding option, e.g. RHI="vulkan"
         shutil.copytree(libs_src_dir, libs_dest_dir)
         if os.path.exists(asset_src_dir):
             shutil.copytree(asset_src_dir, asset_dest_dir)
