@@ -46,7 +46,7 @@ callisto_logger_options :: proc "contextless" () -> (opts: log.Options, level: l
                         .Level,
                         .Time,
                         .Line,
-                        .Procedure,
+                        // .Procedure,
                         .Short_File_Path,
                 }
         } else {

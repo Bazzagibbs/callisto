@@ -1,5 +1,7 @@
 package callisto_gpu
 
+import "../common"
+
 Result :: enum {
         Ok,
         Unknown_RHI_Error,
@@ -12,7 +14,7 @@ Result :: enum {
 
 
 Device_Init_Info :: struct {
-        // runner: 
+        runner: ^common.Runner
 }
 
 Swapchain_Init_Info :: struct {}

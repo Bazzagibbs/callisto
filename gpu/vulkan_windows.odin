@@ -7,10 +7,7 @@ import "../config"
 
 // when config.RHI == "vulkan"
 
-@(init) 
-_vk_loader :: proc "contextless" () {
-        context = runtime.default_context()
-
+_vk_loader :: proc (d: ^Device) {
         vk_lib := win.LoadLibraryW(win.L("vulkan-1.dll"))
         if vk_lib == nil {
                 panic("Failed to load Vulkan DLL")
@@ -20,5 +17,5 @@ _vk_loader :: proc "contextless" () {
                 panic("Failed to load Vulkan procs")
         }
 
-        vk.load_proc_addresses_global(get_instance_proc_address)
+        _vk_load_proc_addresses_loader_vtable(get_instance_proc_address, &d.vtable_loader)
 }
