@@ -13,6 +13,7 @@ Device :: struct {
         using vtable_instance : VK_Instance_VTable,
         using vtable_device   : vk.Device_VTable,
 
+        debug_messenger : vk.DebugUtilsMessengerEXT,
         instance        : vk.Instance,
         device          : vk.Device,
         phys_device     : vk.PhysicalDevice,
@@ -37,6 +38,7 @@ Semaphore      :: struct {} // GPU -> GPU sync
 
 device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result) {
         _vk_instance_init(d, init_info) or_return
+        // _vk_debug_messenger_init(d, init_info)
         _vk_physical_device_select(d, init_info) or_return
         _vk_device_init(d, init_info) or_return
 

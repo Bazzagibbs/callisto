@@ -10,18 +10,16 @@ import "core:os/os2"
 import "core:os"
 import "core:io"
 import "core:bytes"
+import "../config"
 
 HOT_RELOAD :: #config(HOT_RELOAD, false)
 
-NO_LOG_FILE :: #config(NO_LOG_FILE, false)
-LOG_FILE_MAX_SIZE := #config(LOG_MAX_FILE_SIZE, 10_000_000) // 10 MB x 2 files
-// LOG_FILE_MAX_SIZE := #config(LOG_MAX_FILE_SIZE, 10_000) // 10 KB for testing
 
 NO_STDOUT :: ODIN_OS == .Windows && ODIN_WINDOWS_SUBSYSTEM == "windows"
 
 
 default_runner :: proc (ctx := context) -> cal.Runner {
-        return cal.Runner {
+        runner := cal.Runner {
                 ctx              = ctx,
                 should_close     = false,
                 platform_init    = platform_init,
@@ -31,6 +29,12 @@ default_runner :: proc (ctx := context) -> cal.Runner {
                 event_pump       = event_pump,
                 logger_proc      = logger_multi_proc,
         }
+
+        when config.RHI == "vulkan" {
+                runner.rhi_logger_proc = vk_debug_messenger
+        }
+
+        return runner
 }
 
 

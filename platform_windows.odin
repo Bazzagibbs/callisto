@@ -9,13 +9,6 @@ import "core:strings"
 import "core:os/os2"
 import "config"
 
-Platform :: struct {
-        window_icon : win.HICON,
-}
-
-Platform_Window :: struct {
-        hwnd : win.HWND,
-}
 
 exit :: proc(exit_code := Exit_Code.Ok) {
         win.PostQuitMessage(win.INT(exit_code))

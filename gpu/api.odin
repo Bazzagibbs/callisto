@@ -11,7 +11,9 @@ Result :: enum {
 }
 
 
-Device_Init_Info :: struct {}
+Device_Init_Info :: struct {
+        // runner: 
+}
 
 Swapchain_Init_Info :: struct {}
 

@@ -1,6 +1,4 @@
-package callisto
-
-import "core:math/linalg"
+package callisto_common
 
 // `.Before_Loop` - Every frame, automatically flush all events from the queue.
 // `.Before_Loop_Wait` - Only draw a frame when there's an event available. Useful for editors or apps that don't need to be constantly updated.
@@ -32,11 +30,6 @@ Window_Event :: struct {
         }
 }
 
-
-
-Window_Moving :: struct {
-        position : [2]i32
-}
 
 Window_Moved :: struct {
         position : [2]i32
@@ -356,10 +349,4 @@ Input_Vector3_Source :: enum {
         // Gamepad_Gyroscope,
         // VR_Tracker_Position,
         // VR_Tracker_Rotation,
-}
-
-// Pumps all events in the event queue, then returns.
-// Only required if engine was initialized with `event_behaviour = .Manual`
-event_pump :: proc(e: ^Engine) {
-        e.runner->event_pump()
 }

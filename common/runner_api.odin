@@ -1,8 +1,11 @@
-package callisto
+package callisto_common
 import "base:runtime"
 import "core:os"
 import "core:dynlib"
 import "core:log"
+import "../config"
+
+import vk "vendor:vulkan"
 
 Runner :: struct {
         ctx                      : runtime.Context,
@@ -25,6 +28,11 @@ Runner :: struct {
         window_destroy           : #type proc (runner: ^Runner, window: ^Window),
         event_pump               : #type proc (runner: ^Runner),
         logger_proc              : #type proc (logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location),
+        rhi_logger_proc          : Proc_RHI_Logger,
+}
+
+when config.RHI == "vulkan" {
+        Proc_RHI_Logger :: vk.ProcDebugUtilsMessengerCallbackEXT
 }
 
 Dll_Symbol_Table :: struct {

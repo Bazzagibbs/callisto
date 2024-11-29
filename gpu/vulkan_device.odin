@@ -48,11 +48,19 @@ _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Res
                 log.error("Could not prepend the Vulkan Layer environment variable")
         }
 
+
+        enabled_extensions := []cstring {
+                vk.KHR_SURFACE_EXTENSION_NAME,
+                vk.EXT_SHADER_OBJECT_EXTENSION_NAME,
+        }
+
         create_info := vk.InstanceCreateInfo {
-                sType = .INSTANCE_CREATE_INFO,
-                pApplicationInfo = &app_info,
-                enabledLayerCount = len32(enabled_layers),
+                sType               = .INSTANCE_CREATE_INFO,
+                pApplicationInfo    = &app_info,
+                enabledLayerCount   = len32(enabled_layers),
                 ppEnabledLayerNames = raw_data(enabled_layers),
+                enabledExtensionCount = len32(enabled_extensions),
+                ppEnabledExtensionNames = raw_data(enabled_extensions),
         }
 
         vkres := vk.CreateInstance(&create_info, nil, &d.instance)

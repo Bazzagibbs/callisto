@@ -9,6 +9,7 @@ import "core:time"
 import "core:encoding/ansi"
 import "core:io"
 import cal ".."
+import "../config"
 
 
 logger_multi_proc :: proc(logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location) {
@@ -17,7 +18,7 @@ logger_multi_proc :: proc(logger_data: rawptr, level: log.Level, text: string, o
         if data.file_a != nil {
                 file_opts := options - {.Terminal_Color}
                 data.file_write_size += logger_file(data.file_a, level, text, file_opts, location)
-                if data.file_write_size >= LOG_FILE_MAX_SIZE {
+                if data.file_write_size >= config.LOG_FILE_MAX_SIZE {
                         logger_rotate_files(data)
                 }
         }

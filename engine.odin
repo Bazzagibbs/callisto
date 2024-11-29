@@ -11,20 +11,6 @@ when ODIN_OS != .Windows {
 }
 
 
-Engine :: struct {
-        runner    : ^Runner,
-        allocator : runtime.Allocator,
-}
-
-
-Engine_Init_Info :: struct {
-        runner            : ^Runner,
-        app_memory        : rawptr,
-        icon              : ^image.Image,
-        event_behaviour   : Event_Behaviour,
-}
-
-
 engine_init :: proc(e: ^Engine, init_info: ^Engine_Init_Info, allocator := context.allocator) -> (res: Result) {
         validate_info(init_info) or_return
 

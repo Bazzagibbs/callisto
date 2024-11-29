@@ -15,6 +15,11 @@ SHIPPING_LIBS_PATH        :: "data/libs"
 ASSET_DB_PATH             :: "data/assets"
 
 VERBOSE                   :: ODIN_DEBUG || #config(VERBOSE, false)
+
+NO_LOG_FILE               :: #config(NO_LOG_FILE, false)
+LOG_FILE_MAX_SIZE         :: #config(LOG_MAX_FILE_SIZE, 10_000_000) // 10 MB x 2 files
+// LOG_FILE_MAX_SIZE      :: #config(LOG_MAX_FILE_SIZE, 10_000) // 10 KB for testing
+
 PROFILER_ENABLED          :: #config(PROFILER_ENABLED, false)
 PROFILER_FILENAME         :: #config(PROFILER_FILENAME, "profiler.spall")
 PROFILER_REALTIME_HISTORY :: #config(PROFILER_REALTIME_HISORY, 144 * 10) // Approximately 10 seconds at vsync
