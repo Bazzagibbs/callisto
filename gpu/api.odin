@@ -2,14 +2,20 @@ package callisto_gpu
 
 Result :: enum {
         Ok,
+        Unknown_RHI_Error,
         No_Suitable_Device,
-        Unsupported_Format,
         Allocation_Error_CPU,
         Allocation_Error_GPU,
+        Memory_Map_Failed,
+        Platform_Error,
 }
 
 
 Device_Init_Info :: struct {}
+
+Swapchain_Init_Info :: struct {}
+
+Queue_Init_Info :: struct {}
 
 Command_Buffer_Init_Info :: struct {}
 
@@ -22,6 +28,7 @@ Texture_Init_Info :: struct {}
 Sampler_Init_Info :: struct {}
 
 Shader_Init_Info :: struct {}
+
 
 
 

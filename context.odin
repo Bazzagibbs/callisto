@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:mem"
 import "core:log"
 import "core:fmt"
+import "config"
 
 callisto_context_init :: proc "contextless" (ctx: ^runtime.Context, track: ^mem.Tracking_Allocator) -> Result {
         ctx^ = runtime.default_context()
@@ -56,7 +57,7 @@ callisto_logger_options :: proc "contextless" () -> (opts: log.Options, level: l
                 }
         }
 
-        when VERBOSE {
+        when config.VERBOSE {
                 level = log.Level.Info
         } else {
                 level = log.Level.Debug
