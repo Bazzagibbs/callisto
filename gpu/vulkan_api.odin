@@ -8,7 +8,7 @@ import "core:sync"
 
 // when RHI == "vulkan"
 
-// **IMPORTANT**: Don't use these vtables directly in application code!
+// **IMPORTANT**: Don't use this vtable directly in application code!
 // Doing so will break the ability to port to a different renderer in the future.
 Device :: struct {
         using vtable            : vk.VTable,
@@ -23,6 +23,9 @@ Device :: struct {
         queue_submit_mutex      : sync.Mutex,
 }
 
+Swapchain :: struct {
+        surface : vk.SurfaceKHR,
+}
 
 Buffer         :: struct {}
 Texture        :: struct {}
@@ -32,7 +35,6 @@ Shader         :: struct {}
 Command_Buffer :: struct {}
 Queue          :: struct {}
 
-Swapchain      :: struct {}
 Fence          :: struct {} // GPU -> CPU sync
 Semaphore      :: struct {} // GPU -> GPU sync
 

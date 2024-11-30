@@ -229,6 +229,14 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         check_result(vkres) or_return
 
         vk.load_proc_addresses_device_vtable(d.device, &d.vtable)
+
+        d.GetDeviceQueue(d.device, family_graphics, 0, &d.queue_graphics)
+        if has_compute {
+                d.GetDeviceQueue(d.device, family_compute, 0, &d.queue_async_compute)
+        } else {
+                d.queue_async_compute = d.queue_graphics
+        }
+
         return .Ok
 }
 
