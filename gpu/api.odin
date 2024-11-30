@@ -2,20 +2,16 @@ package callisto_gpu
 
 import "../common"
 
-Result :: enum {
-        Ok,
-        Unknown_RHI_Error,
-        No_Suitable_Device,
-        Allocation_Error_CPU,
-        Allocation_Error_GPU,
-        Memory_Map_Failed,
-        Platform_Error,
-}
+Result :: common.Result
 
 
 Device_Init_Info :: struct {
-        runner: ^common.Runner
+        runner            : ^common.Runner, // required
+        required_features : Required_Device_Features,
 }
+
+Required_Device_Features :: bit_set[Required_Device_Feature]
+Required_Device_Feature :: enum {}
 
 Swapchain_Init_Info :: struct {}
 
@@ -32,6 +28,7 @@ Texture_Init_Info :: struct {}
 Sampler_Init_Info :: struct {}
 
 Shader_Init_Info :: struct {}
+
 
 
 

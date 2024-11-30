@@ -18,8 +18,8 @@ check_result :: proc(vkres: vk.Result, loc := #caller_location) -> Result {
         log.error("RHI:", vkres, loc)
        
         #partial switch vkres {
-        case .ERROR_OUT_OF_HOST_MEMORY: return .Allocation_Error_CPU
-        case .ERROR_OUT_OF_DEVICE_MEMORY: return .Allocation_Error_GPU
+        case .ERROR_OUT_OF_HOST_MEMORY: return .Out_Of_Memory_CPU
+        case .ERROR_OUT_OF_DEVICE_MEMORY: return .Out_Of_Memory_GPU
         case .ERROR_MEMORY_MAP_FAILED: return .Memory_Map_Failed
         }
 

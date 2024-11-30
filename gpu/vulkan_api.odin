@@ -4,24 +4,23 @@ import "core:os/os2"
 import vk "../vendor_mod/vulkan"
 import "core:dynlib"
 import "../common"
+import "core:sync"
 
 // when RHI == "vulkan"
 
 // **IMPORTANT**: Don't use these vtables directly in application code!
 // Doing so will break the ability to port to a different renderer in the future.
 Device :: struct {
-        // I'm so sorry but it must be done for hot reload support
-        using vtable_loader   : vk.Loader_VTable,
-        using vtable_instance : vk.Instance_VTable,
-        using vtable_device   : vk.Device_VTable,
+        using vtable            : vk.VTable,
 
-        instance              : vk.Instance,
-        debug_messenger       : vk.DebugUtilsMessengerEXT,
-        device                : vk.Device,
-        phys_device           : vk.PhysicalDevice,
-        phys_properties       : vk.PhysicalDeviceProperties,
-        phys_features         : vk.PhysicalDeviceFeatures,
-        families              : vk.QueueFamilyProperties,
+        instance                : vk.Instance,
+        debug_messenger         : vk.DebugUtilsMessengerEXT,
+        phys_device             : vk.PhysicalDevice,
+        device                  : vk.Device,
+        queue_graphics          : vk.Queue,
+        queue_async_compute     : vk.Queue,
+        async_compute_is_shared : bool,
+        queue_submit_mutex      : sync.Mutex,
 }
 
 
@@ -38,18 +37,22 @@ Fence          :: struct {} // GPU -> CPU sync
 Semaphore      :: struct {} // GPU -> GPU sync
 
 
-device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result) {
+device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #caller_location) -> (res: Result) {
+        validate_info(location,
+                Valid_Not_Nil{".runner", init_info.runner},
+        ) or_return
+
         _vk_loader(d)
         _vk_instance_init(d, init_info) or_return
-        // _vk_physical_device_select(d, init_info) or_return
-        // _vk_device_init(d, init_info) or_return
+        _vk_physical_device_select(d, init_info) or_return
+        _vk_device_init(d, init_info) or_return
 
         return .Ok
 }
 
 
 device_destroy :: proc(d: ^Device) {
-        // _vk_device_destroy(d)
+        _vk_device_destroy(d)
         _vk_instance_destroy(d)
 }
 

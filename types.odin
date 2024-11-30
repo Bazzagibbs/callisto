@@ -55,7 +55,7 @@ check_error_allocator :: proc "contextless" (err: mem.Allocator_Error) -> Result
                 return .Ok
 
         case .Out_Of_Memory: 
-                return .Out_Of_Memory
+                return .Out_Of_Memory_CPU
 
         case .Invalid_Pointer, .Invalid_Argument: 
                 return .Argument_Invalid

@@ -17,5 +17,5 @@ _vk_loader :: proc (d: ^Device) {
                 panic("Failed to load Vulkan procs")
         }
 
-        vk.load_proc_addresses_loader_vtable(get_instance_proc_address, &d.vtable_loader)
+        vk.load_proc_addresses_loader_vtable(get_instance_proc_address, &d.vtable)
 }

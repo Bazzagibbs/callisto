@@ -5,8 +5,8 @@ window_style_default :: #force_inline proc "contextless" () -> Window_Style_Flag
         return {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
 }
 
-window_init :: proc(e: ^Engine, w: ^Window, init_info: ^Window_Init_Info) -> (res: Result) {
-        validate_info(init_info)
+window_init :: proc(e: ^Engine, w: ^Window, init_info: ^Window_Init_Info, location := #caller_location) -> (res: Result) {
+        // validate_info()
         return e.runner->window_init(w, init_info)
 }
 
