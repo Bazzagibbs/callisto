@@ -7,16 +7,15 @@ import "core:path/filepath"
 import "core:fmt"
 import "core:strings"
 import "core:os/os2"
-import "config"
+import "common"
 
 
 exit :: proc(exit_code := Exit_Code.Ok) {
         win.PostQuitMessage(win.INT(exit_code))
 }
 
-get_exe_directory :: config.get_exe_directory
-
-get_persistent_directory :: config.get_persistent_directory
+get_exe_directory        :: common.get_exe_directory
+get_persistent_directory :: common.get_persistent_directory
 
 check_hresult :: proc (hres: win.HRESULT, fail := Result.Platform_Error, loc := #caller_location) -> Result {
         if win.SUCCEEDED(hres) {

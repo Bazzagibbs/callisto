@@ -58,9 +58,9 @@ callisto_logger_options :: proc "contextless" () -> (opts: log.Options, level: l
         }
 
         when config.VERBOSE {
-                level = log.Level.Info
-        } else {
                 level = log.Level.Debug
+        } else {
+                level = log.Level.Info
         }
 
         return

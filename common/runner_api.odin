@@ -10,18 +10,20 @@ import vk "../vendor_mod/vulkan"
 Runner :: struct {
         ctx                      : runtime.Context,
         app_memory               : rawptr,
-        scroll_accumulator       : [2]f32,
+        _platform_data           : _Platform_Runner_Data,
 
+        // Events/Input
         event_behaviour          : Event_Behaviour,
         should_close             : bool,
         exit_code                : Exit_Code ,
+        scroll_accumulator       : [2]f32,
 
+        // Application code
         symbols                  : Dll_Symbol_Table,
         last_modified            : os.File_Time,
         version                  : int,
 
-        _platform                : Platform,
-
+        // Executable-owned callbacks
         platform_init            : #type proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> Result,
         platform_destroy         : #type proc (runner: ^Runner),
         window_init              : #type proc (runner: ^Runner, window: ^Window, init_info: ^Window_Init_Info) -> Result,

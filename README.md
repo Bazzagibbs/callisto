@@ -16,7 +16,7 @@ An example application can be found at [BazzaGibbs/callisto-sandbox](https://git
 2. Modify the following values in `callisto/build.py`
     - `APP_NAME` - affects build filenames and persistent data path (default: "callisto_app")
     - `COMPANY_NAME` - affects persistent data path (default: "callisto_default_company")
-    - (Optional) `DATA_DIRECTORY` - location of the project's imported asset library relative to the project root (default: "./data")
+    - (Optional) `ASSET_DIRECTORY` - location of the project's imported asset library relative to the project root (default: "./assets")
     - (Optional) `CALLISTO_DIRECTORY` - location of the Callisto package relative to the project root (default: "./callisto")
     - (Optional) `OUT_DIRECTORY` - output directory relative to the project's root. Can be overridden with `-out <dir>` argument. (default: "./out")
 3. Define the following exported procedures:

@@ -1,8 +1,9 @@
-package callisto_config
+package callisto_common
 
 import win "core:sys/windows"
 import "core:path/filepath"
 import "core:os/os2"
+import "../config"
 
 // Allocates using the provided allocator
 get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string) {
@@ -26,11 +27,11 @@ get_persistent_directory :: proc(create_if_not_exist := true, allocator := conte
 
         assert(win.SUCCEEDED(hres), "Failed to acquire persitent directory")
        
-        dir, err := win.wstring_to_utf8(path, -1, allocator)
+        dir, err := win.wstring_to_utf8(path, -1, context.temp_allocator)
         assert(err == .None && dir != "", "Failed to acquire persistent directory")
 
-        app_dir := filepath.join({dir, COMPANY_NAME, APP_NAME}, allocator)
-        delete(dir, allocator)
+        app_dir := filepath.join({dir, config.COMPANY_NAME, config.APP_NAME}, allocator)
+        delete(dir, context.temp_allocator)
 
         if create_if_not_exist {
                 err_mkdir := os2.make_directory_all(app_dir)

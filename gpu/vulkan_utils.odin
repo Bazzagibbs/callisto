@@ -7,6 +7,7 @@ import "core:strings"
 import "core:log"
 import vk "../vendor_mod/vulkan"
 import "../config"
+import "../common"
 
 // when RHI == "vulkan"
 
@@ -36,7 +37,7 @@ _vk_prepend_layer_path :: proc() -> (ok: bool) {
         
         existing := os2.get_env("VK_LAYER_PATH", context.temp_allocator)
 
-        exe_dir := config.get_exe_directory(context.temp_allocator)
+        exe_dir := common.get_exe_directory(context.temp_allocator)
         ours := filepath.join({exe_dir, config.SHIPPING_LIBS_PATH, "vulkan"}, context.temp_allocator)
 
         if existing != "" {

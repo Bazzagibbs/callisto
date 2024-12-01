@@ -9,6 +9,7 @@ Result :: enum {
         File_Not_Found,
         File_Invalid, // File exists but is not valid
         Argument_Invalid,
+        Argument_Not_Supported, // e.g. triple-buffered vsync on some devices
         Parse_Error,
         Permission_Denied,
         No_Suitable_GPU,
@@ -36,9 +37,7 @@ Engine_Init_Info :: struct {
 }
 
 
-Window :: struct {
-        _platform : Platform_Window,
-}
+Window :: _Platform_Window
 
 Window_Init_Info :: struct {
         name     : string,

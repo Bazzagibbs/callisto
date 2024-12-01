@@ -19,3 +19,7 @@ _vk_loader :: proc (d: ^Device) {
 
         vk.load_proc_addresses_loader_vtable(get_instance_proc_address, &d.vtable)
 }
+
+_vk_query_queue_family_present_support :: proc(d: ^Device, pd: vk.PhysicalDevice, family: u32) -> bool {
+        return bool(d.GetPhysicalDeviceWin32PresentationSupportKHR(pd, family))
+}

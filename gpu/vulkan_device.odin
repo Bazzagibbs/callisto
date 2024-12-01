@@ -4,6 +4,7 @@ import vk "../vendor_mod/vulkan"
 import "../config"
 import "core:log"
 import "core:sync"
+import "core:strings"
 
 // when RHI == "vulkan"
 
@@ -12,7 +13,21 @@ VK_VALIDATION_LAYER :: ODIN_DEBUG
 VK_ENABLE_INSTANCE_DEBUGGING :: true
 
 
+LAYERS :: []cstring {
+        "VK_LAYER_KHRONOS_shader_object",
+}
+
+INSTANCE_EXTENSIONS :: []cstring {
+        vk.KHR_SURFACE_EXTENSION_NAME,
+}
+
+DEVICE_EXTENSIONS :: []cstring {
+        vk.KHR_SWAPCHAIN_EXTENSION_NAME,
+}
+
+
 _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result) {
+        log.debug("Creating Vulkan instance")
 
         app_version := vk.MAKE_VERSION(
                 config.APP_VERSION_MAJOR,
@@ -36,25 +51,37 @@ _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Res
         }
 
 
+
+
+        // Layers
+        layers := make([dynamic]cstring, context.temp_allocator)
+        defer delete(layers)
+
+        append(&layers, ..LAYERS)
+        
+        when VK_VALIDATION_LAYER {
+                append(&layers, "VK_LAYER_KHRONOS_validation")
+        }
+
+
+        // Instance Extensions
         pNext : rawptr = nil
 
+        instance_extensions := make([dynamic]cstring, context.temp_allocator) 
+        append(&instance_extensions, ..INSTANCE_EXTENSIONS)
+
+        when ODIN_OS == .Windows {
+                append(&instance_extensions, vk.KHR_WIN32_SURFACE_EXTENSION_NAME)
+        }
+        
         when VK_VALIDATION_LAYER {
-                enabled_layers := []cstring {
-                        "VK_LAYER_KHRONOS_validation",
-                        "VK_LAYER_KHRONOS_shader_object",
-                }
-                
-                enabled_extensions := []cstring {
-                        vk.KHR_SURFACE_EXTENSION_NAME,
-                        // vk.EXT_SHADER_OBJECT_EXTENSION_NAME,
-                        vk.EXT_DEBUG_UTILS_EXTENSION_NAME,
-                }
+                append(&instance_extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
 
                 severity : vk.DebugUtilsMessageSeverityFlagsEXT = {.INFO, .WARNING, .ERROR}
                 if config.VERBOSE {
                         severity += {.VERBOSE}
                 }
-        
+
                 debug_create_info := vk.DebugUtilsMessengerCreateInfoEXT {
                         sType           = .DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
                         messageSeverity = severity,
@@ -66,31 +93,24 @@ _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Res
                 when VK_ENABLE_INSTANCE_DEBUGGING {
                         pNext = &debug_create_info
                 }
-
-        } else {
-                enabled_layers := []cstring {
-                        "VK_LAYER_KHRONOS_shader_object",
-                }
-
-                enabled_extensions := []cstring {
-                        vk.KHR_SURFACE_EXTENSION_NAME,
-                        // vk.EXT_SHADER_OBJECT_EXTENSION_NAME,
-                }
         }
+
 
         if ok := _vk_prepend_layer_path(); ok == false {
                 log.error("Could not prepend the Vulkan Layer environment variable")
         }
 
+        log.debugf(" Layers: %#v", layers)
+        log.debugf(" Instance extensions: %#v", instance_extensions)
 
         create_info := vk.InstanceCreateInfo {
                 sType                   = .INSTANCE_CREATE_INFO,
                 pNext                   = pNext,
                 pApplicationInfo        = &app_info,
-                enabledLayerCount       = len32(enabled_layers),
-                ppEnabledLayerNames     = raw_data(enabled_layers),
-                enabledExtensionCount   = len32(enabled_extensions),
-                ppEnabledExtensionNames = raw_data(enabled_extensions),
+                enabledLayerCount       = len32(layers),
+                ppEnabledLayerNames     = raw_data(layers),
+                enabledExtensionCount   = len32(instance_extensions),
+                ppEnabledExtensionNames = raw_data(instance_extensions),
         }
 
         vkres := d.CreateInstance(&create_info, nil, &d.instance)
@@ -112,6 +132,8 @@ _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Res
 
 
 _vk_physical_device_select :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result) {
+        log.debug("Selecting physical device")
+
         phys_dev_count: u32
         vkres := d.EnumeratePhysicalDevices(d.instance, &phys_dev_count, nil)
         check_result(vkres) or_return
@@ -137,23 +159,49 @@ _vk_physical_device_select :: proc(d: ^Device, init_info: ^Device_Init_Info) -> 
                 return .No_Suitable_GPU
         }
 
+        log.debug(" Selected physical device", best_index)
         d.phys_device = phys_devices[best_index]
 
         return .Ok
 }
 
 
-_vk_physical_device_score :: proc(d: ^Device, pd: vk.PhysicalDevice, init_info: ^Device_Init_Info) -> int {
+_vk_physical_device_score :: proc(d: ^Device, pd: vk.PhysicalDevice, init_info: ^Device_Init_Info) -> (score: int) {
         properties: vk.PhysicalDeviceProperties
         d.GetPhysicalDeviceProperties(pd, &properties)
 
         features: vk.PhysicalDeviceFeatures
         d.GetPhysicalDeviceFeatures(pd, &features)
 
-        score := 0
+        defer log.debugf(" - [%v] %s", score, properties.deviceName)
 
-        // TODO: disqualify GPUs without required_features
-        // if .Mesh_Shader in init_info.required_features {}
+
+        extension_count: u32
+        d.EnumerateDeviceExtensionProperties(pd, nil, &extension_count, nil)
+
+        available_extensions := make([]vk.ExtensionProperties, extension_count, context.temp_allocator)
+        defer delete(available_extensions, context.temp_allocator)
+
+        d.EnumerateDeviceExtensionProperties(pd, nil, &extension_count, raw_data(available_extensions))
+
+        // required_extensions_by_user := []vk.ExtensionProperties {}
+
+        for req in DEVICE_EXTENSIONS {
+                matched := false
+                for &avail in available_extensions {
+                        if (req == transmute(cstring)(&avail.extensionName)) {
+                                matched = true
+                                break
+                        }
+                }
+
+                if matched == false {
+                        return -1 // missing extension; not suitable
+                }
+        }
+
+
+        score = 0
 
         if properties.deviceType == .DISCRETE_GPU {
                 score += 10_000
@@ -161,11 +209,13 @@ _vk_physical_device_score :: proc(d: ^Device, pd: vk.PhysicalDevice, init_info: 
 
         score += int(properties.limits.maxImageDimension2D)
 
-        return score
+        return 
 }
 
 
 _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result) {
+        log.debug("Creating Vulkan device")
+
         count : u32
         d.GetPhysicalDeviceQueueFamilyProperties(d.phys_device, &count, nil)
         queue_family_props := make([]vk.QueueFamilyProperties, count, context.temp_allocator)
@@ -173,56 +223,98 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         d.GetPhysicalDeviceQueueFamilyProperties(d.phys_device, &count, raw_data(queue_family_props))
 
-        family_graphics : u32
-        family_compute  : u32
-        has_graphics := false
-        has_compute := false
-        for props, i in queue_family_props {
-                if !has_graphics && .GRAPHICS in props.queueFlags {
-                        family_graphics = u32(i)
-                        has_graphics = true
-                }
 
-                if !has_compute && props.queueFlags == {.COMPUTE} {
-                        family_compute = u32(i)
-                        has_compute = true
+        unique_queue_families := make(map[u32]struct{}, context.temp_allocator)
+        defer delete(unique_queue_families)
+
+        graphics_can_present : bool
+
+        graphics_family      : u32
+        compute_family       : u32
+        present_family       : u32
+
+        log.debug("  Queue families")
+
+        // Graphics queue
+        for props, i in queue_family_props {
+                can_present := _vk_query_queue_family_present_support(d, d.phys_device, u32(i)) 
+                log.debugf("    - [%v] %v, CanPresent: %v", i, props.queueFlags, can_present)
+
+                // The good queue
+                if props.queueFlags >= {.GRAPHICS, .COMPUTE}  {
+                        unique_queue_families[u32(i)] = {}
+                        graphics_family = u32(i)
+                        compute_family = u32(i)
+                        present_family = u32(i)
+                        graphics_can_present = can_present 
+                        break
                 }
         }
+
+        // Async compute (optional)
+        for props, i in queue_family_props {
+                if .COMPUTE in props.queueFlags && .GRAPHICS not_in props.queueFlags {
+                        unique_queue_families[u32(i)] = {}
+                        compute_family = u32(i)
+                        break
+                }
+        }
+
+        // Rare case when graphics queue can't present, just get anything that can
+        if !graphics_can_present {
+                any_can_present := false
+                for props, i in queue_family_props {
+                        if _vk_query_queue_family_present_support(d, d.phys_device, u32(i)) {
+                                unique_queue_families[u32(i)] = {}
+                                present_family = u32(i)
+                                break
+                        }
+                }
+                if !any_can_present {
+                        log.error("No queue families with Present support!")
+                        return .No_Suitable_GPU
+                }
+        }
+        
+
+
+        log.debug("  Selected queue families")
+        log.debug("    - Graphics:     ", graphics_family)
+        log.debug("    - Present:      ", graphics_family)
+        log.debug("    - Async compute:", graphics_family)
 
         queue_priorities : f32 = 1.0
         queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo, context.temp_allocator)
         defer delete(queue_create_infos)
 
-        // Create graphics queue
-        graphics_info := vk.DeviceQueueCreateInfo {
-                sType            = .DEVICE_QUEUE_CREATE_INFO,
-                queueFamilyIndex = family_graphics,
-                queueCount       = 1,
-                pQueuePriorities = &queue_priorities,
-        }
-
-        append(&queue_create_infos, graphics_info)
-
-        // Create async compute queue if available
-        if has_compute {
-                compute_info := vk.DeviceQueueCreateInfo {
+        for idx in unique_queue_families {
+                // Create graphics queue
+                queue_info := vk.DeviceQueueCreateInfo {
                         sType            = .DEVICE_QUEUE_CREATE_INFO,
-                        queueFamilyIndex = family_graphics,
+                        queueFamilyIndex = idx,
                         queueCount       = 1,
                         pQueuePriorities = &queue_priorities,
                 }
 
-                append(&queue_create_infos, compute_info)
-        } else {
-                d.async_compute_is_shared = true
+                append(&queue_create_infos, queue_info)
         }
 
+
+        device_extensions := make([dynamic]cstring, context.temp_allocator)
+        defer delete(device_extensions)
+
+        append(&device_extensions, ..DEVICE_EXTENSIONS)
+        // append(&device_extensions, ..USER_DEVICE_EXTENSIONS)
+
+        log.debugf(" Device extensions: %#v", device_extensions)
 
         device_info := vk.DeviceCreateInfo {
                 sType = .DEVICE_CREATE_INFO,
                 queueCreateInfoCount = len32(queue_create_infos),
                 pQueueCreateInfos = raw_data(queue_create_infos),
                 pEnabledFeatures = {},
+                enabledExtensionCount = len32(device_extensions),
+                ppEnabledExtensionNames = raw_data(device_extensions),
         }
 
         vkres := d.CreateDevice(d.phys_device, &device_info, nil, &d.device)
@@ -230,18 +322,17 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         vk.load_proc_addresses_device_vtable(d.device, &d.vtable)
 
-        d.GetDeviceQueue(d.device, family_graphics, 0, &d.queue_graphics)
-        if has_compute {
-                d.GetDeviceQueue(d.device, family_compute, 0, &d.queue_async_compute)
-        } else {
-                d.queue_async_compute = d.queue_graphics
-        }
+        // These will sometimes return the same queue, especially queue_present
+        d.GetDeviceQueue(d.device, graphics_family, 0, &d.queue_graphics)
+        d.GetDeviceQueue(d.device, compute_family, 0, &d.queue_async_compute)
+        d.GetDeviceQueue(d.device, present_family, 0, &d.queue_present)
 
         return .Ok
 }
 
 
 _vk_instance_destroy :: proc(d: ^Device) {
+        log.debug("Destroying Vulkan instance")
         when VK_VALIDATION_LAYER {
                 d.DestroyDebugUtilsMessengerEXT(d.instance, d.debug_messenger, nil)
         }
@@ -250,6 +341,7 @@ _vk_instance_destroy :: proc(d: ^Device) {
 
 
 _vk_device_destroy :: proc(d: ^Device) {
+        log.debug("Destroying Vulkan device")
         d.DestroyDevice(d.device, nil)
 }
 

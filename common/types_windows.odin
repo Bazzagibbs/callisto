@@ -3,10 +3,8 @@ package callisto_common
 import win "core:sys/windows"
 
 
-Platform :: struct {
+_Platform_Runner_Data :: struct {
         window_icon : win.HICON,
 }
 
-Platform_Window :: struct {
-        hwnd : win.HWND,
-}
+_Platform_Window :: win.HWND
