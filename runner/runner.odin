@@ -11,9 +11,9 @@ import "core:os"
 import "core:io"
 import "core:bytes"
 import "../config"
+import "../common"
 
 HOT_RELOAD :: #config(HOT_RELOAD, false)
-
 
 NO_STDOUT :: ODIN_OS == .Windows && ODIN_WINDOWS_SUBSYSTEM == "windows"
 
@@ -38,3 +38,4 @@ default_runner :: proc (ctx := context) -> cal.Runner {
 }
 
 
+assert_messagebox :: common.assert_messagebox

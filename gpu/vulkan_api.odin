@@ -9,27 +9,32 @@ import "core:log"
 
 // when RHI == "vulkan"
 
+VK_VALIDATION_LAYER          :: ODIN_DEBUG
+VK_ENABLE_INSTANCE_DEBUGGING :: false
+
+
 // **IMPORTANT**: Don't use this vtable directly in application code!
 // Doing so will break the ability to port to a different renderer in the future.
 Device :: struct {
-        using vtable            : vk.VTable,
+        using vtable         : vk.VTable,
 
-        instance                : vk.Instance,
-        debug_messenger         : vk.DebugUtilsMessengerEXT,
-        phys_device             : vk.PhysicalDevice,
-        device                  : vk.Device,
-        queue_graphics          : vk.Queue,
-        queue_present           : vk.Queue,
-        queue_async_compute     : vk.Queue,
-        async_compute_is_shared : bool,
-        present_is_shared       : bool,
-        queue_submit_mutex      : sync.Mutex,
+        instance             : vk.Instance,
+        debug_messenger      : vk.DebugUtilsMessengerEXT,
+        phys_device          : vk.PhysicalDevice,
+        device               : vk.Device,
+        queue_graphics       : vk.Queue,
+        queue_present        : vk.Queue,
+        queue_async_compute  : vk.Queue,
+        family_graphics      : u32,
+        family_present       : u32,
+        family_async_compute : u32,
+        queue_submit_mutex   : sync.Mutex,
 }
 
 Swapchain :: struct {
-        window  : Window_Handle,
-        surface : vk.SurfaceKHR,
-        // hdr
+        window    : Window_Handle,
+        surface   : vk.SurfaceKHR,
+        swapchain : vk.SwapchainKHR,
 }
 
 Buffer         :: struct {}
@@ -74,16 +79,17 @@ swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Init_In
 
         validate_info(location, 
                 Valid_Not_Nil{".window", init_info.window}
-        )
+        ) or_return
 
         _vk_surface_init(d, sc, init_info) or_return
-        // _vk_swapchain_init(d, sc, init_info) or_return
+        _vk_swapchain_init(d, sc, init_info) or_return
 
         return .Ok
 }
 
 swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
-        // _vk_swapchain_destroy(d, sc)
+        log.info("Destroying Swapchain")
+        _vk_swapchain_destroy(d, sc)
         _vk_surface_destroy(d, sc)
 }
 

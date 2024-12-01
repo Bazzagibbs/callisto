@@ -1,9 +1,11 @@
 package callisto_common
 
+import "base:intrinsics"
 import win "core:sys/windows"
 import "core:path/filepath"
 import "core:os/os2"
 import "../config"
+import "core:fmt"
 
 // Allocates using the provided allocator
 get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string) {
@@ -39,4 +41,17 @@ get_persistent_directory :: proc(create_if_not_exist := true, allocator := conte
         }
 
         return app_dir
+}
+
+
+assert_messagebox :: proc(assertion: bool, message_args: ..any, loc := #caller_location) {
+        when !ODIN_DISABLE_ASSERT {
+                if !assertion {
+                        message := fmt.tprint(..message_args)
+                        win.MessageBoxW(nil, win.utf8_to_wstring(message), win.L("Fatal Error"), win.MB_OK)
+                        fmt.eprintfln("%v: %v", loc, message)
+                        intrinsics.debug_trap()
+                        os2.exit(int(win.GetLastError()))
+                }
+        }
 }

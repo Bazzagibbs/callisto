@@ -16,9 +16,9 @@ Required_Device_Features :: bit_set[Required_Device_Feature]
 Required_Device_Feature :: enum {}
 
 Swapchain_Init_Info :: struct {
-        window : Window,
-        vsync  : Vsync_Mode,
-        size   : Maybe([2]i32), // nil to use full window size
+        window                        : Window,
+        vsync                         : Vsync_Mode,
+        force_draw_occluded_fragments : bool,
         // hdr    : bool,
 }
 

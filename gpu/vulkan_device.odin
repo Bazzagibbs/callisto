@@ -8,10 +8,6 @@ import "core:strings"
 
 // when RHI == "vulkan"
 
-VK_VALIDATION_LAYER :: ODIN_DEBUG
-
-VK_ENABLE_INSTANCE_DEBUGGING :: true
-
 
 LAYERS :: []cstring {
         "VK_LAYER_KHRONOS_shader_object",
@@ -235,19 +231,19 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         log.debug("  Queue families")
 
+        found_good_queue := false // So we can debug print all the queues
         // Graphics queue
         for props, i in queue_family_props {
                 can_present := _vk_query_queue_family_present_support(d, d.phys_device, u32(i)) 
                 log.debugf("    - [%v] %v, CanPresent: %v", i, props.queueFlags, can_present)
 
-                // The good queue
-                if props.queueFlags >= {.GRAPHICS, .COMPUTE}  {
+                if !found_good_queue && props.queueFlags >= {.GRAPHICS, .COMPUTE}  {
                         unique_queue_families[u32(i)] = {}
                         graphics_family = u32(i)
                         compute_family = u32(i)
                         present_family = u32(i)
                         graphics_can_present = can_present 
-                        break
+                        found_good_queue = true
                 }
         }
 
@@ -280,8 +276,12 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         log.debug("  Selected queue families")
         log.debug("    - Graphics:     ", graphics_family)
-        log.debug("    - Present:      ", graphics_family)
-        log.debug("    - Async compute:", graphics_family)
+        log.debug("    - Present:      ", present_family)
+        log.debug("    - Async compute:", compute_family)
+
+        d.family_graphics      = graphics_family
+        d.family_present       = present_family
+        d.family_async_compute = compute_family
 
         queue_priorities : f32 = 1.0
         queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo, context.temp_allocator)
@@ -306,7 +306,7 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         append(&device_extensions, ..DEVICE_EXTENSIONS)
         // append(&device_extensions, ..USER_DEVICE_EXTENSIONS)
 
-        log.debugf(" Device extensions: %#v", device_extensions)
+        log.debugf("  Device extensions: %#v", device_extensions)
 
         device_info := vk.DeviceCreateInfo {
                 sType = .DEVICE_CREATE_INFO,

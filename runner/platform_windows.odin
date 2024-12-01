@@ -10,6 +10,7 @@ import "core:os/os2"
 import "core:c"
 import "core:unicode/utf8"
 import "core:math"
+import "../common"
 
 import cal ".."
 
@@ -373,18 +374,6 @@ _window_style_to_win32 :: proc(style: cal.Window_Style_Flags) -> win.DWORD {
         return dwStyle
 }
 
-
-assert_messagebox :: proc(assertion: bool, message_args: ..any, loc := #caller_location) {
-        when !ODIN_DISABLE_ASSERT {
-                if !assertion {
-                        message := fmt.tprint(..message_args)
-                        win.MessageBoxW(nil, win.utf8_to_wstring(message), win.L("Fatal Error"), win.MB_OK)
-                        fmt.eprintfln("%v: %v", loc, message)
-                        intrinsics.debug_trap()
-                        os.exit(int(win.GetLastError()))
-                }
-        }
-}
 
 @(private="file")
 _get_input_modifiers :: proc "contextless" () -> cal.Input_Modifiers {
