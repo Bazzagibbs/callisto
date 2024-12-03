@@ -1,3 +1,5 @@
+#+private
+
 package callisto_gpu
 
 import win "core:sys/windows"

@@ -1,6 +1,9 @@
-package callisto_gpu
+#+private
 
-import vk "../vendor_mod/vulkan"
+package callisto_gpu
+import dd "vendor:vulkan"
+
+import vk "vulkan"
 import "../config"
 import "core:log"
 import "core:sync"
@@ -27,7 +30,7 @@ _vk_instance_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Res
 
         app_version := vk.MAKE_VERSION(
                 config.APP_VERSION_MAJOR,
-                config.APP_VERSION_MINOR,
+config.APP_VERSION_MINOR,
                 config.APP_VERSION_PATCH
         )
         engine_version := vk.MAKE_VERSION(

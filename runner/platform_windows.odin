@@ -338,6 +338,7 @@ event_pump :: proc (runner: ^cal.Runner) {
 }
 
 
+// Block until there's a message in the queue, then dispatch all messages in the queue and return.
 event_wait :: proc (runner: ^cal.Runner) {
         msg: win.MSG
         // Blocks until there's a message in the queue
@@ -348,6 +349,8 @@ event_wait :: proc (runner: ^cal.Runner) {
 
         win.TranslateMessage(&msg)
         win.DispatchMessageW(&msg)
+
+        event_pump(runner)
 }
 
 @(private="file")

@@ -1,3 +1,5 @@
+#+private
+
 package callisto_gpu
 
 import "base:runtime"
@@ -5,7 +7,7 @@ import "core:path/filepath"
 import "core:os/os2"
 import "core:strings"
 import "core:log"
-import vk "../vendor_mod/vulkan"
+import vk "vulkan"
 import "../config"
 import "../common"
 

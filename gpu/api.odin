@@ -29,9 +29,15 @@ Vsync_Mode :: enum {
         No_Sync,
 }
 
-Queue_Init_Info :: struct {}
+Command_Buffer_Init_Info :: struct {
+        type: Command_Buffer_Type,
+}
 
-Command_Buffer_Init_Info :: struct {}
+Command_Buffer_Type :: enum {
+        Graphics,
+        Compute_Sync,
+        Compute_Async,
+}
 
 Buffer_Init_Info :: struct {}
 
@@ -43,6 +49,61 @@ Sampler_Init_Info :: struct {}
 
 Shader_Init_Info :: struct {}
 
+
+Color_Target_Info :: struct {
+        target_texture  : ^Texture,
+        target_mip      : u32,
+        target_layer    : u32,
+        resolve_texture : ^Texture,
+        resolve_mip     : u32,
+        resolve_layer   : u32,
+        clear_value     : [4]f32,
+        load_op         : Load_Op,
+        store_op        : Store_Op,
+        resolve_mode    : Resolve_Mode_Flags,
+        target_cycle    : bool,
+        resolve_cycle   : bool,
+}
+
+Depth_Stencil_Target_Info :: struct {
+        texture         : ^Texture,
+        resolve_texture : ^Texture,
+        clear_value     : [4]f32,
+        load_op         : Load_Op,
+        store_op        : Store_Op,
+        resolve_mode    : Resolve_Mode_Flags,
+}
+
+
+Load_Op :: enum {
+        Load,
+        Clear,
+        Dont_Care
+}
+
+Store_Op :: enum {
+        Store,
+        Dont_Care,
+        None,
+}
+
+Clear_Value :: struct #raw_union {
+        depth_stencil : Depth_Stencil_Value,
+        color: [4]f32,
+}
+
+Depth_Stencil_Value :: struct {
+        depth   : f32,
+        stencil : u32,
+}
+
+Resolve_Mode_Flags :: bit_set[Resolve_Mode_Flag]
+Resolve_Mode_Flag :: enum {
+        Sample_0,
+        Average,
+        Min,
+        Max,
+}
 
 
 // Implement this interface for all RHI backends

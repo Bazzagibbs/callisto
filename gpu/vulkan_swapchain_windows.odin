@@ -1,6 +1,8 @@
+#+private
+
 package callisto_gpu
 
-import vk "../vendor_mod/vulkan"
+import vk "vulkan"
 import win "core:sys/windows"
 
 Window_Handle :: win.HWND 

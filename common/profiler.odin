@@ -1,8 +1,8 @@
-package callisto
+package callisto_common
 import "core:prof/spall"
 import "core:sync"
 import "core:mem"
-import "config"
+import "../config"
 
 // TODO: maybe roll my own that's better suited for realtime?
 Profiler :: struct {
@@ -29,15 +29,34 @@ profiler_destroy :: proc(p: ^Profiler) {
         }
 }
 
+profile_scope :: proc {
+        profile_scope_runner,
+        profile_scope_profiler,
+}
 
-@(deferred_in=_profile_scope_end)
-profile_scope :: proc(p: ^Profiler, loc := #caller_location) {
+
+@(deferred_in=_profile_scope_runner_end)
+profile_scope_runner :: proc(r: ^Runner, loc := #caller_location) {
+        when config.PROFILER_ENABLED {
+                spall._buffer_begin(&r.profiler.ctx, &r.profiler.buffer, loc.procedure, "", loc)
+        }
+}
+
+_profile_scope_runner_end :: proc(r: ^Runner, loc := #caller_location) {
+        when config.PROFILER_ENABLED {
+                spall._buffer_end(&r.profiler.ctx, &r.profiler.buffer)
+        }
+}
+
+
+@(deferred_in=_profile_scope_profiler_end)
+profile_scope_profiler :: proc(p: ^Profiler, loc := #caller_location) {
         when config.PROFILER_ENABLED {
                 spall._buffer_begin(&p.ctx, &p.buffer, loc.procedure, "", loc)
         }
 }
 
-_profile_scope_end :: proc(p: ^Profiler, loc := #caller_location) {
+_profile_scope_profiler_end :: proc(p: ^Profiler, loc := #caller_location) {
         when config.PROFILER_ENABLED {
                 spall._buffer_end(&p.ctx, &p.buffer)
         }

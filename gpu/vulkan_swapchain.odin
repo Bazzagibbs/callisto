@@ -1,11 +1,13 @@
+#+private
+
 package callisto_gpu
 
 import "core:log"
-import vk "../vendor_mod/vulkan"
+import vk "vulkan"
 // import dd "vendor:vulkan" // For autocomplete only
 
 
-_vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Init_Info) -> (res: Result) {
+_vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Init_Info, old_swapchain: vk.SwapchainKHR = {}) -> (res: Result) {
         log.debug("Initializing Vulkan Swapchain")
 
         format: vk.SurfaceFormatKHR
@@ -18,7 +20,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 vkres = d.GetPhysicalDeviceSurfaceFormatsKHR(d.phys_device, sc.surface, &count, raw_data(avail_formats))
                 check_result(vkres) or_return
 
-                // Most common format is r8g8b8a8_srgb
+// Most common format is r8g8b8a8_srgb
 
                 // HDR goes here!
 
@@ -32,6 +34,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 }
 
                 log.debugf("  Selected surface format %v %v", format.format, format.colorSpace)
+                sc.image_format = format
         }
 
 
@@ -97,7 +100,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                         image_count = clamp(image_count, capabilities.minImageCount, capabilities.maxImageCount)
                 }
                 
-                log.debug("  Image count:", image_count)
+                log.debug("  Requested image count:", image_count)
 
                 pre_transform = capabilities.currentTransform
         }
@@ -121,9 +124,8 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 compositeAlpha        = {.OPAQUE},
                 presentMode           = present_mode,
                 clipped               = !init_info.force_draw_occluded_fragments,
-                oldSwapchain          = {},
+                oldSwapchain          = old_swapchain,
         }
-
 
         if d.queue_graphics == d.queue_present {
                 swapchain_info.queueFamilyIndexCount = 1
@@ -132,6 +134,43 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
 
         vkres := d.CreateSwapchainKHR(d.device, &swapchain_info, nil, &sc.swapchain)
         check_result(vkres) or_return
+
+
+        count: u32
+        vkres = d.GetSwapchainImagesKHR(d.device, sc.swapchain, &count, nil)
+        check_result(vkres) or_return
+        log.debug("  Provided image count:", count)
+
+        // ALLOCATION
+        sc.images = make([]vk.Image, count, context.allocator)
+        vkres = d.GetSwapchainImagesKHR(d.device, sc.swapchain, &count, raw_data(sc.images))
+        check_result(vkres) or_return
+
+        // ALLOCATION
+        sc.image_views = make([]vk.ImageView, count, context.allocator)
+
+        for i in 0..<count {
+                subresource_range := vk.ImageSubresourceRange {
+                        aspectMask     = {.COLOR},
+                        baseMipLevel   = 0,
+                        levelCount     = 1,
+                        baseArrayLayer = 0,
+                        layerCount     = 1, // VR here!
+                }
+
+                image_view_info := vk.ImageViewCreateInfo {
+                        sType            = .IMAGE_VIEW_CREATE_INFO,
+                        image            = sc.images[i],
+                        viewType         = .D2,
+                        format           = sc.image_format.format,
+                        components       = {.IDENTITY, .IDENTITY, .IDENTITY, .IDENTITY},
+                        subresourceRange = subresource_range,
+                }
+
+                vkres = d.CreateImageView(d.device, &image_view_info, nil, &sc.image_views[i])
+                check_result(vkres) or_return
+
+        }
 
         return .Ok
 }
@@ -148,5 +187,13 @@ _vk_vsync_to_present_mode :: proc(vs: Vsync_Mode) -> (pm: vk.PresentModeKHR) {
 }
 
 _vk_swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
+        for view in sc.image_views {
+                d.DestroyImageView(d.device, view, nil)
+        }
+
+        delete(sc.image_views)
+        delete(sc.images)
         d.DestroySwapchainKHR(d.device, sc.swapchain, nil)
 }
+
+_vk_swapchain_recreate :: proc(d: ^Device, sc: ^Swapchain) {}

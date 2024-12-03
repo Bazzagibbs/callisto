@@ -1,3 +1,6 @@
 [submodule "thirdparty/gameinput"]
 	path = thirdparty/gameinput
 	url = git@github.com:Bazzas-Forks/odin-gameinput.git
+[submodule "gpu/vma"]
+	path = gpu/vma
+	url = git@github.com:Bazzas-Forks/odin-vma.git

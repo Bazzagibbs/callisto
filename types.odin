@@ -22,6 +22,8 @@ Window_Style_Flag  :: common.Window_Style_Flag
 Event                :: common.Event
 Event_Behaviour      :: common.Event_Behaviour
 
+Runner_Event         :: common.Runner_Event
+
 Window_Event         :: common.Window_Event
 Window_Moved         :: common.Window_Moved
 Window_Resized       :: common.Window_Resized

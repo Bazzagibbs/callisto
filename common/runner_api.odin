@@ -4,26 +4,30 @@ import "core:os"
 import "core:dynlib"
 import "core:log"
 import "../config"
+import "../common"
 
-import vk "../vendor_mod/vulkan"
+import vk "../gpu/vulkan"
 
 Runner :: struct {
         ctx                      : runtime.Context,
         app_memory               : rawptr,
+        profiler                 : common.Profiler,
         _platform_data           : _Platform_Runner_Data,
 
         // Events/Input
         event_behaviour          : Event_Behaviour,
         should_close             : bool,
-        exit_code                : Exit_Code ,
+        exit_code                : Exit_Code,
         scroll_accumulator       : [2]f32,
 
-        // Application code
+        // Application DLL
         symbols                  : Dll_Symbol_Table,
         last_modified            : os.File_Time,
         version                  : int,
 
         // Executable-owned callbacks
+        // These might not even need to cross the Runner boundary? 
+        // Maybe they should though, so we can have a "virtual runner" in the editor.
         platform_init            : #type proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> Result,
         platform_destroy         : #type proc (runner: ^Runner),
         window_init              : #type proc (runner: ^Runner, window: ^Window, init_info: ^Window_Init_Info) -> Result,
@@ -33,9 +37,11 @@ Runner :: struct {
         rhi_logger_proc          : Proc_RHI_Logger,
 }
 
+
 when config.RHI == "vulkan" {
         Proc_RHI_Logger :: vk.ProcDebugUtilsMessengerCallbackEXT
 }
+
 
 Dll_Symbol_Table :: struct {
         lib              : dynlib.Library,

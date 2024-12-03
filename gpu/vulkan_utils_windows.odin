@@ -1,8 +1,10 @@
+#+private
+
 package callisto_gpu
 
 import "base:runtime"
 import win "core:sys/windows"
-import vk "../vendor_mod/vulkan"
+import vk "vulkan"
 import "../config"
 
 // when config.RHI == "vulkan"

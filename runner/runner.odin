@@ -20,14 +20,30 @@ NO_STDOUT :: ODIN_OS == .Windows && ODIN_WINDOWS_SUBSYSTEM == "windows"
 
 default_runner :: proc (ctx := context) -> cal.Runner {
         runner := cal.Runner {
-                ctx              = ctx,
-                should_close     = false,
-                platform_init    = platform_init,
-                platform_destroy = platform_destroy,
-                window_init      = window_init,
-                window_destroy   = window_destroy,
-                event_pump       = event_pump,
-                logger_proc      = logger_multi_proc,
+                ctx                = ctx,
+                app_memory         = nil,
+                profiler           = {},
+                _platform_data     = {},
+
+                // Events/Input
+                event_behaviour    = .Before_Loop,
+                should_close       = false,
+                exit_code          = .Ok,
+                scroll_accumulator = 0,
+               
+                // Application DLL
+                symbols            = {},
+                last_modified      = 0,
+                version            = 0,
+
+                // Executable-owned callbacks
+                platform_init      = platform_init,
+                platform_destroy   = platform_destroy,
+                window_init        = window_init,
+                window_destroy     = window_destroy,
+                event_pump         = event_pump,
+                logger_proc        = logger_multi_proc,
+                rhi_logger_proc    = nil, // set below
         }
 
         when config.RHI == "vulkan" {

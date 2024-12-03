@@ -1,6 +1,6 @@
 package callisto_runner
 
-import vk "../vendor_mod/vulkan"
+import vk "../gpu/vulkan"
 import cal ".."
 import "../config"
 import "core:log"

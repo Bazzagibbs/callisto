@@ -10,10 +10,20 @@ Event_Behaviour :: enum {
 }
 
 Event :: union {
+        Runner_Event,
         Window_Event,
         Input_Event,
         // Custom_Event_Dispatch? 
         // Something to signal that extension event queues should pump now
+}
+
+// `.Hot_Reload_Pending` - The currently loaded application DLL is about to be replaced.
+// `.Hot_Reload_Complete` - The application DLL has just been loaded and should reinitialize any global state, etc.
+//
+// Hot reload events are not invoked on the initial load.
+Runner_Event :: enum {
+        Hot_Reload_Pending,
+        Hot_Reload_Complete,
 }
 
 
