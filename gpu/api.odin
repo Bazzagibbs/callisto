@@ -43,7 +43,47 @@ Buffer_Init_Info :: struct {}
 
 Buffer_Transfer_Info :: struct {}
 
-Texture_Init_Info :: struct {}
+Texture_Init_Info :: struct {
+        format      : Texture_Format,
+        usage       : Texture_Usage_Flags,
+        dimensions  : Texture_View_Dimensions,
+        extent      : [3]u32,
+        mip_count   : u32,
+        layer_count : u32,
+}
+
+Texture_Format :: enum {
+        R8G8B8A8_UNORM_SRGB,
+}
+
+Texture_Usage_Flags :: bit_set[Texture_Usage_Flag]
+Texture_Usage_Flag :: enum {
+        Sampled,
+        Storage,
+        Color_Target,
+        Depth_Stencil_Target,
+        Transient,
+}
+
+Texture_View_Init_Info :: struct {
+        texture     : ^Texture,
+        format : Texture_Format,
+        dimensions  : Texture_View_Dimensions,
+        mip_base    : u32,
+        mip_count   : u32,
+        layer_base  : u32,
+        layer_count : u32,
+}
+
+Texture_View_Dimensions :: enum {
+        _1D,
+        _2D,
+        _3D,
+        Cube,
+        _1D_Array,
+        _2D_Array,
+        Cube_Array,
+}
 
 Sampler_Init_Info :: struct {}
 
@@ -51,27 +91,23 @@ Shader_Init_Info :: struct {}
 
 
 Color_Target_Info :: struct {
-        target_texture  : ^Texture,
-        target_mip      : u32,
-        target_layer    : u32,
-        resolve_texture : ^Texture,
-        resolve_mip     : u32,
-        resolve_layer   : u32,
-        clear_value     : [4]f32,
-        load_op         : Load_Op,
-        store_op        : Store_Op,
-        resolve_mode    : Resolve_Mode_Flags,
-        target_cycle    : bool,
-        resolve_cycle   : bool,
+        texture              : ^Texture,
+        texture_view         : ^Texture_View,  // optional
+        resolve_texture      : ^Texture,
+        resolve_texture_view : ^Texture_View,  // optional
+        clear_value          : [4]f32,
+        load_op              : Load_Op,
+        store_op             : Store_Op,
 }
 
 Depth_Stencil_Target_Info :: struct {
-        texture         : ^Texture,
-        resolve_texture : ^Texture,
-        clear_value     : [4]f32,
-        load_op         : Load_Op,
-        store_op        : Store_Op,
-        resolve_mode    : Resolve_Mode_Flags,
+        texture              : ^Texture,
+        texture_view         : ^Texture_View,  // optional
+        resolve_texture      : ^Texture,
+        resolve_texture_view : ^Texture_View,  // optional
+        clear_value          : struct {depth: f32, stencil: u32},
+        load_op              : Load_Op,
+        store_op             : Store_Op,
 }
 
 
@@ -84,17 +120,8 @@ Load_Op :: enum {
 Store_Op :: enum {
         Store,
         Dont_Care,
-        None,
-}
-
-Clear_Value :: struct #raw_union {
-        depth_stencil : Depth_Stencil_Value,
-        color: [4]f32,
-}
-
-Depth_Stencil_Value :: struct {
-        depth   : f32,
-        stencil : u32,
+        Resolve,
+        Resolve_And_Store,
 }
 
 Resolve_Mode_Flags :: bit_set[Resolve_Mode_Flag]
@@ -143,5 +170,5 @@ cmd_bind_vertex_shader   :: proc(cb: ^Command_Buffer, vs: ^Shader)
 cmd_bind_fragment_shader :: proc(cb: ^Command_Buffer, fs: ^Shader)
 
 cmd_draw                 :: proc(cb: ^Command_Buffer, verts: ^Buffer, indices: ^Buffer)
-cmd_present              :: proc(cb: ^Command_Buffer)
+present                  :: proc(cb: ^Command_Buffer, sc: ^Swapchain)
 */

@@ -11,6 +11,7 @@ import "core:path/filepath"
 import "core:log"
 import "core:mem"
 import cal ".."
+import "../common"
 
 when HOT_RELOAD {
 
@@ -67,9 +68,13 @@ when HOT_RELOAD {
 
                                 reload_res := app_dll_load(runner.version + 1, exe_dir, &new_runner_symbols, &new_runner_timestamp)
                                 if reload_res == .Ok {
+                                        runner.symbols.callisto_event(common.Runner_Event.Hot_Reload_Pending, runner.app_memory)
+
                                         runner.symbols       = new_runner_symbols
                                         runner.last_modified = new_runner_timestamp
                                         runner.version       = new_runner_version
+                                        
+                                        runner.symbols.callisto_event(common.Runner_Event.Hot_Reload_Complete, runner.app_memory)
 
                                 } else {
                                         log.error("DLL reload failed", new_runner_version, ":", reload_res)

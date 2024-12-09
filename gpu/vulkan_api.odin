@@ -1,5 +1,7 @@
 package callisto_gpu
 
+import dd "vendor:vulkan"
+
 import "core:os/os2"
 import vk "vulkan"
 import "core:dynlib"
@@ -14,6 +16,9 @@ VK_VALIDATION_LAYER          :: ODIN_DEBUG
 @(private)
 VK_ENABLE_INSTANCE_DEBUGGING :: false
 
+@(private)
+FRAMES_IN_FLIGHT :: 3
+
 
 // **IMPORTANT**: Don't use this vtable directly in application code!
 // Doing so will break the ability to port to a different renderer in the future.
@@ -25,58 +30,64 @@ Device :: struct {
         phys_device          : vk.PhysicalDevice,
         device               : vk.Device,
 
-        family_graphics      : u32,
-        family_present       : u32,
-        family_async_compute : u32,
+        graphics_family      : u32,
+        present_family       : u32,
+        async_compute_family : u32,
         
         // Device owns the queues? One queue each per application
-        queue_graphics      : vk.Queue,
-        queue_present       : vk.Queue,
-        queue_async_compute : vk.Queue,
+        graphics_queue      : vk.Queue,
+        present_queue       : vk.Queue,
+        async_compute_queue : vk.Queue,
 
         submit_mutex : sync.Mutex,
 }
 
 Swapchain :: struct {
-        window          : Window_Handle,
-        surface         : vk.SurfaceKHR,
-        swapchain       : vk.SwapchainKHR,
-        image_format    : vk.SurfaceFormatKHR,
-        images          : []vk.Image, // acquired, don't destroy
-        image_views     : []vk.ImageView,
-        pending_destroy : vk.SwapchainKHR,
+        window               : Window_Handle,
+        surface              : vk.SurfaceKHR,
+        swapchain            : vk.SwapchainKHR,
+        image_format         : vk.SurfaceFormatKHR,
+        image_index          : u32,
+        textures             : []Texture, // acquired, only destroy full_view
+        pending_destroy      : vk.SwapchainKHR,
 
-        present_sema : vk.Semaphore,
+        image_available_sema : [FRAMES_IN_FLIGHT]vk.Semaphore,
+        render_finished_sema : [FRAMES_IN_FLIGHT]vk.Semaphore,
+        in_flight_fence      : [FRAMES_IN_FLIGHT]vk.Fence,
+        command_buffers      : [FRAMES_IN_FLIGHT]Command_Buffer,
+
+        graphics_queue       : vk.Queue, // Owned by Device
+        present_queue        : vk.Queue,
+
+        frame_counter        : u32,
+        needs_recreate       : bool,
+        vsync                : Vsync_Mode,
+        force_draw_occluded  : bool,
 }
 
 
 // Use a separate Command_Buffer per thread.
 Command_Buffer :: struct {
-        type: Command_Buffer_Type,
-        was_transfer_used : bool,
+        type              : Command_Buffer_Type,
 
-        front_finished_fence: vk.Fence,
-
-        // Internally triple-buffer so GPU can be working while we write the next buffer
-        front_pool                : vk.CommandPool,
-        idle_pool                 : vk.CommandPool,
-        recording_pool            : vk.CommandPool,
-
-        // Draw command buffers
-        front_buffer              : vk.CommandBuffer,
-        idle_buffer               : vk.CommandBuffer,
-        recording_buffer          : vk.CommandBuffer,
-        
-        // Transfer command buffers
-        front_transfer_buffer     : vk.CommandBuffer,
-        idle_transfer_buffer      : vk.CommandBuffer,
-        recording_transfer_buffer : vk.CommandBuffer,
+        pool              : vk.CommandPool,
+        buffer            : vk.CommandBuffer,
 }
 
-Buffer         :: struct {}
-Texture        :: struct {}
+
+Texture        :: struct {
+        image     : vk.Image,
+        full_view : Texture_View,
+}
+
+Texture_View   :: struct {
+        view : vk.ImageView,
+}
+
 Sampler        :: struct {}
 Shader         :: struct {}
+
+Buffer         :: struct {}
 
 Fence          :: struct {} // GPU -> CPU sync
 Semaphore      :: struct {} // GPU -> GPU sync
@@ -131,8 +142,22 @@ swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
 // swapchain_set_vsync           :: proc(d: ^Device, sc: ^Swapchain, vsync: Vsync_Mode) -> (res: Result)
 // swapchain_get_vsync           :: proc(d: ^Device, sc: ^Swapchain) -> (vsync: Vsync_Mode)
 // swapchain_get_available_vsync :: proc(d: ^Device, sc: ^Swapchain) -> (vsyncs: Vsync_Modes)
-swapchain_acquire_texture :: proc(d: ^Device, sc: ^Swapchain, texture: ^Texture) {
 
+swapchain_acquire_texture :: proc(d: ^Device, sc: ^Swapchain, texture: ^Texture) -> (res: Result) {
+        return _vk_swapchain_acquire_next_image(d, sc, texture)
+}
+
+swapchain_acquire_command_buffer :: proc(d: ^Device, sc: ^Swapchain, cb: ^Command_Buffer) -> (res: Result) {
+        cb^ = sc.command_buffers[sc.frame_counter]
+
+        vkres := d.ResetCommandPool(d.device, cb.pool, {})
+        check_result(vkres) or_return
+
+        return .Ok
+}
+
+swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
+        unimplemented()
 }
 
 command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Command_Buffer_Init_Info) -> (res: Result) {
@@ -145,9 +170,16 @@ command_buffer_destroy :: proc(d: ^Device, cb: ^Command_Buffer) {
         _vk_command_buffer_destroy(d, cb)
 }
 
-command_buffer_begin     :: proc(d: ^Device, cb: ^Command_Buffer)
-command_buffer_end       :: proc(d: ^Device, cb: ^Command_Buffer)
+command_buffer_begin :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
+        return _vk_command_buffer_begin(d, cb)
+}
+
+command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
+        return _vk_command_buffer_end(d, cb)
+}
+
 command_buffer_submit    :: proc(d: ^Device, cb: ^Command_Buffer)
+
 
 buffer_init              :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> (res: Result)
 buffer_destroy           :: proc(d: ^Device, b: ^Buffer)
@@ -168,16 +200,13 @@ cmd_fence_signal         :: proc(d: ^Device, fences: []^Fence)
 cmd_semaphore_wait       :: proc(d: ^Device, semaphores: []^Semaphore)
 cmd_semaphore_signal     :: proc(d: ^Device, semaphores: []^Semaphore)
 
-cmd_set_scissor          :: proc(d: ^Device, cb: ^Command_Buffer, position: [2]int, size: [2]int)
-cmd_clear_texture        :: proc(d: ^Device, cb: ^Command_Buffer, color: [4]f32)
+cmd_set_scissor          :: proc(d: ^Device, cb: ^Command_Buffer, top_left: [2]int, size: [2]int)
+cmd_set_viewport         :: proc(d: ^Device, cb: ^Command_Buffer, top_left: [2]int, size: [2]int)
+cmd_texture_clear        :: proc(d: ^Device, cb: ^Command_Buffer, color: [4]f32)
 
-cmd_render_begin :: proc(d: ^Device, cb: ^Command_Buffer, color_targets: []^Color_Target_Info, depth_stencil_target: ^Depth_Stencil_Target_Info)
-
-cmd_bind_vertex_shader   :: proc(d: ^Device, cb: ^Command_Buffer, vs: ^Shader)
-cmd_bind_fragment_shader :: proc(d: ^Device, cb: ^Command_Buffer, fs: ^Shader)
+cmd_set_shaders :: proc(d: ^Device, cb: ^Command_Buffer, shaders: []^Shader)
+cmd_set_render_targets :: proc(d: ^Device, cb: ^Command_Buffer, color_target: ^Texture_View, depth_stencil_target: ^Texture_View)
+// cmd_set_uniform_buffer :: proc(d: ^Device, cb: ^Command_Buffer, slot: u32, ub: ^Uniform_Buffer)
 
 cmd_draw                 :: proc(d: ^Device, cb: ^Command_Buffer, verts: ^Buffer, indices: ^Buffer)
-
-present                  :: proc(d: ^Device) // the command queue to some provided swapchain?
-
 

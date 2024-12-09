@@ -9,11 +9,11 @@ _vk_command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Com
         cb.type = init_info.type
 
         family : u32
-        switch init_info.type {
+        switch cb.type {
         case .Graphics, .Compute_Sync: 
-                family = d.family_graphics
+                family = d.graphics_family
         case .Compute_Async:
-                family = d.family_async_compute
+                family = d.async_compute_family
         }
         
         pool_info := vk.CommandPoolCreateInfo {
@@ -24,71 +24,32 @@ _vk_command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Com
 
         vkres: vk.Result
 
-        // Pools
-        vkres = d.CreateCommandPool(d.device, &pool_info, nil, &cb.front_pool)
+        vkres = d.CreateCommandPool(d.device, &pool_info, nil, &cb.pool)
         check_result(vkres) or_return
-        vkres = d.CreateCommandPool(d.device, &pool_info, nil, &cb.idle_pool)
-        check_result(vkres) or_return
-        vkres = d.CreateCommandPool(d.device, &pool_info, nil, &cb.recording_pool)
-        check_result(vkres) or_return
+   
 
-     
-        temp_buffers : [2]vk.CommandBuffer
-
-        // front
         buffer_info := vk.CommandBufferAllocateInfo {
                 sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
-                commandPool        = cb.front_pool,
-                commandBufferCount = 2,
+                commandPool        = cb.pool,
+                commandBufferCount = 1,
                 level              = .PRIMARY,
         }
-        vkres = d.AllocateCommandBuffers(d.device, &buffer_info, raw_data(&temp_buffers))
+        vkres = d.AllocateCommandBuffers(d.device, &buffer_info, &cb.buffer)
         check_result(vkres) or_return
-        cb.front_buffer          = temp_buffers[0]
-        cb.front_transfer_buffer = temp_buffers[1]
 
-        // idle
-        buffer_info = vk.CommandBufferAllocateInfo {
-                sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
-                commandPool        = cb.idle_pool,
-                commandBufferCount = 2,
-                level              = .PRIMARY,
-        }
-        vkres = d.AllocateCommandBuffers(d.device, &buffer_info, raw_data(&temp_buffers))
-        check_result(vkres) or_return
-        cb.idle_buffer          = temp_buffers[0]
-        cb.idle_transfer_buffer = temp_buffers[1]
-
-        // recording
-        buffer_info = vk.CommandBufferAllocateInfo {
-                sType              = .COMMAND_BUFFER_ALLOCATE_INFO,
-                commandPool        = cb.recording_pool,
-                commandBufferCount = 2,
-                level              = .PRIMARY,
-        }
-        vkres = d.AllocateCommandBuffers(d.device, &buffer_info, raw_data(&temp_buffers))
-        check_result(vkres) or_return
-        cb.recording_buffer          = temp_buffers[0]
-        cb.recording_transfer_buffer = temp_buffers[1]
         
         return .Ok
 }
 
 
 _vk_command_buffer_destroy :: proc(d: ^Device, cb: ^Command_Buffer) {
-        d.DestroyCommandPool(d.device, cb.front_pool, nil)
-        d.DestroyCommandPool(d.device, cb.idle_pool, nil)
-        d.DestroyCommandPool(d.device, cb.recording_pool, nil)
+        d.DestroyCommandPool(d.device, cb.pool, nil)
 }
 
-
-_vk_command_buffer_swap_finished_reading :: proc(d: ^Device, cb: ^Command_Buffer) {
-        // if `idle` is fresh, swap `front` and `idle`.
-        // `idle` is now invalid and must be recorded again.
+_vk_command_buffer_begin :: proc(d: ^Device, cb: ^Command_Buffer) -> Result {
+        unimplemented()
 }
 
-_vk_command_buffer_swap_finished_recording :: proc(d: ^Device, cb: ^Command_Buffer) {
-        // swap `idle` and `recording`.
-        // `idle` is now fresh and can be presented.
-        // reset the `recording` pool.
+_vk_command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> Result {
+        unimplemented()
 }

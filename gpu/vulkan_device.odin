@@ -1,7 +1,7 @@
 #+private
 
 package callisto_gpu
-import dd "vendor:vulkan"
+// import dd "vendor:vulkan"
 
 import vk "vulkan"
 import "../config"
@@ -282,9 +282,9 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         log.debug("    - Present:      ", present_family)
         log.debug("    - Async compute:", compute_family)
 
-        d.family_graphics      = graphics_family
-        d.family_present       = present_family
-        d.family_async_compute = compute_family
+        d.graphics_family      = graphics_family
+        d.present_family       = present_family
+        d.async_compute_family = compute_family
 
         queue_priorities : f32 = 1.0
         queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo, context.temp_allocator)
@@ -326,9 +326,9 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         vk.load_proc_addresses_device_vtable(d.device, &d.vtable)
 
         // These will sometimes return the same queue, especially queue_present
-        d.GetDeviceQueue(d.device, graphics_family, 0, &d.queue_graphics)
-        d.GetDeviceQueue(d.device, compute_family, 0, &d.queue_async_compute)
-        d.GetDeviceQueue(d.device, present_family, 0, &d.queue_present)
+        d.GetDeviceQueue(d.device, graphics_family, 0, &d.graphics_queue)
+        d.GetDeviceQueue(d.device, compute_family, 0, &d.async_compute_queue)
+        d.GetDeviceQueue(d.device, present_family, 0, &d.present_queue)
 
         return .Ok
 }
