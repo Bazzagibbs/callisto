@@ -1,10 +1,16 @@
 package callisto_gpu
 
+import "base:runtime"
 import "../common"
+import "../config"
+
+RHI :: config.RHI
 
 Result :: common.Result
 Runner :: common.Runner
 Window :: common.Window
+
+Location :: runtime.Source_Code_Location
 
 
 Device_Init_Info :: struct {
@@ -26,11 +32,14 @@ Vsync_Modes :: bit_set[Vsync_Mode]
 Vsync_Mode :: enum {
         Double_Buffered, // Guaranteed to be supported on every device
         Triple_Buffered,
-        No_Sync,
+        Off,
 }
 
 Command_Buffer_Init_Info :: struct {
-        type: Command_Buffer_Type,
+        type             : Command_Buffer_Type,
+        wait_semaphore   : ^Semaphore,
+        signal_semaphore : ^Semaphore,
+        signal_fence     : ^Fence,
 }
 
 Command_Buffer_Type :: enum {
@@ -39,6 +48,74 @@ Command_Buffer_Type :: enum {
         Compute_Async,
 }
 
+Pipeline_Stages :: bit_set[Pipeline_Stage]
+Pipeline_Stage :: enum {
+        Begin,
+        Draw_Indirect,
+        Vertex_Input,
+        Vertex_Shader,
+        Tessellation_Control_Shader,
+        Tessellation_Evaluation_Shader,
+        Geometry_Shader,
+        Fragment_Shader,
+        Fragment_Early_Tests,
+        Fragment_Late_Tests,
+        Color_Target_Output,
+        Compute_Shader,
+        Transfer,
+        End,
+}
+
+Texture_Layout :: enum {
+        Undefined,
+        General_ReadWrite,
+        Color_Target,
+        Color_Input,
+        Color_ReadOnly,
+        Depth_Stencil_Target,
+        Depth_Stencil_Input,
+        Depth_Stencil_ReadOnly,
+        Transfer_Source,
+        Transfer_Dest,
+        Pre_Initialized,
+        Present,
+}
+
+
+Access_Flags :: bit_set[Access_Flag]
+Access_Flag :: enum {
+        Indirect_Read,
+        Index_Read,
+        Vertex_Attribute_Read,
+        Uniform_Read,
+        Texture_Read,
+        Texture_Write,
+        Storage_Read,
+        Storage_Write,
+        Color_Input_Read,
+        Color_Target_Write,
+        Depth_Stencil_Input_Read,
+        Depth_Stencil_Target_Write,
+        Transfer_Read,
+        Transfer_Write,
+        Host_Read,
+        Host_Write,
+        
+        Memory_Read,  // same as setting all `*_Read` bits
+        Memory_Write, // same as setting all `*_Write` bits
+}
+
+
+Texture_Transition_Info :: struct {
+        after_src_stage  : Pipeline_Stages, // Ensure these stages are complete before starting transition (earlier is better)
+        before_dst_stage : Pipeline_Stages, // Wait at these stages until transition is complete (later is better)
+        src_layout       : Texture_Layout,
+        dst_layout       : Texture_Layout,
+        src_access       : Access_Flags,
+        dst_access       : Access_Flags,
+}
+
+/*
 Buffer_Init_Info :: struct {}
 
 Buffer_Transfer_Info :: struct {}
@@ -89,10 +166,9 @@ Sampler_Init_Info :: struct {}
 
 Shader_Init_Info :: struct {}
 
-
 Color_Target_Info :: struct {
         texture              : ^Texture,
-        texture_view         : ^Texture_View,  // optional
+        texture_view         : ^Texture_View,  //optional
         resolve_texture      : ^Texture,
         resolve_texture_view : ^Texture_View,  // optional
         clear_value          : [4]f32,
@@ -109,7 +185,6 @@ Depth_Stencil_Target_Info :: struct {
         load_op              : Load_Op,
         store_op             : Store_Op,
 }
-
 
 Load_Op :: enum {
         Load,
@@ -131,44 +206,94 @@ Resolve_Mode_Flag :: enum {
         Min,
         Max,
 }
+*/
+
+device_init :: proc(d: ^Device, device_init_info: ^Device_Init_Info, location := #caller_location) -> Result {
+        return _device_init(d, device_init_info, location) 
+}
+
+device_destroy :: proc (d: ^Device) {
+        _device_destroy(d)
+}
+
+swapchain_init :: proc(d: ^Device, sc: ^Swapchain, swapchain_init_info: ^Swapchain_Init_Info, location := #caller_location) -> Result {
+        return _swapchain_init(d, sc, swapchain_init_info, location)
+}
+
+swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
+        _swapchain_destroy(d, sc)
+}
+
+// swapchain_rebuild :: proc(d: ^Device, sc: ^Swapchain) -> Result {
+//         return _swapchain_rebuild(d, sc)
+// }
+
+swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> Result {
+        return _swapchain_present(d, sc)
+} 
+
+swapchain_wait_for_next_frame :: proc(d: ^Device, sc: ^Swapchain) -> Result {
+        return _swapchain_wait_for_next_frame(d, sc)
+}
+
+swapchain_acquire_texture :: proc(d: ^Device, sc: ^Swapchain, tex: ^^Texture) -> Result {
+        return _swapchain_acquire_texture(d, sc, tex)
+}
+
+swapchain_acquire_command_buffer :: proc(d: ^Device, sc: ^Swapchain, cb: ^^Command_Buffer) -> Result {
+        return _swapchain_acquire_command_buffer(d, sc, cb)
+}
+
+command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, command_buffer_init_info: ^Command_Buffer_Init_Info, location := #caller_location) -> Result {
+        return _command_buffer_init(d, cb, command_buffer_init_info, location) 
+}
+
+command_buffer_destroy :: proc(d: ^Device, cb: ^Command_Buffer) {
+        _command_buffer_destroy(d, cb)
+}
+
+command_buffer_begin :: proc(d: ^Device, cb: ^Command_Buffer) -> Result {
+        return _command_buffer_begin(d, cb)
+}
+
+command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> Result  {
+        return _command_buffer_end(d, cb)
+}
+
+command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> Result {
+        return _command_buffer_submit(d, cb)
+}
 
 
-// Implement this interface for all RHI backends
+// cmd_begin_render : proc(^Device, ^Command_Buffer) : _cmd_begin_render
 /*
+texture_init :: _texture_init
+texture_destroy :: _texture_destroy
 
-device_init              :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Result)
-device_destroy           :: proc(d: ^Device)
+texture_view_init :: _texture_view_init
+texture_view_destroy :: _texture_view_destroy
 
-swapchain_init
-swapchain_destroy
-swapchain_resize
+sampler_init :: _sampler_init
+sampler_destroy :: _sampler_destroy
 
-swapchain_set_vsync
-swapchain_get_vsync
-swapchain_get_available_vsync
+shader_init :: _shader_init
+shader_destroy :: _shader_destroy
 
-buffer_init              :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> (res: Result)
-buffer_destroy           :: proc(d: ^Device, b: ^Buffer)
-buffer_transfer          :: proc(d: ^Device, transfer_info: ^Buffer_Transfer_Info) -> (res: Result)
+cmd_begin_render :: _cmd_begin_render
+cmd_end_render :: _cmd_end_render
+cmd_wait_semaphore :: _cmd_wait_semaphore
+cmd_signal_semaphore :: _cmd_signal_semaphore
+cmd_signal_fence :: _cmd_signal_fence
+cmd_transition_texture :: _cmd_transition_texture
 
-texture_init             :: proc(d: ^Device, t: ^Texture, init_info: ^Texture_Init_Info) -> (res: Result)
-texture_destroy          :: proc(d: ^Device, t: ^Texture)
+cmd_set_scissor :: _cmd_set_scissor
+cmd_set_viewport :: _cmd_set_viewport
+cmd_set_shaders :: _cmd_set_shaders
+cmd_set_render_targets :: _cmd_set_render_targets
+cmd_set_uniform_buffers :: _cmd_set_uniform_buffers
+cmd_set_storage_buffers :: _cmd_set_storage_buffers
+cmd_set_input_layout :: _cmd_set_input_layout
 
-sampler_init             :: proc(d: ^Device, s: ^Sampler, init_info: ^Sampler_Init_Info) -> (res: Result)
-sampler_destroy          :: proc(d: ^Device, s: ^Sampler)
-
-shader_init              :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> (res: Result)
-shader_destroy           :: proc(d: ^Device, s: ^Shader)
-
-command_buffer_init      :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Command_Buffer_Init_Info) -> (res: Result)
-command_buffer_destroy   :: proc(d: ^Device, cb: ^Command_Buffer)
-command_buffer_submit    :: proc(d: ^Device, cb: ^Command_Buffer)
-
-cmd_clear                :: proc(cb: ^Command_Buffer, color: [4]f32)
-
-cmd_bind_vertex_shader   :: proc(cb: ^Command_Buffer, vs: ^Shader)
-cmd_bind_fragment_shader :: proc(cb: ^Command_Buffer, fs: ^Shader)
-
-cmd_draw                 :: proc(cb: ^Command_Buffer, verts: ^Buffer, indices: ^Buffer)
-present                  :: proc(cb: ^Command_Buffer, sc: ^Swapchain)
+cmd_draw :: _cmd_draw
+cmd_dispatch :: _cmd_dispatch
 */

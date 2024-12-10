@@ -17,7 +17,7 @@ If you're an application developer, ignore this section.
 
 ### API Interface
 
-1. Copy the commented interface from `api.odin` into `<rhi>_api.odin`. These are the user-facing procedures and structs.
+1. Copy the commented interface from `api.odin` into `<rhi>_api_impl.odin`. These are the user-facing procedures and structs.
 2. Wrap the file in a `when RHI == "<rhi>"` block
 3. Implement all the procedure and struct stubs.
     - Create internal rhi-specific files using the naming convention `<rhi>_filename[_platform].odin`.
@@ -37,41 +37,5 @@ Now in `device_init`, set up the logger with the callback in `Device_Init_Info.r
 
 ## Design
 
-
-### App Init
-
-- Create a `Device` for the entire application. This is a logical representation of a GPU and the RHI instance.
-- Create a `Swapchain` for each target window. These will provide the `Texture` to be used as the final render target.
-- Create a `Shader` for each shader stage (vertex, fragment, compute, etc.)
-- Create `Buffer`s for a mesh's vertex and index data
-- Create `Texture`s for texturing the mesh
-- Create a `Sampler` for sampling the `Texture`s
-- Create a `Blend_State` for setting alpha blending
-
-
-### Loop
-
-- Acquire the current `Command_Buffer` from the `Swapchain`
-- Acquire the current `Texture` from the `Swapchain`
-- `cmd_set_render_targets()`
-- For each unique material:
-    - `cmd_set_shaders()`
-    - `cmd_set_blend_state()`
-    - `cmd_set_vertex_buffers()`
-    - `cmd_set_index_buffers()`
-    - `cmd_set_uniforms()`
-    - `cmd_draw()`
-- Submit the `Command_Buffer`
-- Present the `Command_Buffer`
-
-
-### Async Compute
-
-If compute is required outside of the render path (e.g. terrain generation), a separate command buffer can be created.
-
-- Create a `Fence` to wait on for task completion.
-- Create a `Command_Buffer` using the Fence.
-    - `cmd_bind_shaders()`
-    - `cmd_bind_uniforms()`
-    - `cmd_dispatch()`
-- Submit the `Command_Buffer`
+Thin wrapper around some Vulkan features (shader object + dynamic rendering workflow).
+This should be portable to other graphics APIs (GNM is apparently lower level than Vulkan)

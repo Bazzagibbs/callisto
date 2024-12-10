@@ -4,6 +4,7 @@ import vk "../gpu/vulkan"
 import cal ".."
 import "../config"
 import "core:log"
+import "core:strings"
 
 when config.RHI == "vulkan" {
 
@@ -11,7 +12,12 @@ when config.RHI == "vulkan" {
                 runner : ^cal.Runner = (^cal.Runner)(user_data)
                 context = runner.ctx
 
-                log.log(vk_to_logger_level(message_severity), vk_fix_message_types(message_types), callback_data.pMessage)
+                if .VALIDATION in message_types {
+                        msg_fixed, _ := strings.replace_all(string(callback_data.pMessage), "|", "\n|", context.temp_allocator)
+                        log.log(vk_to_logger_level(message_severity), vk_fix_message_types(message_types), msg_fixed)
+                } else {
+                        log.log(vk_to_logger_level(message_severity), vk_fix_message_types(message_types), callback_data.pMessage)
+                }
 
                 return false
         }
