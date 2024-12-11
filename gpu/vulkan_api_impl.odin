@@ -43,6 +43,7 @@ _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #call
         _vk_instance_init(d, init_info) or_return
         _vk_physical_device_select(d, init_info) or_return
         _vk_device_init(d, init_info) or_return
+        _vk_vma_init(d) or_return
 
         return .Ok
 }
@@ -53,6 +54,7 @@ _device_destroy :: proc(d: ^Device) {
 
         d.DeviceWaitIdle(d.device)
 
+        _vk_vma_destroy(d)
         _vk_device_destroy(d)
         _vk_instance_destroy(d)
 }
@@ -723,6 +725,25 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         return .Ok
 }
 
+
+_vk_vma_init :: proc(d: ^Device) -> Result {
+        // Is this ok? does vma copy the proc pointers?
+        vkfuncs := vma.create_vulkan_functions(&d.vtable)
+        create_info := vma.AllocatorCreateInfo {
+                flags            = {.BUFFER_DEVICE_ADDRESS},
+                physicalDevice   = d.phys_device,
+                device           = d.device,
+                instance         = d.instance,
+                pVulkanFunctions = &vkfuncs,
+        }
+
+        vkres := vma.CreateAllocator(&create_info, &d.allocator)
+        return check_result(vkres)
+}
+
+_vk_vma_destroy :: proc(d: ^Device) {
+        vma.DestroyAllocator(d.allocator)
+}
 
 _vk_instance_destroy :: proc(d: ^Device) {
         log.debug("Destroying Vulkan instance")

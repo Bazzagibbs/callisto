@@ -32,16 +32,18 @@ Device :: struct {
         phys_device          : vk.PhysicalDevice,
         device               : vk.Device,
 
+        allocator            : vma.Allocator,
+
         graphics_family      : u32,
         present_family       : u32,
         async_compute_family : u32,
         
         // Device owns the queues? One queue each per application
-        graphics_queue      : vk.Queue,
-        present_queue       : vk.Queue,
-        async_compute_queue : vk.Queue,
+        graphics_queue       : vk.Queue,
+        present_queue        : vk.Queue,
+        async_compute_queue  : vk.Queue,
 
-        submit_mutex : sync.Mutex,
+        submit_mutex         : sync.Mutex,
 }
 
 Swapchain :: struct {
