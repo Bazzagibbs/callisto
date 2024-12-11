@@ -11,7 +11,7 @@ import "vma"
 import "../common"
 
 
-// when RHI == "vulkan"
+// when RHI == "vulkan" {
 @(private)
 VK_VALIDATION_LAYER          :: ODIN_DEBUG
 
@@ -107,4 +107,4 @@ Semaphore      :: struct {
         sema: vk.Semaphore ,
 }
 
-
+// } // when RHI == "vulkan"

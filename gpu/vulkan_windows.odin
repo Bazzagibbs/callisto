@@ -9,7 +9,7 @@ import vk "vulkan"
 import "../config"
 import "../common"
 
-when RHI == "vulkan" {
+// when RHI == "vulkan" {
 
         Window_Handle :: win.HWND 
 
@@ -62,4 +62,4 @@ when RHI == "vulkan" {
                 return {u32(rect.right - rect.left), u32(rect.bottom - rect.top)}
         }
 
-} // when RHI == "vulkan"
+// } // when RHI == "vulkan"

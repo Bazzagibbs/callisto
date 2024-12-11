@@ -68,13 +68,9 @@ Pipeline_Stage :: enum {
 
 Texture_Layout :: enum {
         Undefined,
-        General_ReadWrite,
-        Color_Target,
-        Color_Input,
-        Color_ReadOnly,
-        Depth_Stencil_Target,
-        Depth_Stencil_Input,
-        Depth_Stencil_ReadOnly,
+        General,
+        Target_Or_Input,
+        Read_Only,
         Transfer_Source,
         Transfer_Dest,
         Pre_Initialized,
@@ -105,14 +101,22 @@ Access_Flag :: enum {
         Memory_Write, // same as setting all `*_Write` bits
 }
 
+Texture_Aspect_Flags :: bit_set[Texture_Aspect_Flag]
+Texture_Aspect_Flag :: enum {
+        Color,
+        Depth,
+        Stencil,
+}
+
 
 Texture_Transition_Info :: struct {
-        after_src_stage  : Pipeline_Stages, // Ensure these stages are complete before starting transition (earlier is better)
-        before_dst_stage : Pipeline_Stages, // Wait at these stages until transition is complete (later is better)
-        src_layout       : Texture_Layout,
-        dst_layout       : Texture_Layout,
-        src_access       : Access_Flags,
-        dst_access       : Access_Flags,
+        texture_aspect    : Texture_Aspect_Flags,
+        after_src_stages  : Pipeline_Stages, // Ensure these stages are complete before starting transition (earlier is better)
+        before_dst_stages : Pipeline_Stages, // Wait at these stages until transition is complete (later is better)
+        src_layout        : Texture_Layout,
+        dst_layout        : Texture_Layout,
+        src_access        : Access_Flags,
+        dst_access        : Access_Flags,
 }
 
 /*
@@ -262,6 +266,15 @@ command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> Result  {
 
 command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> Result {
         return _command_buffer_submit(d, cb)
+}
+
+cmd_transition_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, transition_info: ^Texture_Transition_Info) {
+        _cmd_transition_texture(d, cb, tex, transition_info)
+}
+
+// TEMPORARY: use begin_render_pass instead
+cmd_clear_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, color: [4]f32) {
+        _cmd_clear_color_texture(d, cb, tex, color)
 }
 
 
