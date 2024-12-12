@@ -111,20 +111,26 @@ _swapchain_wait_for_next_frame :: proc(d: ^Device, sc: ^Swapchain) -> (res: Resu
 }
 
 _swapchain_acquire_texture :: proc(d: ^Device, sc: ^Swapchain, texture: ^^Texture) -> (res: Result) {
+        res = .Ok
+
         if sc.needs_recreate {
                 _vk_swapchain_recreate(d, sc) or_return
+                sc.needs_recreate = false
+                res = .Swapchain_Rebuilt
         }
 
         vkres := d.AcquireNextImageKHR(d.device, sc.swapchain, max(u64), sc.image_available_sema[sc.frame_counter], {}, &sc.image_index)
 
         if vkres != .SUCCESS && vkres != .SUBOPTIMAL_KHR {
+                log.warn("Invalid swapchain, attempting to recreate.", vkres)
                 // attempt to recreate invalid swapchain
                 _vk_swapchain_recreate(d, sc) or_return
+                res = .Swapchain_Rebuilt
         }
 
         texture^ = &sc.textures[sc.image_index]
 
-        return .Ok
+        return 
 }
 
 _swapchain_acquire_command_buffer :: proc(d: ^Device, sc: ^Swapchain, cb: ^^Command_Buffer) -> (res: Result) {
@@ -149,7 +155,8 @@ _swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
         sc.frame_counter = (sc.frame_counter + 1) % FRAMES_IN_FLIGHT
 
         vkres := d.QueuePresentKHR(sc.present_queue, &present_info)
-        if vkres == .SUBOPTIMAL_KHR {
+        if vkres == .SUBOPTIMAL_KHR || vkres == .ERROR_OUT_OF_DATE_KHR {
+                sc.needs_recreate = true
                 return .Ok
         }
 
@@ -1262,7 +1269,8 @@ _vk_swapchain_command_buffers_destroy :: proc(d: ^Device, sc: ^Swapchain) {
 
 
 _vk_swapchain_recreate :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
-        log.info("Recreating Vulkan swapchain")
+        log.warn("Recreating Vulkan swapchain")
+
         // This is a naive implementation - should probably build a new swapchain
         // and wait for the old swapchain's final present before destroying it.
         vkres := d.DeviceWaitIdle(d.device)
@@ -1274,8 +1282,13 @@ _vk_swapchain_recreate :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
                 force_draw_occluded_fragments = sc.force_draw_occluded,
         }
 
+        _vk_swapchain_images_destroy(d, sc)
         _vk_swapchain_destroy(d, sc)
-        return _vk_swapchain_init(d, sc, &info)
+
+        _vk_swapchain_init(d, sc, &info) or_return
+        _vk_swapchain_images_init(d, sc) or_return
+
+        return .Ok
 }
 
 

@@ -20,6 +20,7 @@ Result :: enum {
         Device_Not_Responding,
         Device_Disconnected,
         Platform_Error,
+        Swapchain_Rebuilt,
 }
 
 
