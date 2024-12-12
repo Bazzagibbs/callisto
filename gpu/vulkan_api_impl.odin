@@ -52,11 +52,13 @@ _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #call
 _device_destroy :: proc(d: ^Device) {
         log.info("Destroying Device")
 
-        d.DeviceWaitIdle(d.device)
-
         _vk_vma_destroy(d)
         _vk_device_destroy(d)
         _vk_instance_destroy(d)
+}
+
+_device_wait_for_idle :: proc(d: ^Device) {
+        d.DeviceWaitIdle(d.device)
 }
 
 
@@ -79,14 +81,20 @@ _swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Init_I
 
 _swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
         log.info("Destroying Swapchain")
-        
-        d.DeviceWaitIdle(d.device)
        
         _vk_swapchain_command_buffers_destroy(d, sc)
         _vk_swapchain_sync_destroy(d, sc)
         _vk_swapchain_images_destroy(d, sc)
         _vk_swapchain_destroy(d, sc)
         _vk_surface_destroy(d, sc)
+}
+
+_swapchain_get_frame_in_flight_index :: proc(d: ^Device, sc: ^Swapchain) -> int {
+        return int(sc.frame_counter)
+}
+
+_swapchain_get_extent :: proc(d: ^Device, sc: ^Swapchain) -> [2]u32 {
+        return { sc.extent.width, sc.extent.height }
 }
 
 // swapchain_rebuild             :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result)
@@ -150,16 +158,156 @@ _swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
         return .Ok
 }
 
+_Texture_Dimensions_To_Vk := [Texture_Dimensions]vk.ImageType {
+        ._1D        = .D1,
+        ._2D        = .D2,
+        ._3D        = .D3,
+        .Cube       = .D2,
+        ._1D_Array  = .D1,
+        ._2D_Array  = .D2,
+        .Cube_Array = .D2,
+}
+
+_Texture_Dimensions_To_Vk_View := [Texture_Dimensions]vk.ImageViewType {
+        ._1D        = .D1,
+        ._2D        = .D2,
+        ._3D        = .D3,
+        .Cube       = .CUBE,
+        ._1D_Array  = .D1_ARRAY,
+        ._2D_Array  = .D2_ARRAY,
+        .Cube_Array = .CUBE_ARRAY,
+}
+
+_Texture_Format_To_Vk := [Texture_Format]vk.Format {
+        .Undefined           = .UNDEFINED,
+        .R8G8B8A8_UNORM      = .R8G8B8A8_UNORM,
+        .R16G16B16A16_SFLOAT = .R16G16B16A16_SFLOAT,
+}
+
+_Texture_Usage_To_Vk := [Texture_Usage_Flag]vk.ImageUsageFlag {
+        .Transfer_Src         = .TRANSFER_SRC,
+        .Transfer_Dst         = .TRANSFER_DST,
+        .Sampled              = .SAMPLED,
+        .Storage              = .STORAGE,
+        .Color_Target         = .COLOR_ATTACHMENT,
+        .Depth_Stencil_Target = .DEPTH_STENCIL_ATTACHMENT,
+        .Transient_Target     = .TRANSIENT_ATTACHMENT,
+}
+
+_Memory_Access_Type_To_Vma := [Memory_Access_Type]vma.AllocationCreateInfo {
+        .Device_Read_Only = {
+                usage = .AUTO,
+                flags = {},
+        },
+
+        .Device_Read_Write = {
+                usage = .AUTO,
+                flags = {.DEDICATED_MEMORY},
+        },
+
+        .Staging = {
+                usage = .AUTO,
+                flags = {.HOST_ACCESS_SEQUENTIAL_WRITE, .MAPPED},
+        },
+
+        .Host_Readback = {
+                usage = .AUTO,
+                flags = {.HOST_ACCESS_RANDOM, .MAPPED},
+        },
+}
+
+_Texture_Multisample_To_Vk := [Texture_Multisample]vk.SampleCountFlags {
+        .None = {._1},
+        ._2   = {._2},
+        ._4   = {._4},
+        ._8   = {._8},
+        ._16  = {._16},
+        ._32  = {._32},
+        ._64  = {._64},
+}
+
+_texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) -> (res: Result) {
+        unique_families := make(map[u32]struct{}, context.temp_allocator)
+
+        for flag in init_info.queue_usage {
+                switch flag {
+                case .Graphics: unique_families[d.graphics_family] = {}
+                case .Compute_Async: unique_families[d.async_compute_family] = {}
+                }
+        }
+
+        families := make([dynamic]u32, len(unique_families), context.temp_allocator)
+        for key, _ in unique_families {
+                append(&families, key)
+        }
+
+
+        usage := vk.ImageUsageFlags {}
+        for flag in init_info.usage {
+                usage += {_Texture_Usage_To_Vk[flag]}
+        }
+        
+        extent := init_info.extent
+
+        image_type := _Texture_Dimensions_To_Vk[init_info.dimensions]
+
+        create_info := vk.ImageCreateInfo {
+                sType                 = .IMAGE_CREATE_INFO,
+                imageType             = _Texture_Dimensions_To_Vk[init_info.dimensions],
+                format                = _Texture_Format_To_Vk[init_info.format],
+                extent                = {init_info.extent.x, init_info.extent.y, init_info.extent.z},
+                mipLevels             = init_info.mip_count,
+                arrayLayers           = init_info.layer_count,
+                samples               = _Texture_Multisample_To_Vk[init_info.multisample],
+                tiling                = .OPTIMAL,
+                usage                 = usage,
+                sharingMode           = .EXCLUSIVE, // requires ownership transfer using image memory barrier
+                queueFamilyIndexCount = len32(families),
+                pQueueFamilyIndices   = raw_data(families),
+                initialLayout         = _Texture_Layout_To_Vk[init_info.initial_layout],
+        }
+        
+        tex.extent      = create_info.extent
+        tex.layer_count = create_info.arrayLayers
+        tex.mip_count   = create_info.mipLevels
+
+        allocation_info := _Memory_Access_Type_To_Vma[init_info.memory_access_type]
+
+        vkres := vma.CreateImage(d.allocator, &create_info, &allocation_info, &tex.image, &tex.allocation, nil)
+        check_result(vkres) or_return
+
+        range := _vk_subresource_range({.Color})
+
+        view_info := vk.ImageViewCreateInfo {
+                sType            = .IMAGE_VIEW_CREATE_INFO,
+                image            = tex.image,
+                viewType         = _Texture_Dimensions_To_Vk_View[init_info.dimensions],
+                format           = create_info.format,
+                components       = {},
+                subresourceRange = range,
+        }
+
+        vkres = d.CreateImageView(d.device, &view_info, nil, &tex.full_view.view)
+        check_result(vkres) or_return
+
+        return .Ok
+}
+
+_texture_destroy :: proc(d: ^Device, tex: ^Texture) {
+        d.DestroyImageView(d.device, tex.full_view.view, nil)
+        vma.DestroyImage(d.allocator, tex.image, tex.allocation)
+}
+
 
 _command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Command_Buffer_Init_Info, location := #caller_location) -> (res: Result) {
         log.info("Creating Command Buffer")
         // validate_info()
 
-        cb.type = init_info.type
+        cb.queue = init_info.queue
 
         family : u32
-        switch cb.type {
-        case .Graphics, .Compute_Sync: 
+        switch cb.queue {
+        case .Graphics: 
                 family = d.graphics_family
         case .Compute_Async:
                 family = d.async_compute_family
@@ -222,10 +370,10 @@ _command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
 _command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
         queue: vk.Queue
 
-        switch cb.type {
-        case .Graphics, .Compute_Sync : queue = d.graphics_queue
-        case .Compute_Async           : queue = d.async_compute_queue
-        case                          : queue = d.graphics_queue
+        switch cb.queue {
+        case .Graphics      : queue = d.graphics_queue
+        case .Compute_Async : queue = d.async_compute_queue
+        case                : queue = d.graphics_queue
         }
 
         cb_info := vk.CommandBufferSubmitInfo {
@@ -294,6 +442,36 @@ _cmd_clear_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture,
         val := vk.ClearColorValue{float32 = color}
         range := _vk_subresource_range({.Color})
         d.CmdClearColorImage(cb.buffer, tex.image, .GENERAL, &val, 1, &range)
+}
+
+
+_cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Texture) {
+        subresource := vk.ImageSubresourceLayers {
+                aspectMask     = {.COLOR},
+                mipLevel       = 0,
+                baseArrayLayer = 0,
+                layerCount     = 1,
+        }
+
+        region := vk.ImageBlit2 {
+                sType          = .IMAGE_BLIT_2,
+                srcSubresource = subresource,
+                srcOffsets     = {{}, {i32(src.extent.width), i32(src.extent.height), i32(src.extent.depth)}},
+                dstSubresource = subresource,
+                dstOffsets     = {{}, {i32(dst.extent.width), i32(dst.extent.height), i32(dst.extent.depth)}},
+        }
+
+        blit_info := vk.BlitImageInfo2 {
+                sType          = .BLIT_IMAGE_INFO_2,
+                srcImage       = src.image,
+                srcImageLayout = .TRANSFER_SRC_OPTIMAL,
+                dstImage       = dst.image,
+                dstImageLayout = .TRANSFER_DST_OPTIMAL,
+                filter         = .LINEAR,
+                regionCount    = 1,
+                pRegions       = &region,
+        }
+        d.CmdBlitImage2(cb.buffer, &blit_info)
 }
 /*
 
@@ -702,6 +880,16 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         pNext = &sync2_features
 
 
+        buffer_device_address_features := vk.PhysicalDeviceBufferDeviceAddressFeatures {
+                sType               = .PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+                pNext               = pNext,
+                bufferDeviceAddress = true,
+        }
+
+        pNext = &buffer_device_address_features
+
+
+
         device_info := vk.DeviceCreateInfo {
                 sType                   = .DEVICE_CREATE_INFO,
                 pNext                   = pNext,
@@ -846,7 +1034,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 }
                         
                 log.debugf("  Extent: %v, %v", capabilities.currentExtent.width, capabilities.currentExtent.height)
-                       
+                sc.extent = extent
 
                 image_count = capabilities.minImageCount + 1
 
@@ -860,6 +1048,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 pre_transform = capabilities.currentTransform
         }
 
+
         queue_indices := [2]u32 { d.graphics_family, d.present_family }
         graphics_can_present := d.graphics_family == d.present_family
 
@@ -871,7 +1060,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 imageColorSpace       = format.colorSpace,
                 imageExtent           = extent,
                 imageArrayLayers      = 1, // VR here!
-                imageUsage            = {.COLOR_ATTACHMENT},
+                imageUsage            = {.COLOR_ATTACHMENT, .TRANSFER_DST},
                 imageSharingMode      = .EXCLUSIVE if graphics_can_present else .CONCURRENT,
                 queueFamilyIndexCount = 1 if graphics_can_present else 2,
                 pQueueFamilyIndices   = raw_data(&queue_indices),
@@ -933,6 +1122,12 @@ _vk_swapchain_images_init :: proc(d: ^Device, sc: ^Swapchain) -> Result {
 
                 vkres = d.CreateImageView(d.device, &image_view_info, nil, &sc.textures[i].full_view.view)
                 check_result(vkres) or_return
+
+                sc.textures[i].extent = vk.Extent3D {
+                        width  = sc.extent.width,
+                        height = sc.extent.height,
+                        depth  = 1,
+                }
         }
 
         return .Ok
@@ -1017,7 +1212,7 @@ _vk_swapchain_command_buffers_init :: proc(d: ^Device, sc: ^Swapchain) -> Result
                 temp_in_flight_fence      := Fence {sc.in_flight_fence[i]}
 
                 command_buffer_info := Command_Buffer_Init_Info {
-                        type             = .Graphics,
+                        queue            = .Graphics,
                         wait_semaphore   = &temp_image_available_sema,
                         signal_semaphore = &temp_render_finished_sema,
                         signal_fence     = &temp_in_flight_fence,
@@ -1103,6 +1298,11 @@ _Pipeline_Stage_To_Vk := [Pipeline_Stage]vk.PipelineStageFlag2 {
         .Compute_Shader                 = .COMPUTE_SHADER,
         .Transfer                       = .TRANSFER,
         .End                            = .BOTTOM_OF_PIPE,
+        .Host                           = .HOST,
+        .Copy                           = .COPY,
+        .Resolve                        = .RESOLVE,
+        .Blit                           = .BLIT,
+        .Clear                          = .CLEAR,
 }
 
 _vk_pipeline_stages :: proc(ps: Pipeline_Stages) -> vk.PipelineStageFlags2 {
@@ -1150,10 +1350,10 @@ _vk_access :: proc(access: Access_Flags) -> vk.AccessFlags2 {
 _Texture_Layout_To_Vk := [Texture_Layout]vk.ImageLayout {
         .Undefined       = .UNDEFINED,
         .General         = .GENERAL,
-        .Target_Or_Input = .ATTACHMENT_OPTIMAL,
+        .Target          = .ATTACHMENT_OPTIMAL,
         .Read_Only       = .READ_ONLY_OPTIMAL,
-        .Transfer_Source = .TRANSFER_SRC_OPTIMAL,
-        .Transfer_Dest   = .TRANSFER_DST_OPTIMAL,
+        .Transfer_Src    = .TRANSFER_SRC_OPTIMAL,
+        .Transfer_Dst    = .TRANSFER_DST_OPTIMAL,
         .Pre_Initialized = .PREINITIALIZED,
         .Present         = .PRESENT_SRC_KHR,
 }

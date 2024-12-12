@@ -18,8 +18,6 @@ VK_VALIDATION_LAYER          :: ODIN_DEBUG
 @(private)
 VK_ENABLE_INSTANCE_DEBUGGING :: false
 
-@(private)
-FRAMES_IN_FLIGHT :: 3
 
 
 // **IMPORTANT**: Don't use this vtable directly in application code!
@@ -53,6 +51,7 @@ Swapchain :: struct {
         image_format         : vk.SurfaceFormatKHR,
         image_index          : u32,
         textures             : []Texture, // acquired, only destroy full_view
+        extent               : vk.Extent2D,
         pending_destroy      : vk.SwapchainKHR,
 
         image_available_sema : [FRAMES_IN_FLIGHT]vk.Semaphore,
@@ -72,7 +71,7 @@ Swapchain :: struct {
 
 // Use a separate Command_Buffer per thread.
 Command_Buffer :: struct {
-        type         : Command_Buffer_Type,
+        queue        : Queue_Flag,
 
         pool         : vk.CommandPool,
         buffer       : vk.CommandBuffer,
@@ -84,14 +83,16 @@ Command_Buffer :: struct {
 
 
 Texture :: struct {
-        image      : vk.Image,
-        sampler    : vk.Sampler,
-        full_view  : Texture_View,
-        allocation : vma.Allocation,
+        image       : vk.Image,
+        full_view   : Texture_View,
+        extent      : vk.Extent3D,
+        mip_count   : u32,
+        layer_count : u32,
+        allocation  : vma.Allocation,
 }
 
 Texture_View   :: struct {
-        view : vk.ImageView,
+        view   : vk.ImageView,
 }
 
 Sampler        :: struct {}
@@ -100,13 +101,13 @@ Shader         :: struct {}
 Buffer         :: struct {}
 
 // GPU -> CPU sync
-Fence          :: struct {
+Fence :: struct {
         fence: vk.Fence,
 }
 
 // GPU -> GPU sync
-Semaphore      :: struct { 
-        sema: vk.Semaphore ,
+Semaphore :: struct { 
+        sema: vk.Semaphore,
 }
 
 // } // when RHI == "vulkan"

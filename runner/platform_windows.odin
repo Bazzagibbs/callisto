@@ -275,6 +275,8 @@ platform_destroy :: proc (runner: ^cal.Runner) {
 
 window_init :: proc (runner: ^cal.Runner, window: ^cal.Window, create_info: ^cal.Window_Init_Info) -> (res: cal.Result) {
         dwStyle : win.DWORD
+        
+        win.SetProcessDpiAwarenessContext(win.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
 
         pos  := [2]c.int{win.CW_USEDEFAULT, win.CW_USEDEFAULT}
         size := [2]c.int{win.CW_USEDEFAULT, win.CW_USEDEFAULT}
@@ -292,7 +294,6 @@ window_init :: proc (runner: ^cal.Runner, window: ^cal.Window, create_info: ^cal
         style := _window_style_to_win32(create_info.style)
         test_style := win.WS_OVERLAPPEDWINDOW | win.WS_VISIBLE
 
-        win.SetProcessDpiAwarenessContext(win.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE)
 
         window^ = win.CreateWindowExW(
                 dwExStyle    = win.WS_EX_OVERLAPPEDWINDOW,

@@ -47,7 +47,7 @@ An example Callisto project may be structured like so:
 ```
 my_project/
 ├── game_code.odin
-├── assets/        # asset source files (fbx, png)
+├── assets/        # asset source files (.gltf, .png)
 ├── data/          # imported asset files (.cal)
 ├── callisto/
 └── out/

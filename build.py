@@ -11,23 +11,26 @@ ASSET_DIRECTORY    = "./assets"
 CALLISTO_DIRECTORY = "./callisto"
 OUT_DIRECTORY      = "./out"
 
+## Available build configurations (`py build.py <config>`)
+## Default is `develop`
+#
 # reload
-# - App dll + debug symbols
+#   - App dll (debug)
 #
 # develop
-# - App dll + debug symbols
-# - Runner + debug symbols + hot reload
-# - Copy assets
+#   - App dll (debug)
+#   - Runner (debug, hot-reload)
+#   - Copy assets
 #
 # debug
-# - App dll + debug symbols
-# - Runner + debug symbols
-# - Copy assets
+#   - App dll (debug)
+#   - Runner (debug)
+#   - Copy assets
 #
 # release
-# - App dll
-# - Runner
-# - Copy assets
+#   - App dll
+#   - Runner
+#   - Copy assets
 
 parser = argparse.ArgumentParser()
 parser.add_argument("config", nargs="?", const="reload", default="reload", choices=["reload", "develop", "debug", "release"])

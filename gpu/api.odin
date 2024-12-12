@@ -6,6 +6,8 @@ import "../config"
 
 RHI :: config.RHI
 
+FRAMES_IN_FLIGHT :: 3
+
 Result :: common.Result
 Runner :: common.Runner
 Window :: common.Window
@@ -36,17 +38,19 @@ Vsync_Mode :: enum {
 }
 
 Command_Buffer_Init_Info :: struct {
-        type             : Command_Buffer_Type,
+        queue            : Queue_Flag,
         wait_semaphore   : ^Semaphore,
         signal_semaphore : ^Semaphore,
         signal_fence     : ^Fence,
 }
 
-Command_Buffer_Type :: enum {
+Queue_Flags :: bit_set[Queue_Flag]
+Queue_Flag :: enum {
         Graphics,
-        Compute_Sync,
+        Compute_Sync = Graphics,
         Compute_Async,
 }
+
 
 Pipeline_Stages :: bit_set[Pipeline_Stage]
 Pipeline_Stage :: enum {
@@ -64,15 +68,21 @@ Pipeline_Stage :: enum {
         Compute_Shader,
         Transfer,
         End,
+        Host,
+        Copy,
+        Resolve,
+        Blit,
+        Clear,
 }
 
 Texture_Layout :: enum {
         Undefined,
         General,
-        Target_Or_Input,
+        Target,
+        Input = Target,
         Read_Only,
-        Transfer_Source,
-        Transfer_Dest,
+        Transfer_Src,
+        Transfer_Dst,
         Pre_Initialized,
         Present,
 }
@@ -123,29 +133,106 @@ Texture_Transition_Info :: struct {
 Buffer_Init_Info :: struct {}
 
 Buffer_Transfer_Info :: struct {}
+*/
 
 Texture_Init_Info :: struct {
-        format      : Texture_Format,
-        usage       : Texture_Usage_Flags,
-        dimensions  : Texture_View_Dimensions,
-        extent      : [3]u32,
-        mip_count   : u32,
-        layer_count : u32,
+        format             : Texture_Format,
+        usage              : Texture_Usage_Flags,
+        queue_usage        : Queue_Flags,
+        memory_access_type : Memory_Access_Type,
+        dimensions         : Texture_Dimensions,
+        extent             : [3]u32,
+        mip_count          : u32,
+        layer_count        : u32,
+        multisample        : Texture_Multisample,
+        initial_layout     : Texture_Layout,
 }
 
 Texture_Format :: enum {
-        R8G8B8A8_UNORM_SRGB,
+        Undefined,
+        R8G8B8A8_UNORM,
+        R16G16B16A16_SFLOAT,
 }
 
 Texture_Usage_Flags :: bit_set[Texture_Usage_Flag]
 Texture_Usage_Flag :: enum {
+        Transfer_Src,
+        Transfer_Dst,
         Sampled,
         Storage,
         Color_Target,
+        Color_Input = Color_Target,
         Depth_Stencil_Target,
-        Transient,
+        Depth_Stencil_Input = Depth_Stencil_Target,
+        Transient_Target,
 }
 
+Texture_Dimensions :: enum {
+        _1D,
+        _2D,
+        _3D,
+        Cube,
+        _1D_Array,
+        _2D_Array,
+        Cube_Array,
+}
+
+Texture_Multisample :: enum {
+        None,
+        _2,
+        _4,
+        _8,
+        _16,
+        _32,
+        _64,
+}
+
+Memory_Access_Type :: enum {
+        Device_Read_Only,
+        Device_Read_Write,
+        Staging,
+        Host_Readback,
+}
+
+Sampler_Init_Info :: struct {
+        wrap_mode      : Sampler_Wrap_Mode,
+        minify_filter  : Filter,
+        magnify_filter : Filter,
+        mip_filter     : Filter,
+        mip_lod_bias   : f32,
+
+        anisotropy     : bool,
+        max_anisotropy : f32,
+
+        min_lod        : f32,
+        max_lod        : f32,
+        border_color   : Sampler_Border_Color,
+
+        sample_by_pixel_index : bool, // when true, use [0, pixel_width) instead of [0, 1)
+}
+
+Filter :: enum {
+        Nearest,
+        Linear,
+}
+
+Sampler_Wrap_Mode :: enum {
+        Repeat,
+        Mirror,
+        Clamp_To_Edge,
+        Clamp_To_Border,
+}
+
+Sampler_Border_Color :: enum {
+        Transparent_Black_Float,
+        Transparent_Black_Int,
+        Opaque_Black_Float,
+        Opaque_Black_Int,
+        Opaque_White_Float,
+        Opaque_White_Int,
+}
+
+/*
 Texture_View_Init_Info :: struct {
         texture     : ^Texture,
         format : Texture_Format,
@@ -156,17 +243,7 @@ Texture_View_Init_Info :: struct {
         layer_count : u32,
 }
 
-Texture_View_Dimensions :: enum {
-        _1D,
-        _2D,
-        _3D,
-        Cube,
-        _1D_Array,
-        _2D_Array,
-        Cube_Array,
-}
 
-Sampler_Init_Info :: struct {}
 
 Shader_Init_Info :: struct {}
 
@@ -220,6 +297,10 @@ device_destroy :: proc (d: ^Device) {
         _device_destroy(d)
 }
 
+device_wait_for_idle :: proc (d: ^Device) {
+        _device_wait_for_idle(d)
+}
+
 swapchain_init :: proc(d: ^Device, sc: ^Swapchain, swapchain_init_info: ^Swapchain_Init_Info, location := #caller_location) -> Result {
         return _swapchain_init(d, sc, swapchain_init_info, location)
 }
@@ -231,6 +312,19 @@ swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
 // swapchain_rebuild :: proc(d: ^Device, sc: ^Swapchain) -> Result {
 //         return _swapchain_rebuild(d, sc)
 // }
+
+
+swapchain_get_frame_in_flight_index :: proc(d: ^Device, sc: ^Swapchain) -> int {
+        return _swapchain_get_frame_in_flight_index(d, sc)
+}
+
+swapchain_get_frames_in_flight_count :: proc(d: ^Device, sc: ^Swapchain) -> int {
+        return FRAMES_IN_FLIGHT
+}
+
+swapchain_get_extent :: proc(d: ^Device, sc: ^Swapchain) -> [2]u32 {
+        return _swapchain_get_extent(d, sc)
+}
 
 swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> Result {
         return _swapchain_present(d, sc)
@@ -246,6 +340,15 @@ swapchain_acquire_texture :: proc(d: ^Device, sc: ^Swapchain, tex: ^^Texture) ->
 
 swapchain_acquire_command_buffer :: proc(d: ^Device, sc: ^Swapchain, cb: ^^Command_Buffer) -> Result {
         return _swapchain_acquire_command_buffer(d, sc, cb)
+}
+
+
+texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) -> Result {
+        return _texture_init(d, tex, init_info)
+}
+
+texture_destroy :: proc(d: ^Device, tex: ^Texture) {
+        _texture_destroy(d, tex)
 }
 
 command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, command_buffer_init_info: ^Command_Buffer_Init_Info, location := #caller_location) -> Result {
@@ -272,11 +375,14 @@ cmd_transition_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, t
         _cmd_transition_texture(d, cb, tex, transition_info)
 }
 
-// TEMPORARY: use begin_render_pass instead
+// TODO: Remove this, use begin_render_pass load_op for clears instead
 cmd_clear_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, color: [4]f32) {
         _cmd_clear_color_texture(d, cb, tex, color)
 }
 
+cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Texture) {
+        _cmd_blit_color_texture(d, cb, src, dst)
+}
 
 // cmd_begin_render : proc(^Device, ^Command_Buffer) : _cmd_begin_render
 /*
