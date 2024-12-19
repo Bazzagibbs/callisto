@@ -23,26 +23,39 @@ VK_ENABLE_INSTANCE_DEBUGGING :: false
 // **IMPORTANT**: Don't use this vtable directly in application code!
 // Doing so will break the ability to port to a different renderer in the future.
 Device :: struct {
-        using vtable         : vk.VTable,
+        using vtable           : vk.VTable,
 
-        instance             : vk.Instance,
-        debug_messenger      : vk.DebugUtilsMessengerEXT,
-        phys_device          : vk.PhysicalDevice,
-        device               : vk.Device,
+        instance               : vk.Instance,
+        debug_messenger        : vk.DebugUtilsMessengerEXT,
+        phys_device            : vk.PhysicalDevice,
+        device                 : vk.Device,
 
-        allocator            : vma.Allocator,
+        allocator              : vma.Allocator,
 
-        graphics_family      : u32,
-        present_family       : u32,
-        async_compute_family : u32,
+        graphics_family        : u32,
+        present_family         : u32,
+        async_compute_family   : u32,
         
         // Device owns the queues? One queue each per application
-        graphics_queue       : vk.Queue,
-        present_queue        : vk.Queue,
-        async_compute_queue  : vk.Queue,
+        graphics_queue         : vk.Queue,
+        present_queue          : vk.Queue,
+        async_compute_queue    : vk.Queue,
 
-        submit_mutex         : sync.Mutex,
+        submit_mutex           : sync.Mutex,
+        descriptor_set_layouts : map[uintptr]_Descriptor_Set_Layout_Counter,
 }
+
+@(private)
+_Descriptor_Set_Layout_Counter :: struct {
+        layout                : vk.DescriptorSetLayout,
+        shader_users          : int,
+        descriptor_pool_sizes : []vk.DescriptorPoolSize,
+        descriptor_arena      : [dynamic]vk.DescriptorPool,
+        arena_length          : int,
+        arena_capacity        : int,
+}
+
+
 
 Swapchain :: struct {
         window               : Window_Handle,
@@ -95,8 +108,12 @@ Texture_View   :: struct {
         view   : vk.ImageView,
 }
 
-Sampler        :: struct {}
-Shader         :: struct {}
+Sampler :: struct {}
+
+Shader :: struct {
+        shader                : vk.ShaderEXT,
+        descriptor_set_hashes : [4]uintptr,
+}
 
 Buffer         :: struct {}
 
@@ -110,4 +127,8 @@ Semaphore :: struct {
         sema: vk.Semaphore,
 }
 
+
+Resource_Set :: struct {
+        descriptor_set : vk.DescriptorSet,
+}
 // } // when RHI == "vulkan"

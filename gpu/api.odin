@@ -16,7 +16,7 @@ Location :: runtime.Source_Code_Location
 
 
 Device_Init_Info :: struct {
-        runner            : ^Runner, // required
+        runner            : ^Runner,
         required_features : Required_Device_Features,
 }
 
@@ -26,8 +26,9 @@ Required_Device_Feature :: enum {}
 Swapchain_Init_Info :: struct {
         window                        : Window,
         vsync                         : Vsync_Mode,
-        force_draw_occluded_fragments : bool,
-        // hdr    : bool,
+        force_draw_occluded_fragments : bool, // When part of the window is covered
+        // stereo : bool, // FEATURE(Stereo rendering)
+        // hdr    : bool, // FEATURE(HDR surface)
 }
 
 Vsync_Modes :: bit_set[Vsync_Mode]
@@ -75,6 +76,36 @@ Pipeline_Stage :: enum {
         Clear,
 }
 
+Shader_Stages :: bit_set[Shader_Stage]
+Shader_Stage :: enum {
+        // Graphics
+        Vertex,
+        Tessellation_Control,
+        Tessellation_Evaluation,
+        Geometry,
+        Fragment,
+        // Compute
+        Compute,
+        // // Ray tracing // FEATURE(Ray tracing)
+        // Ray_Generation,
+        // Any_Hit,
+        // Closest_Hit,
+        // Miss,
+        // Intersection,
+        // Callable,
+        // // Mesh // FEATURE(Mesh shaders)
+        // Task,
+        // Mesh,
+}
+
+Shader_Stages_ALL_GRAPHICS :: Shader_Stages {
+        .Vertex, 
+        .Tessellation_Control, 
+        .Tessellation_Evaluation, 
+        .Geometry,
+        .Fragment,
+}
+
 Texture_Layout :: enum {
         Undefined,
         General,
@@ -93,7 +124,7 @@ Access_Flag :: enum {
         Indirect_Read,
         Index_Read,
         Vertex_Attribute_Read,
-        Uniform_Read,
+        Constant_Read,
         Texture_Read,
         Texture_Write,
         Storage_Read,
@@ -128,12 +159,6 @@ Texture_Transition_Info :: struct {
         src_access        : Access_Flags,
         dst_access        : Access_Flags,
 }
-
-/*
-Buffer_Init_Info :: struct {}
-
-Buffer_Transfer_Info :: struct {}
-*/
 
 Texture_Init_Info :: struct {
         format             : Texture_Format,
@@ -232,6 +257,54 @@ Sampler_Border_Color :: enum {
         Opaque_White_Int,
 }
 
+Shader_Init_Info :: struct {
+        code                 : []u8,
+        stage                : Shader_Stage,
+        resource_set_layouts : []Resource_Set_Layout, // Maximum of 4
+        vertex_attributes    : Vertex_Attribute_Flags,
+}
+
+Resource_Set_Layout :: struct {
+        resource_references : []Resource_Reference,
+}
+
+Resource_Reference :: struct {
+        binding : u32,
+        type    : Resource_Type,
+        stages  : Shader_Stages,
+}
+
+Resource_Type :: enum {
+        Sampler,
+        Combined_Texture_Sampler,
+        Sampled_Texture,
+        Storage_Texture,
+        Input_Texture,
+        Constant_Buffer,
+        Storage_Buffer,
+        // Acceleration_Structure, // FEATURE(Ray tracing)
+}
+
+
+Vertex_Attribute_Flags :: bit_set[Vertex_Attribute_Flag]
+Vertex_Attribute_Flag :: enum {
+        Position,
+        Normal,
+        Tangent,
+        Color_0,
+        Color_1,
+        Tex_Coord_0,
+        Tex_Coord_1,
+        Tex_Coord_2,
+        Tex_Coord_3,
+        Joints_0,
+        Joints_1,
+        Weights_0,
+        Weights_1,
+}
+
+
+
 /*
 Texture_View_Init_Info :: struct {
         texture     : ^Texture,
@@ -243,9 +316,13 @@ Texture_View_Init_Info :: struct {
         layer_count : u32,
 }
 
+/*
+Buffer_Init_Info :: struct {}
+
+Buffer_Transfer_Info :: struct {}
+*/
 
 
-Shader_Init_Info :: struct {}
 
 Color_Target_Info :: struct {
         texture              : ^Texture,
@@ -351,6 +428,14 @@ texture_destroy :: proc(d: ^Device, tex: ^Texture) {
         _texture_destroy(d, tex)
 }
 
+shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> Result {
+        return _shader_init(d, s, init_info)
+}
+
+shader_destroy :: proc(d: ^Device, s: ^Shader) {
+        _shader_destroy(d, s)
+}
+
 command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, command_buffer_init_info: ^Command_Buffer_Init_Info, location := #caller_location) -> Result {
         return _command_buffer_init(d, cb, command_buffer_init_info, location) 
 }
@@ -395,8 +480,6 @@ texture_view_destroy :: _texture_view_destroy
 sampler_init :: _sampler_init
 sampler_destroy :: _sampler_destroy
 
-shader_init :: _shader_init
-shader_destroy :: _shader_destroy
 
 cmd_begin_render :: _cmd_begin_render
 cmd_end_render :: _cmd_end_render

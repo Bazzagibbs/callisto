@@ -39,3 +39,8 @@ Now in `device_init`, set up the logger with the callback in `Device_Init_Info.r
 
 Thin wrapper around some Vulkan features (shader object + dynamic rendering workflow).
 This should be portable to other graphics APIs (GNM is apparently lower level than Vulkan)
+
+- Maybe replace texture transitions with something more ergonomic? 
+    - Per-thread `Texture_State` struct that keeps track of the current layout/access
+    - Several specialized `cmd_transition` commands that only take this struct as a parameter
+

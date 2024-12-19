@@ -28,6 +28,7 @@ INSTANCE_EXTENSIONS :: []cstring {
 
 DEVICE_EXTENSIONS :: []cstring {
         vk.KHR_SWAPCHAIN_EXTENSION_NAME,
+        vk.EXT_SHADER_OBJECT_EXTENSION_NAME,
 }
 
 
@@ -55,6 +56,8 @@ _device_destroy :: proc(d: ^Device) {
         _vk_vma_destroy(d)
         _vk_device_destroy(d)
         _vk_instance_destroy(d)
+        delete(d.descriptor_set_layouts)
+
 }
 
 _device_wait_for_idle :: proc(d: ^Device) {
@@ -97,7 +100,6 @@ _swapchain_get_extent :: proc(d: ^Device, sc: ^Swapchain) -> [2]u32 {
         return { sc.extent.width, sc.extent.height }
 }
 
-// swapchain_rebuild             :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result)
 // swapchain_set_vsync           :: proc(d: ^Device, sc: ^Swapchain, vsync: Vsync_Mode) -> (res: Result)
 // swapchain_get_vsync           :: proc(d: ^Device, sc: ^Swapchain) -> (vsync: Vsync_Mode)
 // swapchain_get_available_vsync :: proc(d: ^Device, sc: ^Swapchain) -> (vsyncs: Vsync_Modes)
@@ -420,6 +422,214 @@ _command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result)
 }
 
 
+_resource_set_layout_hash :: proc(layout: Resource_Set_Layout) -> uintptr {
+	return runtime.default_hasher(raw_data(layout.resource_references), 0, len(layout.resource_references))
+}
+
+_Shader_Stage_To_Vk := [Shader_Stage]vk.ShaderStageFlag {
+        .Vertex                  = .VERTEX,
+        .Tessellation_Control    = .TESSELLATION_CONTROL,
+        .Tessellation_Evaluation = .TESSELLATION_EVALUATION,
+        .Geometry                = .GEOMETRY,
+        .Fragment                = .FRAGMENT,
+        .Compute                 = .COMPUTE,
+        // // FEATURE(Ray tracing)
+        // .Ray_Generation          = .RAYGEN_KHR,
+        // .Any_Hit                 = .ANY_HIT_KHR,
+        // .Closest_Hit             = .CLOSEST_HIT_KHR,
+        // .Miss                    = .MISS_KHR,
+        // .Intersection            = .INTERSECTION_KHR,
+        // .Callable                = .CALLABLE_KHR,
+        // // FEATURE(Mesh shaders)
+        // .Task                    = .TASK_EXT,
+        // .Mesh                    = .MESH_EXT,
+}
+
+
+_shader_stages_to_vk :: proc(stages: Shader_Stages) -> vk.ShaderStageFlags {
+        flags := vk.ShaderStageFlags {}
+
+        for stage in stages {
+                flags += {_Shader_Stage_To_Vk[stage]}
+        }
+
+        return flags
+}
+
+_Resource_Type_To_Vk := [Resource_Type]vk.DescriptorType {
+        .Sampler                  = .SAMPLER,
+        .Combined_Texture_Sampler = .COMBINED_IMAGE_SAMPLER,
+        .Sampled_Texture          = .SAMPLED_IMAGE,
+        .Storage_Texture          = .STORAGE_IMAGE,
+        .Input_Texture            = .INPUT_ATTACHMENT,
+        .Constant_Buffer          = .UNIFORM_BUFFER,
+        .Storage_Buffer           = .STORAGE_BUFFER,
+        // // FEATURE(Ray tracing)
+        // .Acceleration_Structure   = .ACCELERATION_STRUCTURE_KHR,
+}
+
+_Shader_Next_Stages := [Shader_Stage]vk.ShaderStageFlags {
+        .Vertex                  = {.TESSELLATION_CONTROL, .TESSELLATION_EVALUATION, .GEOMETRY, .FRAGMENT},
+        .Tessellation_Control    = {.TESSELLATION_EVALUATION},
+        .Tessellation_Evaluation = {.GEOMETRY, .FRAGMENT},
+        .Geometry                = {.FRAGMENT},
+        .Fragment                = {},
+        .Compute                 = {},
+        // // FEATURE(Ray tracing)
+        // .Ray_Generation          = {.ANY_HIT_KHR, .CLOSEST_HIT_KHR, .MISS_KHR, .INTERSECTION_KHR, .CALLABLE_KHR},
+        // .Any_Hit                 = {},
+        // .Closest_Hit             = {},
+        // .Miss                    = {},
+        // .Intersection            = {},
+        // .Callable                = {},
+        // // FEATURE(Mesh shading)
+        // .Task                    = {.MESH_EXT},
+        // .Mesh                    = {.FRAGMENT},
+}
+
+// _Shader_Stage_To_Name_Slang := [Shader_Stage]cstring {
+//         .Vertex                  = ,
+//         .Tessellation_Control    = {.TESSELLATION_EVALUATION},
+//         .Tessellation_Evaluation = {.GEOMETRY, .FRAGMENT},
+//         .Geometry                = {.FRAGMENT},
+//         .Fragment                = {},
+//         .Compute                 = {},
+//         // // FEATURE(Ray tracing)
+//         // .Ray_Generation          = {.ANY_HIT_KHR, .CLOSEST_HIT_KHR, .MISS_KHR, .INTERSECTION_KHR, .CALLABLE_KHR},
+//         // .Any_Hit                 = {},
+//         // .Closest_Hit             = {},
+//         // .Miss                    = {},
+//         // .Intersection            = {},
+//         // .Callable                = {},
+//         // // FEATURE(Mesh shading)
+//         // .Task                    = {.MESH_EXT},
+//         // .Mesh                    = {.FRAGMENT},
+//
+// }
+
+_shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> (res: Result) {
+        // TODO: Vertex attributes
+
+        validate_info( #location(), 
+                Valid_Range_Int{"resource_set_layouts", len(init_info.resource_set_layouts), 0, 4}
+        ) or_return
+
+        set_layouts := make([]vk.DescriptorSetLayout, len(init_info.resource_set_layouts), context.temp_allocator)
+
+        // Descriptor set layouts
+        for layout, i in init_info.resource_set_layouts {
+                hash := _resource_set_layout_hash(layout)
+                s.descriptor_set_hashes[i] = hash
+
+                layout_counter, exists := &d.descriptor_set_layouts[hash]
+                if !exists {
+                        bindings := make([]vk.DescriptorSetLayoutBinding, len(layout.resource_references), context.temp_allocator)
+
+                        for resource, j in layout.resource_references {
+                                bindings[j] = vk.DescriptorSetLayoutBinding {
+                                        binding         = resource.binding,
+                                        descriptorType  = _Resource_Type_To_Vk[resource.type],
+                                        descriptorCount = 1,
+                                        stageFlags      = _shader_stages_to_vk(resource.stages),
+
+                                }
+                        }
+
+                        set_layout_info := vk.DescriptorSetLayoutCreateInfo {
+                                sType        = .DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                bindingCount = len32(bindings),
+                                pBindings    = raw_data(bindings),
+                        }
+
+                        layout : vk.DescriptorSetLayout
+
+                        vkres := d.CreateDescriptorSetLayout(d.device, &set_layout_info, nil, &layout)
+                        check_result(vkres) or_return
+
+                        counter := _Descriptor_Set_Layout_Counter {
+                                layout                = layout,
+                                shader_users          = 0,
+                                // ALLOCATES, freed when last shader is destroyed
+                                descriptor_pool_sizes = make([]vk.DescriptorPoolSize, len(bindings))
+                        }
+
+                        // Descriptor pools for each layout
+                        for binding, j in bindings {
+                                counter.descriptor_pool_sizes[j] = vk.DescriptorPoolSize {
+                                        type            = binding.descriptorType,
+                                        descriptorCount = binding.descriptorCount,
+                                }
+                        }
+
+                        pool_info := vk.DescriptorPoolCreateInfo {
+                                sType         = .DESCRIPTOR_POOL_CREATE_INFO,
+                                maxSets       = 1000,
+                                poolSizeCount = len32(counter.descriptor_pool_sizes),
+                                pPoolSizes    = raw_data(counter.descriptor_pool_sizes),
+                        }
+
+                        first_pool : vk.DescriptorPool
+                        vkres = d.CreateDescriptorPool(d.device, &pool_info, nil, &first_pool)
+                        check_result(vkres) or_return
+                        
+                        append(&counter.descriptor_pools, first_pool)
+
+                        layout_counter = map_insert(&d.descriptor_set_layouts, hash, counter)
+                }
+
+                set_layouts[i] = layout_counter.layout
+
+                layout_counter.shader_users += 1
+        }
+
+        create_info := vk.ShaderCreateInfoEXT {
+                sType                  = .SHADER_CREATE_INFO_EXT,
+                flags                  = {},
+                stage                  = {_Shader_Stage_To_Vk[init_info.stage]},
+                nextStage              = _Shader_Next_Stages[init_info.stage],
+                codeType               = .SPIRV,
+                codeSize               = len(init_info.code),
+                pCode                  = raw_data(init_info.code),
+                pName                  = "main",
+                setLayoutCount         = len32(set_layouts),
+                pSetLayouts            = raw_data(set_layouts),
+                pushConstantRangeCount = 0,
+                pPushConstantRanges    = nil,
+                pSpecializationInfo    = nil,
+        }
+
+        vkres := d.CreateShadersEXT(d.device, 1, &create_info, nil, &s.shader)
+        check_result(vkres) or_return
+
+        return .Ok
+}
+
+
+_shader_destroy :: proc(d: ^Device, s: ^Shader) {
+        for hash in s.descriptor_set_hashes {
+                if hash == 0 {
+                        continue
+                }
+
+                layout := &d.descriptor_set_layouts[hash]
+                layout.shader_users -= 1
+                if layout.shader_users <= 0 {
+                        for pool in layout.descriptor_pools {
+                                d.DestroyDescriptorPool(d.device, pool, nil)
+                        }
+                        delete(layout.descriptor_pools)
+                        delete(layout.descriptor_pool_sizes)
+
+                        d.DestroyDescriptorSetLayout(d.device, layout.layout, nil)
+                        layout.shader_users = 0
+                }
+        }
+
+        d.DestroyShaderEXT(d.device, s.shader, nil)
+}
+
+
+
 _cmd_transition_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, transition_info: ^Texture_Transition_Info) {
         range := _vk_subresource_range(transition_info.texture_aspect)
 
@@ -615,7 +825,6 @@ config.APP_VERSION_MINOR,
 
         // Layers
         layers := make([dynamic]cstring, context.temp_allocator)
-        defer delete(layers)
 
         append(&layers, ..LAYERS)
         
@@ -701,7 +910,6 @@ _vk_physical_device_select :: proc(d: ^Device, init_info: ^Device_Init_Info) -> 
         check_result(vkres) or_return
 
         phys_devices := make([]vk.PhysicalDevice, phys_dev_count, context.temp_allocator)
-        defer delete(phys_devices, context.temp_allocator)
         vkres = d.EnumeratePhysicalDevices(d.instance, &phys_dev_count, raw_data(phys_devices))
         check_result(vkres) or_return
 
@@ -742,7 +950,6 @@ _vk_physical_device_score :: proc(d: ^Device, pd: vk.PhysicalDevice, init_info: 
         d.EnumerateDeviceExtensionProperties(pd, nil, &extension_count, nil)
 
         available_extensions := make([]vk.ExtensionProperties, extension_count, context.temp_allocator)
-        defer delete(available_extensions, context.temp_allocator)
 
         d.EnumerateDeviceExtensionProperties(pd, nil, &extension_count, raw_data(available_extensions))
 
@@ -781,13 +988,11 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         count : u32
         d.GetPhysicalDeviceQueueFamilyProperties(d.phys_device, &count, nil)
         queue_family_props := make([]vk.QueueFamilyProperties, count, context.temp_allocator)
-        defer delete(queue_family_props, context.temp_allocator)
 
         d.GetPhysicalDeviceQueueFamilyProperties(d.phys_device, &count, raw_data(queue_family_props))
 
 
         unique_queue_families := make(map[u32]struct{}, context.temp_allocator)
-        defer delete(unique_queue_families)
 
         graphics_can_present : bool
 
@@ -851,7 +1056,6 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         queue_priorities : f32 = 1.0
         queue_create_infos := make([dynamic]vk.DeviceQueueCreateInfo, context.temp_allocator)
-        defer delete(queue_create_infos)
 
         for idx in unique_queue_families {
                 // Create graphics queue
@@ -867,7 +1071,6 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
 
         device_extensions := make([dynamic]cstring, context.temp_allocator)
-        defer delete(device_extensions)
 
         append(&device_extensions, ..DEVICE_EXTENSIONS)
         // append(&device_extensions, ..USER_DEVICE_EXTENSIONS)
@@ -894,6 +1097,15 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         }
 
         pNext = &buffer_device_address_features
+
+
+        shader_object_features := vk.PhysicalDeviceShaderObjectFeaturesEXT {
+                sType        = .PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT,
+                pNext        = pNext,
+                shaderObject = true,
+        }
+
+        pNext = &shader_object_features
 
 
 
@@ -998,7 +1210,6 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 check_result(vkres) or_return
                 
                 avail_present_modes := make([]vk.PresentModeKHR, int(count), context.temp_allocator)
-                defer delete(avail_present_modes, context.temp_allocator)
                 
                 vkres = d.GetPhysicalDeviceSurfacePresentModesKHR(d.phys_device, sc.surface, &count, raw_data(avail_present_modes))
                 check_result(vkres) or_return
@@ -1101,7 +1312,6 @@ _vk_swapchain_images_init :: proc(d: ^Device, sc: ^Swapchain) -> Result {
         sc.textures = make([]Texture, count, context.allocator)
 
         temp_images := make([]vk.Image, count, context.temp_allocator)
-        defer delete(temp_images, context.temp_allocator)
 
         vkres = d.GetSwapchainImagesKHR(d.device, sc.swapchain, &count, raw_data(temp_images))
         check_result(vkres) or_return
@@ -1331,7 +1541,7 @@ _Access_Flag_To_Vk := [Access_Flag]vk.AccessFlag2 {
         .Indirect_Read              = .INDIRECT_COMMAND_READ,
         .Index_Read                 = .INDEX_READ,
         .Vertex_Attribute_Read      = .VERTEX_ATTRIBUTE_READ,
-        .Uniform_Read               = .UNIFORM_READ,
+        .Constant_Read               = .UNIFORM_READ,
         .Texture_Read               = .SHADER_SAMPLED_READ,
         .Texture_Write              = .SHADER_WRITE,
         .Storage_Read               = .SHADER_STORAGE_READ,
