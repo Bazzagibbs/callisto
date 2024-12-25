@@ -106,6 +106,12 @@ Shader_Stages_ALL_GRAPHICS :: Shader_Stages {
         .Fragment,
 }
 
+Bind_Point :: enum {
+        Graphics,
+        Compute,
+        // Ray_Tracing // FEATURE(Ray tracing)
+}
+
 Texture_Layout :: enum {
         Undefined,
         General,
@@ -258,33 +264,26 @@ Sampler_Border_Color :: enum {
 }
 
 Shader_Init_Info :: struct {
-        code                 : []u8,
-        stage                : Shader_Stage,
-        resource_set_layouts : []Resource_Set_Layout, // Maximum of 4
-        vertex_attributes    : Vertex_Attribute_Flags,
+        code              : []u8,
+        stage             : Shader_Stage,
+        // vertex_attributes : Vertex_Attribute_Flags,
+        resource_ranges   : []Resource_Type,
 }
 
-Resource_Set_Layout :: struct {
-        resource_references : []Resource_Reference,
-}
-
-Resource_Reference :: struct {
-        binding : u32,
-        type    : Resource_Type,
-        stages  : Shader_Stages,
-}
 
 Resource_Type :: enum {
-        Sampler,
-        Combined_Texture_Sampler,
+        Buffer,
         Sampled_Texture,
         Storage_Texture,
-        Input_Texture,
-        Constant_Buffer,
-        Storage_Buffer,
         // Acceleration_Structure, // FEATURE(Ray tracing)
 }
 
+Constant_Slot :: enum {
+        Scene    = 0,
+        Pass     = 1,
+        Material = 2,
+        Instance = 3,
+}
 
 Vertex_Attribute_Flags :: bit_set[Vertex_Attribute_Flag]
 Vertex_Attribute_Flag :: enum {
@@ -468,6 +467,21 @@ cmd_clear_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, 
 cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Texture) {
         _cmd_blit_color_texture(d, cb, src, dst)
 }
+
+// "Bindless" - bind buffers of all resources at the beginning of the frame.
+// Access resources within shaders using buffer indices.
+cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
+        _cmd_bind_all(d, cb, bind_point)
+}
+
+cmd_set_constant_buffer :: proc(d: ^Device, cb: ^Command_Buffer, slot: Constant_Slot, buffer: ^Constant_Buffer) {
+        _cmd_set_constant_buffer(d, cb, slot, buffer)
+}
+
+
+cmd_draw :: proc(d: ^Device, cb: ^Command_Buffer, vertex_buffer: ^Buffer, index_buffer: ^Buffer)
+cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, threads: [3]u32)
+
 
 // cmd_begin_render : proc(^Device, ^Command_Buffer) : _cmd_begin_render
 /*

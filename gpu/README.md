@@ -44,3 +44,12 @@ This should be portable to other graphics APIs (GNM is apparently lower level th
     - Per-thread `Texture_State` struct that keeps track of the current layout/access
     - Several specialized `cmd_transition` commands that only take this struct as a parameter
 
+## Future development
+
+Some code is commented out alongside a corresponding `// FEATURE()` comment.
+These are areas of the code that need to be modified should the feature be implemented.
+
+Potential features include:
+- `// FEATURE(Stereo rendering)` for VR headset support
+- `// FEATURE(Ray tracing)`
+- `// FEATURE(Mesh shading)`

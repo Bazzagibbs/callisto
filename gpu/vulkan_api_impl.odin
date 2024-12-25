@@ -31,6 +31,16 @@ DEVICE_EXTENSIONS :: []cstring {
         vk.EXT_SHADER_OBJECT_EXTENSION_NAME,
 }
 
+MAX_DESCRIPTOR_COUNT :: 10_000
+
+
+@(private)
+VK_VALIDATION_LAYER :: ODIN_DEBUG && true
+
+@(private)
+VK_ENABLE_INSTANCE_DEBUGGING :: true
+
+
 
 _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #caller_location) -> (res: Result) {
         log.info("Initializing Device")
@@ -53,11 +63,13 @@ _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #call
 _device_destroy :: proc(d: ^Device) {
         log.info("Destroying Device")
 
+        d.DestroyDescriptorPool(d.device, d.bindless_pool, nil)
+        d.DestroyPipelineLayout(d.device, d.bindless_pipeline_layout, nil)
+        d.DestroyDescriptorSetLayout(d.device, d.bindless_layout, nil)
+
         _vk_vma_destroy(d)
         _vk_device_destroy(d)
         _vk_instance_destroy(d)
-        delete(d.descriptor_set_layouts)
-
 }
 
 _device_wait_for_idle :: proc(d: ^Device) {
@@ -417,14 +429,12 @@ _command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result)
                 pCommandBufferInfos      = &cb_info,
         }
 
+        sync.lock(&d.submit_mutex)
         vkres := d.QueueSubmit2(queue, 1, &submit_info, cb.signal_fence)
+        sync.unlock(&d.submit_mutex)
         return check_result(vkres)
 }
 
-
-_resource_set_layout_hash :: proc(layout: Resource_Set_Layout) -> uintptr {
-	return runtime.default_hasher(raw_data(layout.resource_references), 0, len(layout.resource_references))
-}
 
 _Shader_Stage_To_Vk := [Shader_Stage]vk.ShaderStageFlag {
         .Vertex                  = .VERTEX,
@@ -457,15 +467,10 @@ _shader_stages_to_vk :: proc(stages: Shader_Stages) -> vk.ShaderStageFlags {
 }
 
 _Resource_Type_To_Vk := [Resource_Type]vk.DescriptorType {
-        .Sampler                  = .SAMPLER,
-        .Combined_Texture_Sampler = .COMBINED_IMAGE_SAMPLER,
-        .Sampled_Texture          = .SAMPLED_IMAGE,
-        .Storage_Texture          = .STORAGE_IMAGE,
-        .Input_Texture            = .INPUT_ATTACHMENT,
-        .Constant_Buffer          = .UNIFORM_BUFFER,
-        .Storage_Buffer           = .STORAGE_BUFFER,
-        // // FEATURE(Ray tracing)
-        // .Acceleration_Structure   = .ACCELERATION_STRUCTURE_KHR,
+        .Buffer          = .STORAGE_BUFFER,
+        .Sampled_Texture = .SAMPLED_IMAGE,
+        .Storage_Texture = .STORAGE_IMAGE,
+        // .Acceleration_Structure = .ACCELERATION_STRUCTURE_KHR, // FEATURE(Ray tracing)
 }
 
 _Shader_Next_Stages := [Shader_Stage]vk.ShaderStageFlags {
@@ -487,114 +492,27 @@ _Shader_Next_Stages := [Shader_Stage]vk.ShaderStageFlags {
         // .Mesh                    = {.FRAGMENT},
 }
 
-// _Shader_Stage_To_Name_Slang := [Shader_Stage]cstring {
-//         .Vertex                  = ,
-//         .Tessellation_Control    = {.TESSELLATION_EVALUATION},
-//         .Tessellation_Evaluation = {.GEOMETRY, .FRAGMENT},
-//         .Geometry                = {.FRAGMENT},
-//         .Fragment                = {},
-//         .Compute                 = {},
-//         // // FEATURE(Ray tracing)
-//         // .Ray_Generation          = {.ANY_HIT_KHR, .CLOSEST_HIT_KHR, .MISS_KHR, .INTERSECTION_KHR, .CALLABLE_KHR},
-//         // .Any_Hit                 = {},
-//         // .Closest_Hit             = {},
-//         // .Miss                    = {},
-//         // .Intersection            = {},
-//         // .Callable                = {},
-//         // // FEATURE(Mesh shading)
-//         // .Task                    = {.MESH_EXT},
-//         // .Mesh                    = {.FRAGMENT},
-//
-// }
 
 _shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> (res: Result) {
-        // TODO: Vertex attributes
+        stage := vk.ShaderStageFlags{_Shader_Stage_To_Vk[init_info.stage]}
 
-        validate_info( #location(), 
-                Valid_Range_Int{"resource_set_layouts", len(init_info.resource_set_layouts), 0, 4}
-        ) or_return
-
-        set_layouts := make([]vk.DescriptorSetLayout, len(init_info.resource_set_layouts), context.temp_allocator)
-
-        // Descriptor set layouts
-        for layout, i in init_info.resource_set_layouts {
-                hash := _resource_set_layout_hash(layout)
-                s.descriptor_set_hashes[i] = hash
-
-                layout_counter, exists := &d.descriptor_set_layouts[hash]
-                if !exists {
-                        bindings := make([]vk.DescriptorSetLayoutBinding, len(layout.resource_references), context.temp_allocator)
-
-                        for resource, j in layout.resource_references {
-                                bindings[j] = vk.DescriptorSetLayoutBinding {
-                                        binding         = resource.binding,
-                                        descriptorType  = _Resource_Type_To_Vk[resource.type],
-                                        descriptorCount = 1,
-                                        stageFlags      = _shader_stages_to_vk(resource.stages),
-
-                                }
-                        }
-
-                        set_layout_info := vk.DescriptorSetLayoutCreateInfo {
-                                sType        = .DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                                bindingCount = len32(bindings),
-                                pBindings    = raw_data(bindings),
-                        }
-
-                        layout : vk.DescriptorSetLayout
-
-                        vkres := d.CreateDescriptorSetLayout(d.device, &set_layout_info, nil, &layout)
-                        check_result(vkres) or_return
-
-                        counter := _Descriptor_Set_Layout_Counter {
-                                layout                = layout,
-                                shader_users          = 0,
-                                // ALLOCATES, freed when last shader is destroyed
-                                descriptor_pool_sizes = make([]vk.DescriptorPoolSize, len(bindings))
-                        }
-
-                        // Descriptor pools for each layout
-                        for binding, j in bindings {
-                                counter.descriptor_pool_sizes[j] = vk.DescriptorPoolSize {
-                                        type            = binding.descriptorType,
-                                        descriptorCount = binding.descriptorCount,
-                                }
-                        }
-
-                        pool_info := vk.DescriptorPoolCreateInfo {
-                                sType         = .DESCRIPTOR_POOL_CREATE_INFO,
-                                maxSets       = 1000,
-                                poolSizeCount = len32(counter.descriptor_pool_sizes),
-                                pPoolSizes    = raw_data(counter.descriptor_pool_sizes),
-                        }
-
-                        first_pool : vk.DescriptorPool
-                        vkres = d.CreateDescriptorPool(d.device, &pool_info, nil, &first_pool)
-                        check_result(vkres) or_return
-                        
-                        append(&counter.descriptor_pools, first_pool)
-
-                        layout_counter = map_insert(&d.descriptor_set_layouts, hash, counter)
-                }
-
-                set_layouts[i] = layout_counter.layout
-
-                layout_counter.shader_users += 1
+        push_constant_ranges := []vk.PushConstantRange {
+                {stage, 0, 16}
         }
 
         create_info := vk.ShaderCreateInfoEXT {
                 sType                  = .SHADER_CREATE_INFO_EXT,
                 flags                  = {},
-                stage                  = {_Shader_Stage_To_Vk[init_info.stage]},
+                stage                  = stage,
                 nextStage              = _Shader_Next_Stages[init_info.stage],
                 codeType               = .SPIRV,
                 codeSize               = len(init_info.code),
                 pCode                  = raw_data(init_info.code),
                 pName                  = "main",
-                setLayoutCount         = len32(set_layouts),
-                pSetLayouts            = raw_data(set_layouts),
-                pushConstantRangeCount = 0,
-                pPushConstantRanges    = nil,
+                setLayoutCount         = 1,
+                pSetLayouts            = &d.bindless_layout,
+                pushConstantRangeCount = len32(push_constant_ranges),
+                pPushConstantRanges    = raw_data(push_constant_ranges),
                 pSpecializationInfo    = nil,
         }
 
@@ -606,24 +524,6 @@ _shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> (r
 
 
 _shader_destroy :: proc(d: ^Device, s: ^Shader) {
-        for hash in s.descriptor_set_hashes {
-                if hash == 0 {
-                        continue
-                }
-
-                layout := &d.descriptor_set_layouts[hash]
-                layout.shader_users -= 1
-                if layout.shader_users <= 0 {
-                        for pool in layout.descriptor_pools {
-                                d.DestroyDescriptorPool(d.device, pool, nil)
-                        }
-                        delete(layout.descriptor_pools)
-                        delete(layout.descriptor_pool_sizes)
-
-                        d.DestroyDescriptorSetLayout(d.device, layout.layout, nil)
-                        layout.shader_users = 0
-                }
-        }
 
         d.DestroyShaderEXT(d.device, s.shader, nil)
 }
@@ -689,6 +589,35 @@ _cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Text
                 pRegions       = &region,
         }
         d.CmdBlitImage2(cb.buffer, &blit_info)
+}
+
+_Bind_Point_To_Vk := [Bind_Point]vk.PipelineBindPoint {
+        .Graphics    = .GRAPHICS,
+        .Compute     = .COMPUTE,
+        // .Ray_Tracing = .RAY_TRACING_EXT, // FEATURE(Ray tracing)
+}
+
+_cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
+        d.CmdBindDescriptorSets(
+                commandBuffer      = cb.buffer,
+                pipelineBindPoint  = _Bind_Point_To_Vk[bind_point],
+                layout             = d.bindless_pipeline_layout,
+                firstSet           = 0,
+                descriptorSetCount = 1,
+                pDescriptorSets    = &d.bindless_set,
+                dynamicOffsetCount = 0,
+                pDynamicOffsets    = nil
+        )
+}
+
+_cmd_set_constant_buffer :: proc(d: ^Device, cb: ^Command_Buffer, slot: Constant_Slot, buffer: ^Constant_Buffer) {
+        d.CmdPushConstants(cb.buffer, 
+                layout     = d.bindless_pipeline_layout,
+                stageFlags = vk.ShaderStageFlags_ALL,
+                offset     = u32(slot) * size_of(buffer.handle),
+                size       = size_of(buffer.handle),
+                pValues    = &buffer.handle
+        )
 }
 /*
 
@@ -831,8 +760,6 @@ config.APP_VERSION_MINOR,
         when VK_VALIDATION_LAYER {
                 append(&layers, "VK_LAYER_KHRONOS_validation")
         }
-        
-
 
         // Instance Extensions
         pNext: rawptr
@@ -861,8 +788,8 @@ config.APP_VERSION_MINOR,
                 }
 
                 when VK_ENABLE_INSTANCE_DEBUGGING {
-                        pNext_tail^ = &debug_create_info
-                        pNext_tail = &debug_create_info.pNext
+                        debug_create_info.pNext = pNext
+                        pNext = &debug_create_info
                 }
         }
 
@@ -1108,6 +1035,21 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         pNext = &shader_object_features
 
 
+        descriptor_indexing_features := vk.PhysicalDeviceDescriptorIndexingFeatures {
+                sType = .PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+                pNext = pNext,
+                shaderSampledImageArrayNonUniformIndexing     = true,
+                descriptorBindingSampledImageUpdateAfterBind  = true,
+                shaderUniformBufferArrayNonUniformIndexing    = true,
+                descriptorBindingUniformBufferUpdateAfterBind = true,
+                shaderStorageBufferArrayNonUniformIndexing    = true,
+                descriptorBindingStorageBufferUpdateAfterBind = true,
+                descriptorBindingPartiallyBound               = true,
+                descriptorBindingStorageImageUpdateAfterBind  = true,
+        }
+
+        pNext = &descriptor_indexing_features
+
 
         device_info := vk.DeviceCreateInfo {
                 sType                   = .DEVICE_CREATE_INFO,
@@ -1128,6 +1070,123 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         d.GetDeviceQueue(d.device, graphics_family, 0, &d.graphics_queue)
         d.GetDeviceQueue(d.device, compute_family, 0, &d.async_compute_queue)
         d.GetDeviceQueue(d.device, present_family, 0, &d.present_queue)
+
+
+        phys_props: vk.PhysicalDeviceProperties
+        d.GetPhysicalDeviceProperties(d.phys_device, &phys_props)
+        
+        // DESCRIPTORS
+        // Descriptor layout
+        // // TODO: make this an arena?
+        descriptor_binding_infos := []vk.DescriptorSetLayoutBinding {
+                {
+                        binding         = 0,
+                        descriptorType  = .STORAGE_BUFFER,
+                        // descriptorCount = phys_props.limits.maxDescriptorSetStorageBuffers,
+                        descriptorCount = 1000,
+                        stageFlags      = vk.ShaderStageFlags_ALL,
+                },
+                {
+                        binding         = 1,
+                        descriptorType  = .COMBINED_IMAGE_SAMPLER,
+                        // descriptorCount = phys_props.limits.maxDescriptorSetSamplers,
+                        descriptorCount = 1000,
+                        stageFlags      = vk.ShaderStageFlags_ALL,
+                },
+                {
+                        binding         = 2,
+                        descriptorType  = .STORAGE_IMAGE,
+                        // descriptorCount = phys_props.limits.maxDescriptorSetStorageImages,
+                        descriptorCount = 1000,
+                        stageFlags      = vk.ShaderStageFlags_ALL,
+                },
+                // { // FEATURE(Ray tracing)
+                //         binding         = 3,
+                //         descriptorType  = .ACCELERATION_STRUCTURE_KHR,
+                //         descriptorCount = 1000,
+                //         stageFlags      = vk.ShaderStageFlags_ALL,
+                // },
+        }
+
+        descriptor_binding_flags := []vk.DescriptorBindingFlags {
+                {.PARTIALLY_BOUND, .UPDATE_AFTER_BIND},
+                {.PARTIALLY_BOUND, .UPDATE_AFTER_BIND},
+                {.PARTIALLY_BOUND, .UPDATE_AFTER_BIND},
+                // {.PARTIALLY_BOUND, .UPDATE_AFTER_BIND},
+        }
+
+        descriptor_binding_flags_info := vk.DescriptorSetLayoutBindingFlagsCreateInfo {
+                sType         = .DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+                bindingCount  = len32(descriptor_binding_flags),
+                pBindingFlags = raw_data(descriptor_binding_flags),
+        }
+
+
+        descriptor_set_layout_info := vk.DescriptorSetLayoutCreateInfo {
+                sType        = .DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                pNext        = &descriptor_binding_flags_info,
+                flags        = {.UPDATE_AFTER_BIND_POOL},
+                bindingCount = len32(descriptor_binding_infos),
+                pBindings    = raw_data(descriptor_binding_infos),
+        }
+        vkres = d.CreateDescriptorSetLayout(d.device, &descriptor_set_layout_info, nil, &d.bindless_layout)
+        check_result(vkres) or_return
+
+
+        // Descriptor pool
+        descriptor_pool_sizes := []vk.DescriptorPoolSize {
+                // { .STORAGE_BUFFER, phys_props.limits.maxDescriptorSetStorageBuffers },
+                // { .COMBINED_IMAGE_SAMPLER, phys_props.limits.maxDescriptorSetSamplers },
+                // { .STORAGE_IMAGE, phys_props.limits.maxDescriptorSetStorageImages },
+                { .STORAGE_BUFFER, 65536 },
+                { .COMBINED_IMAGE_SAMPLER, 65536 },
+                { .STORAGE_IMAGE, 65536 },
+                // { .ACCELERATION_STRUCTURE_KHR, 1000 }, // FEATURE(Ray tracing)
+        }
+
+        log.info("Max Storage", phys_props.limits.maxDescriptorSetStorageBuffers)
+        log.info("Max Samplers", phys_props.limits.maxDescriptorSetSamplers)
+        log.info("Max Storage Images", phys_props.limits.maxDescriptorSetStorageImages)
+
+        descriptor_pool_info := vk.DescriptorPoolCreateInfo {
+                sType         = .DESCRIPTOR_POOL_CREATE_INFO,
+                flags         = {.UPDATE_AFTER_BIND},
+                poolSizeCount = len32(descriptor_pool_sizes),
+                pPoolSizes    = raw_data(descriptor_pool_sizes),
+                maxSets       = 1,
+        }
+
+        vkres = d.CreateDescriptorPool(d.device, &descriptor_pool_info, nil, &d.bindless_pool)
+        check_result(vkres) or_return
+
+
+        // Descriptor set
+        descriptor_set_info := vk.DescriptorSetAllocateInfo {
+                sType              = .DESCRIPTOR_SET_ALLOCATE_INFO,
+                descriptorPool     = d.bindless_pool,
+                descriptorSetCount = 1,
+                pSetLayouts        = &d.bindless_layout,
+        }
+
+        vkres = d.AllocateDescriptorSets(d.device, &descriptor_set_info, &d.bindless_set)
+        check_result(vkres) or_return
+
+        // Push constant ranges - indices into descriptor buffer
+        push_constant_ranges := []vk.PushConstantRange {
+                { vk.ShaderStageFlags_ALL, 0, 16 },  // all 4 slots
+        }
+
+        // Pipeline layout
+        pipeline_layout_info := vk.PipelineLayoutCreateInfo {
+                sType                  = .PIPELINE_LAYOUT_CREATE_INFO,
+                setLayoutCount         = 1,
+                pSetLayouts            = &d.bindless_layout,
+                pushConstantRangeCount = len32(push_constant_ranges),
+                pPushConstantRanges    = raw_data(push_constant_ranges),
+        }
+
+        vkres = d.CreatePipelineLayout(d.device, &pipeline_layout_info, nil, &d.bindless_pipeline_layout)
+        check_result(vkres) or_return
 
         return .Ok
 }
@@ -1277,7 +1336,7 @@ _vk_swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Ini
                 imageFormat           = format.format,
                 imageColorSpace       = format.colorSpace,
                 imageExtent           = extent,
-                imageArrayLayers      = 1, // VR here!
+                imageArrayLayers      = 1, // FEATURE(Stereo rendering)
                 imageUsage            = {.COLOR_ATTACHMENT, .TRANSFER_DST},
                 imageSharingMode      = .EXCLUSIVE if graphics_can_present else .CONCURRENT,
                 queueFamilyIndexCount = 1 if graphics_can_present else 2,
