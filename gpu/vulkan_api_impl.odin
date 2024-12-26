@@ -676,6 +676,7 @@ check_result :: proc(vkres: vk.Result, loc := #caller_location) -> Result {
 
 }
 
+
 _vk_prepend_layer_path :: proc() -> (ok: bool) {
         when ODIN_OS == .Windows {
                 SEP :: ";"
@@ -1038,14 +1039,20 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         descriptor_indexing_features := vk.PhysicalDeviceDescriptorIndexingFeatures {
                 sType = .PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
                 pNext = pNext,
+                descriptorBindingPartiallyBound               = true,
+                runtimeDescriptorArray                        = true,
+                // Image Sampled
                 shaderSampledImageArrayNonUniformIndexing     = true,
                 descriptorBindingSampledImageUpdateAfterBind  = true,
+                // Image Storage
+                shaderStorageImageArrayNonUniformIndexing     = true,
+                descriptorBindingStorageImageUpdateAfterBind  = true,
+                // Uniform Buffer
                 shaderUniformBufferArrayNonUniformIndexing    = true,
                 descriptorBindingUniformBufferUpdateAfterBind = true,
+                // Storage Buffer
                 shaderStorageBufferArrayNonUniformIndexing    = true,
                 descriptorBindingStorageBufferUpdateAfterBind = true,
-                descriptorBindingPartiallyBound               = true,
-                descriptorBindingStorageImageUpdateAfterBind  = true,
         }
 
         pNext = &descriptor_indexing_features
@@ -1077,27 +1084,26 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         
         // DESCRIPTORS
         // Descriptor layout
-        // // TODO: make this an arena?
         descriptor_binding_infos := []vk.DescriptorSetLayoutBinding {
                 {
                         binding         = 0,
                         descriptorType  = .STORAGE_BUFFER,
                         // descriptorCount = phys_props.limits.maxDescriptorSetStorageBuffers,
-                        descriptorCount = 1000,
+                        descriptorCount = 1,
                         stageFlags      = vk.ShaderStageFlags_ALL,
                 },
                 {
                         binding         = 1,
                         descriptorType  = .COMBINED_IMAGE_SAMPLER,
                         // descriptorCount = phys_props.limits.maxDescriptorSetSamplers,
-                        descriptorCount = 1000,
+                        descriptorCount = 1,
                         stageFlags      = vk.ShaderStageFlags_ALL,
                 },
                 {
                         binding         = 2,
                         descriptorType  = .STORAGE_IMAGE,
                         // descriptorCount = phys_props.limits.maxDescriptorSetStorageImages,
-                        descriptorCount = 1000,
+                        descriptorCount = 1,
                         stageFlags      = vk.ShaderStageFlags_ALL,
                 },
                 // { // FEATURE(Ray tracing)
@@ -1135,12 +1141,9 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         // Descriptor pool
         descriptor_pool_sizes := []vk.DescriptorPoolSize {
-                // { .STORAGE_BUFFER, phys_props.limits.maxDescriptorSetStorageBuffers },
-                // { .COMBINED_IMAGE_SAMPLER, phys_props.limits.maxDescriptorSetSamplers },
-                // { .STORAGE_IMAGE, phys_props.limits.maxDescriptorSetStorageImages },
-                { .STORAGE_BUFFER, 65536 },
-                { .COMBINED_IMAGE_SAMPLER, 65536 },
-                { .STORAGE_IMAGE, 65536 },
+                { .STORAGE_BUFFER, 1 }, // Does this need to be larger?
+                { .COMBINED_IMAGE_SAMPLER, 1 },
+                { .STORAGE_IMAGE, 1 },
                 // { .ACCELERATION_STRUCTURE_KHR, 1000 }, // FEATURE(Ray tracing)
         }
 
@@ -1639,6 +1642,5 @@ _Texture_Layout_To_Vk := [Texture_Layout]vk.ImageLayout {
         .Pre_Initialized = .PREINITIALIZED,
         .Present         = .PRESENT_SRC_KHR,
 }
-
 
 // } // when RHI == "vulkan"
