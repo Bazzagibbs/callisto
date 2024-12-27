@@ -53,3 +53,4 @@ Potential features include:
 - `// FEATURE(Stereo rendering)` for VR headset support
 - `// FEATURE(Ray tracing)`
 - `// FEATURE(Mesh shading)`
+- `// FEATURE(Texture limit)` in case an application requires more than the current arbitrary limit.

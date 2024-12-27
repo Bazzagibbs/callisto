@@ -31,7 +31,7 @@ DEVICE_EXTENSIONS :: []cstring {
         vk.EXT_SHADER_OBJECT_EXTENSION_NAME,
 }
 
-MAX_DESCRIPTOR_COUNT :: 10_000
+MAX_DESCRIPTORS :: 4096
 
 
 @(private)
@@ -179,6 +179,29 @@ _swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
         return .Ok
 }
 
+
+// Descriptor Allocator is a free-list of handles
+_descriptor_allocator_init :: proc(da: ^_Descriptor_Allocator) {
+        da.next = 0
+
+        for i in 0..<MAX_DESCRIPTORS {
+                da.free_list[i] = u32(i)
+        }
+}
+
+// Acquire the next available descriptor handle
+_descriptor_handle_alloc :: proc(da: ^_Descriptor_Allocator) -> (handle: Texture_Handle) {
+        handle = Texture_Handle(da.free_list[da.next])
+        da.next += 1
+        return
+}
+
+// Release a descriptor handle to be reused
+_descriptor_handle_free :: proc(da: ^_Descriptor_Allocator, handle: Texture_Handle) {
+        da.next -= 1
+        da.free_list[da.next] = u32(handle)
+}
+
 _Texture_Dimensions_To_Vk := [Texture_Dimensions]vk.ImageType {
         ._1D        = .D1,
         ._2D        = .D2,
@@ -265,6 +288,13 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
 
         usage := vk.ImageUsageFlags {}
         for flag in init_info.usage {
+                if flag == .Storage {
+                        tex.is_storage = true
+                }
+                if flag == .Sampled {
+                        tex.is_sampled = true
+                }
+
                 usage += {_Texture_Usage_To_Vk[flag]}
         }
         
@@ -311,12 +341,159 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
         vkres = d.CreateImageView(d.device, &view_info, nil, &tex.full_view.view)
         check_result(vkres) or_return
 
+
+        // Create descriptors for access
+        if tex.is_sampled {
+                tex.sampled_handle = _descriptor_handle_alloc(&d.descriptor_allocator_sampled_tex)
+
+                image_info := vk.DescriptorImageInfo {
+                        // sampler = d.default_sampler,
+                        imageLayout = .READ_ONLY_OPTIMAL,
+                        imageView = tex.full_view.view,
+                }
+
+                write_info := vk.WriteDescriptorSet {
+                        sType = .WRITE_DESCRIPTOR_SET,
+                        dstSet = d.bindless_set,
+                        dstBinding = 1, // 1 = sampled, 2 = storage
+                        dstArrayElement = u32(tex.sampled_handle),
+                        descriptorCount = 1,
+                        descriptorType = .COMBINED_IMAGE_SAMPLER,
+                        pImageInfo = &image_info,
+                }
+                d.UpdateDescriptorSets(d.device, 1, &write_info, 0, nil)
+        }
+
+        if tex.is_storage {
+                tex.storage_handle = _descriptor_handle_alloc(&d.descriptor_allocator_storage_tex)
+                
+                image_info := vk.DescriptorImageInfo {
+                        // sampler = d.default_sampler,
+                        imageLayout = .GENERAL,
+                        imageView = tex.full_view.view,
+                }
+
+                write_info := vk.WriteDescriptorSet {
+                        sType = .WRITE_DESCRIPTOR_SET,
+                        dstSet = d.bindless_set,
+                        dstBinding = 2, // 1 = sampled, 2 = storage
+                        dstArrayElement = u32(tex.sampled_handle),
+                        descriptorCount = 1,
+                        descriptorType = .STORAGE_IMAGE,
+                        pImageInfo = &image_info,
+                }
+                d.UpdateDescriptorSets(d.device, 1, &write_info, 0, nil)
+        }
+
+
         return .Ok
 }
 
 _texture_destroy :: proc(d: ^Device, tex: ^Texture) {
         d.DestroyImageView(d.device, tex.full_view.view, nil)
         vma.DestroyImage(d.allocator, tex.image, tex.allocation)
+
+        if tex.is_sampled {
+                _descriptor_handle_free(&d.descriptor_allocator_sampled_tex, tex.sampled_handle)
+        }
+        if tex.is_storage {
+                _descriptor_handle_free(&d.descriptor_allocator_storage_tex, tex.storage_handle)
+        }
+}
+
+_texture_get_extent :: proc(d: ^Device, tex: ^Texture) -> [3]u32 {
+        return {tex.extent.width, tex.extent.height, tex.extent.depth}
+}
+
+_texture_get_storage_handle :: proc(d: ^Device, tex: ^Texture) -> Texture_Handle {
+        return tex.storage_handle
+}
+
+_texture_get_sampled_handle :: proc(d: ^Device, tex: ^Texture) -> Texture_Handle {
+        return tex.sampled_handle
+}
+
+_Buffer_Usage_To_Vk := [Buffer_Usage_Flag]vk.BufferUsageFlag {
+        .Transfer_Src   = .TRANSFER_SRC,
+        .Transfer_Dst   = .TRANSFER_DST,
+        .Storage        = .STORAGE_BUFFER,
+        .Index          = .INDEX_BUFFER,
+        .Vertex         = .VERTEX_BUFFER,
+        .Device_Address = .SHADER_DEVICE_ADDRESS,
+}
+
+_buffer_usage_to_vk :: proc(usage: Buffer_Usage_Flags) -> vk.BufferUsageFlags {
+        vk_usage := vk.BufferUsageFlags{}
+        for flag in usage {
+                vk_usage += {_Buffer_Usage_To_Vk[flag]}
+        }
+        
+        return vk_usage
+}
+
+_get_unique_queue_indices :: proc(d: ^Device, flags: Queue_Flags) -> (indices: [8]u32, count: u32) {
+        count = 0
+
+        per_flag:
+        for flag in flags {
+                family: u32
+                switch flag {
+                case .Graphics      : family = d.graphics_family
+                case .Compute_Async : family = d.async_compute_family
+                // case .Transfer   : family = d.transfer_family
+                case                : family = d.graphics_family
+                }
+
+                for i in 0..<count {
+                        if indices[i] == family {
+                                continue per_flag
+                        }
+                }
+
+                indices[count] = family
+                count += 1
+        }
+
+        return
+}
+
+_buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Result {
+        families, family_count := _get_unique_queue_indices(d, init_info.queue_usage)
+
+        create_info := vk.BufferCreateInfo {
+                sType                 = .BUFFER_CREATE_INFO,
+                // flags              = {.SPARSE_BINDING},
+                flags                 = {},
+                size                  = vk.DeviceSize(init_info.size),
+                usage                 = _buffer_usage_to_vk(init_info.usage),
+                sharingMode           = .EXCLUSIVE,
+                queueFamilyIndexCount = family_count,
+                pQueueFamilyIndices   = raw_data(&families),
+        }
+
+        alloc_create_info := _Memory_Access_Type_To_Vma[init_info.memory_access_type]
+
+        vkres := vma.CreateBuffer(d.allocator, &create_info, &alloc_create_info, &b.buffer, &b.allocation, &b.alloc_info)
+        check_result(vkres) or_return
+
+        return .Ok
+}
+
+_buffer_destroy :: proc(d: ^Device, b: ^Buffer) {
+        vma.DestroyBuffer(d.allocator, b.buffer, b.allocation)
+}
+
+_constant_buffer_init :: proc(d: ^Device, cbuf: ^Constant_Buffer, init_info: ^Constant_Buffer_Init_Info) -> Result {
+        // Create suballocation from descriptor set 0 buffer
+        unimplemented()
+}
+
+_constant_buffer_destroy :: proc(d: ^Device, cbuf: ^Constant_Buffer) {
+        unimplemented()
+}
+
+_constant_buffer_update :: proc(d: ^Device, cbuf: ^Constant_Buffer, new_data: rawptr) -> Result {
+        unimplemented()
 }
 
 
@@ -380,7 +557,11 @@ _command_buffer_begin :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) 
                 flags = {.ONE_TIME_SUBMIT}
         }
         vkres := d.BeginCommandBuffer(cb.buffer, &begin_info)
-        return check_result(vkres)
+        check_result(vkres) or_return
+
+        _cmd_bind_all(d, cb, .Compute)
+        _cmd_bind_all(d, cb, .Graphics)
+        return .Ok
 }
 
 _command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
@@ -467,7 +648,7 @@ _shader_stages_to_vk :: proc(stages: Shader_Stages) -> vk.ShaderStageFlags {
 }
 
 _Resource_Type_To_Vk := [Resource_Type]vk.DescriptorType {
-        .Buffer          = .STORAGE_BUFFER,
+.Buffer          = .STORAGE_BUFFER,
         .Sampled_Texture = .SAMPLED_IMAGE,
         .Storage_Texture = .STORAGE_IMAGE,
         // .Acceleration_Structure = .ACCELERATION_STRUCTURE_KHR, // FEATURE(Ray tracing)
@@ -494,16 +675,17 @@ _Shader_Next_Stages := [Shader_Stage]vk.ShaderStageFlags {
 
 
 _shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> (res: Result) {
-        stage := vk.ShaderStageFlags{_Shader_Stage_To_Vk[init_info.stage]}
+        s.stages = {_Shader_Stage_To_Vk[init_info.stage]}
 
         push_constant_ranges := []vk.PushConstantRange {
-                {stage, 0, 16}
+                // {s.stages, 0, size_of([4]vk.DeviceAddress)}
+                {vk.ShaderStageFlags_ALL, 0, size_of([4]vk.DeviceAddress)}
         }
 
         create_info := vk.ShaderCreateInfoEXT {
                 sType                  = .SHADER_CREATE_INFO_EXT,
                 flags                  = {},
-                stage                  = stage,
+                stage                  = s.stages,
                 nextStage              = _Shader_Next_Stages[init_info.stage],
                 codeType               = .SPIRV,
                 codeSize               = len(init_info.code),
@@ -597,7 +779,9 @@ _Bind_Point_To_Vk := [Bind_Point]vk.PipelineBindPoint {
         // .Ray_Tracing = .RAY_TRACING_EXT, // FEATURE(Ray tracing)
 }
 
+// This might go in _cmd_begin
 _cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
+        // log.debugf("Binding descriptor set %x at bind point %v",  d.bindless_set, bind_point)
         d.CmdBindDescriptorSets(
                 commandBuffer      = cb.buffer,
                 pipelineBindPoint  = _Bind_Point_To_Vk[bind_point],
@@ -610,15 +794,30 @@ _cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         )
 }
 
-_cmd_set_constant_buffer :: proc(d: ^Device, cb: ^Command_Buffer, slot: Constant_Slot, buffer: ^Constant_Buffer) {
+_cmd_set_constant_buffers :: proc(d: ^Device, cb: ^Command_Buffer, buffer_infos: []Constant_Buffer_Set_Info) {
+        for info in buffer_infos {
+                cb.push_constant_state[int(info.slot)] = info.buffer.device_address
+        }
+
         d.CmdPushConstants(cb.buffer, 
                 layout     = d.bindless_pipeline_layout,
                 stageFlags = vk.ShaderStageFlags_ALL,
-                offset     = u32(slot) * size_of(buffer.handle),
-                size       = size_of(buffer.handle),
-                pValues    = &buffer.handle
+                offset     = 0,
+                size       = size_of(cb.push_constant_state),
+                pValues    = raw_data(&cb.push_constant_state)
         )
 }
+
+
+_cmd_bind_shader :: proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
+        d.CmdBindShadersEXT(cb.buffer, 1, &shader.stages, &shader.shader)
+}
+
+
+_cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, groups: [3]u32) {
+        d.CmdDispatch(cb.buffer, groups.x, groups.y, groups.z)
+}
+
 /*
 
 buffer_init              :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> (res: Result)
@@ -785,7 +984,7 @@ config.APP_VERSION_MINOR,
                         messageSeverity = severity,
                         messageType     = {.GENERAL, .VALIDATION, .PERFORMANCE, .DEVICE_ADDRESS_BINDING},
                         pfnUserCallback = init_info.runner.rhi_logger_proc,
-                        pUserData       = init_info.runner,
+pUserData       = init_info.runner,
                 }
 
                 when VK_ENABLE_INSTANCE_DEBUGGING {
@@ -1142,8 +1341,8 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         // Descriptor pool
         descriptor_pool_sizes := []vk.DescriptorPoolSize {
                 { .STORAGE_BUFFER, 1 }, // Does this need to be larger?
-                { .COMBINED_IMAGE_SAMPLER, 1 },
-                { .STORAGE_IMAGE, 1 },
+                { .COMBINED_IMAGE_SAMPLER, MAX_DESCRIPTORS },
+                { .STORAGE_IMAGE, MAX_DESCRIPTORS },
                 // { .ACCELERATION_STRUCTURE_KHR, 1000 }, // FEATURE(Ray tracing)
         }
 
@@ -1176,7 +1375,7 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         // Push constant ranges - indices into descriptor buffer
         push_constant_ranges := []vk.PushConstantRange {
-                { vk.ShaderStageFlags_ALL, 0, 16 },  // all 4 slots
+                { vk.ShaderStageFlags_ALL, 0, size_of([4]vk.DeviceAddress) },  // all 4 slots
         }
 
         // Pipeline layout
@@ -1190,6 +1389,10 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
 
         vkres = d.CreatePipelineLayout(d.device, &pipeline_layout_info, nil, &d.bindless_pipeline_layout)
         check_result(vkres) or_return
+
+
+        _descriptor_allocator_init(&d.descriptor_allocator_storage_tex)
+        _descriptor_allocator_init(&d.descriptor_allocator_sampled_tex)
 
         return .Ok
 }

@@ -42,12 +42,15 @@ Device :: struct {
         bindless_pool            : vk.DescriptorPool,
         bindless_set             : vk.DescriptorSet,
         bindless_pipeline_layout : vk.PipelineLayout,
+
+        descriptor_allocator_sampled_tex : _Descriptor_Allocator,
+        descriptor_allocator_storage_tex : _Descriptor_Allocator,
 }
 
 @(private)
-_Descriptor_Set_Layout_Counter :: struct {
-        layout                : vk.DescriptorSetLayout,
-        shader_users          : int,
+_Descriptor_Allocator :: struct {
+        next      : int,
+        free_list : [MAX_DESCRIPTORS]u32, // FEATURE(Texture limit)
 }
 
 
@@ -79,14 +82,16 @@ Swapchain :: struct {
 
 // Use a separate Command_Buffer per thread.
 Command_Buffer :: struct {
-        queue        : Queue_Flag,
+        queue               : Queue_Flag,
 
-        pool         : vk.CommandPool,
-        buffer       : vk.CommandBuffer,
+        pool                : vk.CommandPool,
+        buffer              : vk.CommandBuffer,
 
-        wait_sema    : vk.Semaphore,
-        signal_sema  : vk.Semaphore,
-        signal_fence : vk.Fence,
+        wait_sema           : vk.Semaphore,
+        signal_sema         : vk.Semaphore,
+        signal_fence        : vk.Fence,
+
+        push_constant_state : [4]vk.DeviceAddress,
 }
 
 
@@ -97,22 +102,33 @@ Texture :: struct {
         mip_count   : u32,
         layer_count : u32,
         allocation  : vma.Allocation,
+        is_sampled  : bool,
+        is_storage  : bool,
+        sampled_handle : Texture_Handle,
+        storage_handle : Texture_Handle,
 }
 
 Texture_View   :: struct {
         view   : vk.ImageView,
 }
 
+Texture_Handle :: distinct u32
+
 Sampler :: struct {}
 
 Shader :: struct {
         shader : vk.ShaderEXT,
+        stages : vk.ShaderStageFlags,
 }
 
-Buffer :: struct {}
+Buffer :: struct {
+        buffer     : vk.Buffer,
+        allocation : vma.Allocation,
+        alloc_info : vma.AllocationInfo,
+}
 
 Constant_Buffer :: struct {
-        handle: u32,
+        device_address : vk.DeviceAddress
 }
 
 // GPU -> CPU sync

@@ -278,11 +278,22 @@ Resource_Type :: enum {
         // Acceleration_Structure, // FEATURE(Ray tracing)
 }
 
-Constant_Slot :: enum {
-        Scene    = 0,
-        Pass     = 1,
-        Material = 2,
-        Instance = 3,
+Constant_Buffer_Init_Info :: struct {
+        size         : u32,
+        initial_data : rawptr,
+}
+
+
+Constant_Buffer_Slot :: enum {
+        Per_Scene    = 0,
+        Per_Pass     = 1,
+        Per_Material = 2,
+        Per_Instance = 3,
+}
+
+Constant_Buffer_Set_Info :: struct {
+        slot   : Constant_Buffer_Slot,
+        buffer : ^Constant_Buffer,
 }
 
 Vertex_Attribute_Flags :: bit_set[Vertex_Attribute_Flag]
@@ -302,6 +313,23 @@ Vertex_Attribute_Flag :: enum {
         Weights_1,
 }
 
+Buffer_Init_Info :: struct {
+        size               : u64,
+        usage              : Buffer_Usage_Flags,
+        queue_usage        : Queue_Flags,
+        memory_access_type : Memory_Access_Type
+}
+
+
+Buffer_Usage_Flags :: bit_set[Buffer_Usage_Flag]
+Buffer_Usage_Flag :: enum {
+        Transfer_Src,
+        Transfer_Dst,
+        Storage,
+        Index,
+        Vertex,
+        Device_Address,
+}
 
 
 /*
@@ -427,12 +455,45 @@ texture_destroy :: proc(d: ^Device, tex: ^Texture) {
         _texture_destroy(d, tex)
 }
 
+texture_get_extent :: proc(d: ^Device, tex: ^Texture) -> [3]u32 {
+        return _texture_get_extent(d, tex)
+}
+
+texture_get_sampled_handle :: proc(d: ^Device, tex: ^Texture) -> Texture_Handle {
+        return _texture_get_sampled_handle(d, tex)
+}
+
+texture_get_storage_handle :: proc(d: ^Device, tex: ^Texture) -> Texture_Handle {
+        return _texture_get_storage_handle(d, tex)
+}
+
 shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> Result {
         return _shader_init(d, s, init_info)
 }
 
 shader_destroy :: proc(d: ^Device, s: ^Shader) {
         _shader_destroy(d, s)
+}
+
+buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Result {
+        return _buffer_init(d, b, init_info)
+}
+
+buffer_destroy :: proc(d: ^Device, b: ^Buffer) {
+        _buffer_destroy(d, b)
+}
+
+constant_buffer_init :: proc(d: ^Device, cbuf: ^Constant_Buffer, init_info: ^Constant_Buffer_Init_Info) -> Result {
+        return _constant_buffer_init(d, cbuf, init_info)
+}
+
+constant_buffer_destroy :: proc(d: ^Device, cbuf: ^Constant_Buffer) {
+        _constant_buffer_destroy(d, cbuf)
+}
+
+constant_buffer_update :: proc(d: ^Device, cbuf: ^Constant_Buffer, new_data: rawptr) -> Result {
+        // TODO: Provide batched version of this
+        return _constant_buffer_update(d, cbuf, new_data)
 }
 
 command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, command_buffer_init_info: ^Command_Buffer_Init_Info, location := #caller_location) -> Result {
@@ -474,13 +535,19 @@ cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         _cmd_bind_all(d, cb, bind_point)
 }
 
-cmd_set_constant_buffer :: proc(d: ^Device, cb: ^Command_Buffer, slot: Constant_Slot, buffer: ^Constant_Buffer) {
-        _cmd_set_constant_buffer(d, cb, slot, buffer)
+cmd_set_constant_buffers :: proc(d: ^Device, cb: ^Command_Buffer, buffer_infos: []Constant_Buffer_Set_Info) {
+        _cmd_set_constant_buffers(d, cb, buffer_infos)
 }
 
+cmd_bind_shader ::  proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
+        _cmd_bind_shader(d, cb, shader)
+}
 
-cmd_draw :: proc(d: ^Device, cb: ^Command_Buffer, vertex_buffer: ^Buffer, index_buffer: ^Buffer)
-cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, threads: [3]u32)
+cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, groups: [3]u32) {
+        _cmd_dispatch(d, cb, groups)
+}
+
+// cmd_draw :: proc(d: ^Device, cb: ^Command_Buffer, vertex_buffer: ^Buffer, index_buffer: ^Buffer)
 
 
 // cmd_begin_render : proc(^Device, ^Command_Buffer) : _cmd_begin_render
