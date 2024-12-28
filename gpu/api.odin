@@ -326,6 +326,18 @@ Buffer_Usage_Flag :: enum {
         Addressable,
 }
 
+Buffer_Upload_Info :: struct {
+        size       : u64,
+        dst_offset : u64,
+        data       : rawptr,
+}
+
+Buffer_Transfer_Info :: struct {
+        size       : u64,
+        src_offset : u64,
+        dst_offset : u64,
+}
+
 
 /*
 Texture_View_Init_Info :: struct {
@@ -479,12 +491,8 @@ buffer_destroy :: proc(d: ^Device, b: ^Buffer) {
         _buffer_destroy(d, b)
 }
 
-// buffer_update :: proc(d: ^Device, b: ^Buffer, update_info: ^Buffer_Update_Info) -> Result {
-//         return _buffer_update(d, b, update_info)
-// }
-
-buffer_get_reference :: proc(d: ^Device, b: ^Buffer, index: int) -> Buffer_Reference {
-        return _buffer_get_reference(d, b, index)
+buffer_get_reference :: proc(d: ^Device, b: ^Buffer, stride, index: int) -> Buffer_Reference {
+        return _buffer_get_reference(d, b, stride, index)
 }
 
 
@@ -512,13 +520,26 @@ cmd_transition_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, t
         _cmd_transition_texture(d, cb, tex, transition_info)
 }
 
-// TODO: Remove this, use begin_render_pass load_op for clears instead
 cmd_clear_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, color: [4]f32) {
         _cmd_clear_color_texture(d, cb, tex, color)
 }
 
 cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Texture) {
         _cmd_blit_color_texture(d, cb, src, dst)
+}
+
+// Uses cb's internal staging buffer. Prefer `cmd_upload_buffer` and provide a separate staging buffer
+// for uploading large resources.
+cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+        _cmd_update_buffer(d, cb, b, upload_info)
+}
+
+cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging, dst: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+        _cmd_upload_buffer(d, cb, staging, dst, upload_info)
+}
+
+cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Buffer, transfer_info: ^Buffer_Transfer_Info) {
+        _cmd_transfer_buffer(d, cb, src, dst, transfer_info)
 }
 
 // "Bindless" - bind buffers of all resources at the beginning of the frame.

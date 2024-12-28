@@ -1,9 +1,7 @@
 package callisto
 
 
-window_style_default :: #force_inline proc "contextless" () -> Window_Style_Flags {
-        return {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
-}
+Window_Style_Flags_DEFAULT :: Window_Style_Flags {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
 
 window_init :: proc(e: ^Engine, w: ^Window, init_info: ^Window_Init_Info, location := #caller_location) -> (res: Result) {
         // validate_info()

@@ -11,6 +11,7 @@ import "core:log"
 import "core:strings"
 import "core:os/os2"
 import "core:path/filepath"
+import "core:mem"
 import vk "vulkan"
 import "vma"
 import "../common"
@@ -477,6 +478,9 @@ _buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Re
         vkres := vma.CreateBuffer(d.allocator, &create_info, &alloc_create_info, &b.buffer, &b.allocation, &b.alloc_info)
         check_result(vkres) or_return
 
+        b.size      = init_info.size
+        b.available = init_info.size
+
         if .Addressable in init_info.usage {
                 bda_info := vk.BufferDeviceAddressInfo {
                         sType  = .BUFFER_DEVICE_ADDRESS_INFO,
@@ -486,19 +490,26 @@ _buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Re
                 b.address = d.GetBufferDeviceAddress(d.device, &bda_info)
         }
 
+        if init_info.memory_access_type == .Staging {
+                vkres = vma.MapMemory(d.allocator, b.allocation, &b.mapped_mem)
+                check_result(vkres) or_return
+        }
+
         return .Ok
 }
 
 _buffer_destroy :: proc(d: ^Device, b: ^Buffer) {
+        if b.mapped_mem != nil {
+                vma.UnmapMemory(d.allocator, b.allocation)
+                b.mapped_mem = nil
+        }
+
         vma.DestroyBuffer(d.allocator, b.buffer, b.allocation)
 }
 
-// _buffer_update :: proc(d: ^Device, b: ^Buffer, update_info: ^Buffer_Update_Info) {
-//         
-// }
 
-_buffer_get_reference :: proc(d: ^Device, b: ^Buffer, index: int) -> Buffer_Reference {
-        return Buffer_Reference {b.address + vk.DeviceAddress(b.stride) * vk.DeviceAddress(index)}
+_buffer_get_reference :: proc(d: ^Device, b: ^Buffer, stride, index: int) -> Buffer_Reference {
+        return Buffer_Reference {b.address + vk.DeviceAddress(stride) * vk.DeviceAddress(index)}
 }
 
 
@@ -546,6 +557,15 @@ _command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Comman
         if init_info.signal_fence != nil {
                 cb.signal_fence = init_info.signal_fence.fence
         }
+
+        // Create a per-cb staging buffer
+        grow_info := Buffer_Init_Info {
+                size               = 2 * runtime.Megabyte,
+                usage              = {.Transfer_Src},
+                queue_usage        = {.Graphics, .Compute_Sync},
+                memory_access_type = .Staging,
+        }
+        _ = _buffer_init(d, &cb.staging_buffer, &grow_info)
         
         return .Ok
 }
@@ -553,10 +573,28 @@ _command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, init_info: ^Comman
 _command_buffer_destroy :: proc(d: ^Device, cb: ^Command_Buffer) {
         log.info("Destroying Command Buffer")
         
+        for &buf in cb.staging_old {
+                _buffer_destroy(d, &buf)
+        }
+        delete(cb.staging_old)
+        
+        _buffer_destroy(d, &cb.staging_buffer)
+
         d.DestroyCommandPool(d.device, cb.pool, nil)
+
 }
 
 _command_buffer_begin :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
+        // Reset staging buffer
+        if len(cb.staging_old) > 0 {
+                for &buf in cb.staging_old {
+                        _buffer_destroy(d, &buf)
+                }
+
+                clear(&cb.staging_old)
+        }
+        cb.staging_buffer.available = cb.staging_buffer.size
+
         begin_info := vk.CommandBufferBeginInfo {
                 sType = .COMMAND_BUFFER_BEGIN_INFO,
                 flags = {.ONE_TIME_SUBMIT}
@@ -778,6 +816,63 @@ _cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Text
         d.CmdBlitImage2(cb.buffer, &blit_info)
 }
 
+
+// Internal use only - `old_buffers` must be destroyed only after they have finished being used
+_buffer_grow :: proc(d: ^Device, buffer: ^Buffer, old_buffers: ^[dynamic]Buffer) {
+        append(old_buffers, buffer^)
+
+        new_size := 2 * buffer.size
+
+        buffer^ = {}
+
+        grow_info := Buffer_Init_Info {
+                size               = new_size,
+                usage              = {.Transfer_Src},
+                queue_usage        = {.Graphics, .Compute_Sync},
+                memory_access_type = .Staging,
+        }
+        _ = _buffer_init(d, buffer, &grow_info)
+}
+
+_cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+        sb := &cb.staging_buffer
+
+        if upload_info.size > sb.available {
+                _buffer_grow(d, sb, &cb.staging_old)
+        }
+
+        _cmd_upload_buffer(d, cb, sb, b, upload_info)
+}
+
+
+_cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, dst: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+        // Bounds check? Might be caught by vulkan, but also it's a cmd so no return val.
+
+        transfer_info := Buffer_Transfer_Info {
+                size       = upload_info.size,
+                src_offset = staging.size - staging.available,
+                dst_offset = upload_info.dst_offset,
+        }
+
+        staging.available -= staging.size
+        
+        // memcpy to mapped memory
+        offset_mem := rawptr(uintptr(staging.mapped_mem) + uintptr(transfer_info.src_offset))
+        mem.copy(offset_mem, upload_info.data, int(upload_info.size))
+
+        _cmd_transfer_buffer(d, cb, staging, dst, &transfer_info)
+}
+
+_cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst: ^Buffer, transfer_info: ^Buffer_Transfer_Info) {
+        region := vk.BufferCopy {
+                size      = vk.DeviceSize(transfer_info.size),
+                srcOffset = vk.DeviceSize(transfer_info.src_offset),
+                dstOffset = vk.DeviceSize(transfer_info.dst_offset),
+        }
+
+        d.CmdCopyBuffer(cb.buffer, src.buffer, dst.buffer, 1, &region)
+}
+
 _Bind_Point_To_Vk := [Bind_Point]vk.PipelineBindPoint {
         .Graphics    = .GRAPHICS,
         .Compute     = .COMPUTE,
@@ -823,10 +918,6 @@ _cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, groups: [3]u32) {
 }
 
 /*
-
-buffer_init              :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> (res: Result)
-buffer_destroy           :: proc(d: ^Device, b: ^Buffer)
-// buffer_transfer       :: proc(d: ^Device, transfer_info: ^Buffer_Transfer_Info) -> (res: Result)
 
 texture_init             :: proc(d: ^Device, t: ^Texture, init_info: ^Texture_Init_Info) -> (res: Result)
 texture_destroy          :: proc(d: ^Device, t: ^Texture)
@@ -1742,7 +1833,7 @@ _vk_swapchain_sync_destroy :: proc(d: ^Device, sc: ^Swapchain) {
 
 _vk_swapchain_command_buffers_destroy :: proc(d: ^Device, sc: ^Swapchain) {
         for i in 0..<FRAMES_IN_FLIGHT {
-                d.DestroyCommandPool(d.device, sc.command_buffers[i].pool, nil)
+                _command_buffer_destroy(d, &sc.command_buffers[i])
         }
 }
 

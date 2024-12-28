@@ -86,6 +86,8 @@ Command_Buffer :: struct {
 
         pool                : vk.CommandPool,
         buffer              : vk.CommandBuffer,
+        staging_buffer      : Buffer,   // When full, append to `staging_old` and create new with 2x capacity
+        staging_old         : [dynamic]Buffer, // Full buffers are deleted next time the command buffer begins
 
         wait_sema           : vk.Semaphore,
         signal_sema         : vk.Semaphore,
@@ -128,7 +130,9 @@ Buffer :: struct {
         allocation : vma.Allocation,
         alloc_info : vma.AllocationInfo,
         address    : vk.DeviceAddress,
-        stride     : u32,
+        size       : u64,
+        available  : u64,
+        mapped_mem : rawptr,
 }
 
 Buffer_Reference :: struct {
