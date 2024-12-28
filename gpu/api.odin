@@ -177,6 +177,7 @@ Texture_Init_Info :: struct {
         layer_count        : u32,
         multisample        : Texture_Multisample,
         initial_layout     : Texture_Layout,
+        sampler_info       : Sampler_Info,
 }
 
 Texture_Format :: enum {
@@ -225,22 +226,35 @@ Memory_Access_Type :: enum {
         Host_Readback,
 }
 
-Sampler_Init_Info :: struct {
-        wrap_mode      : Sampler_Wrap_Mode,
-        minify_filter  : Filter,
-        magnify_filter : Filter,
-        mip_filter     : Filter,
-        mip_lod_bias   : f32,
+Sampler_Info :: struct {
+        minify_filter         : Filter,
+        magnify_filter        : Filter,
+        mip_filter            : Filter,
+        mip_lod_bias          : f32,
 
-        anisotropy     : bool,
-        max_anisotropy : f32,
-
-        min_lod        : f32,
-        max_lod        : f32,
-        border_color   : Sampler_Border_Color,
-
+        wrap_mode             : Sampler_Wrap_Mode,
+        border_color          : Sampler_Border_Color,
         sample_by_pixel_index : bool, // when true, use [0, pixel_width) instead of [0, 1)
+        anisotropy            : Anisotropy,
+
+        min_lod               : f32,
+        max_lod               : f32,
+
 }
+
+Sampler_Init_DEFAULT :: Sampler_Info {
+        wrap_mode             = .Clamp_To_Border,
+        minify_filter         = .Linear,
+        magnify_filter        = .Linear,
+        mip_filter            = .Linear,
+        mip_lod_bias          = 0,
+        anisotropy            = .x8,
+        min_lod               = 0,
+        max_lod               = 0,
+        border_color          = .Transparent_Black_Float,
+        sample_by_pixel_index = false,
+}
+
 
 Filter :: enum {
         Nearest,
@@ -261,6 +275,26 @@ Sampler_Border_Color :: enum {
         Opaque_Black_Int,
         Opaque_White_Float,
         Opaque_White_Int,
+}
+
+Anisotropy :: enum {
+        None,
+        x1,
+        x2,
+        x4,
+        x8,
+        x16,
+}
+
+Compare_Op :: enum {
+	Never,
+	Less,
+	Equal,
+	Less_Or_Equal,
+	Greater,
+	Not_Equal,
+	Greater_Or_Equal,
+	Always,
 }
 
 Shader_Init_Info :: struct {
@@ -326,13 +360,13 @@ Buffer_Usage_Flag :: enum {
         Addressable,
 }
 
-Buffer_Upload_Info :: struct {
+Upload_Info :: struct {
         size       : u64,
         dst_offset : u64,
         data       : rawptr,
 }
 
-Buffer_Transfer_Info :: struct {
+Transfer_Info :: struct {
         size       : u64,
         src_offset : u64,
         dst_offset : u64,
@@ -530,15 +564,15 @@ cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Textu
 
 // Uses cb's internal staging buffer. Prefer `cmd_upload_buffer` and provide a separate staging buffer
 // for uploading large resources.
-cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Upload_Info) {
         _cmd_update_buffer(d, cb, b, upload_info)
 }
 
-cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging, dst: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging, dst: ^Buffer, upload_info: ^Upload_Info) {
         _cmd_upload_buffer(d, cb, staging, dst, upload_info)
 }
 
-cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Buffer, transfer_info: ^Buffer_Transfer_Info) {
+cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Buffer, transfer_info: ^Transfer_Info) {
         _cmd_transfer_buffer(d, cb, src, dst, transfer_info)
 }
 

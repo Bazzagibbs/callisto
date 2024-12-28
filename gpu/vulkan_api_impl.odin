@@ -64,6 +64,11 @@ _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #call
 _device_destroy :: proc(d: ^Device) {
         log.info("Destroying Device")
 
+        for info, sampler in d.samplers {
+                d.DestroySampler(d.device, sampler, nil)
+        }
+        delete(d.samplers)
+
         d.DestroyDescriptorPool(d.device, d.bindless_pool, nil)
         d.DestroyPipelineLayout(d.device, d.bindless_pipeline_layout, nil)
         d.DestroyDescriptorSetLayout(d.device, d.bindless_layout, nil)
@@ -271,6 +276,53 @@ _Texture_Multisample_To_Vk := [Texture_Multisample]vk.SampleCountFlags {
         ._64  = {._64},
 }
 
+
+_Filter_To_Vk := [Filter]vk.Filter {
+        .Linear  = .LINEAR,
+        .Nearest = .NEAREST,
+}
+
+_Filter_To_Vk_Mip := [Filter]vk.SamplerMipmapMode {
+        .Linear  = .LINEAR,
+        .Nearest = .NEAREST,
+}
+
+_Wrap_Mode_To_Vk := [Sampler_Wrap_Mode]vk.SamplerAddressMode {
+        .Repeat          = .REPEAT,
+        .Mirror          = .MIRRORED_REPEAT,
+        .Clamp_To_Edge   = .CLAMP_TO_EDGE,
+        .Clamp_To_Border = .CLAMP_TO_BORDER
+}
+
+_Compare_Op_To_Vk := [Compare_Op]vk.CompareOp {
+        .Never            = .NEVER,
+        .Less             = .LESS,
+        .Equal            = .EQUAL,
+        .Less_Or_Equal    = .LESS_OR_EQUAL,
+        .Greater          = .GREATER,
+        .Not_Equal        = .NOT_EQUAL,
+        .Greater_Or_Equal = .GREATER_OR_EQUAL,
+        .Always           = .ALWAYS,
+}
+
+_Border_Color_To_Vk := [Sampler_Border_Color]vk.BorderColor {
+        .Transparent_Black_Float = .FLOAT_TRANSPARENT_BLACK,
+        .Transparent_Black_Int   = .INT_TRANSPARENT_BLACK,
+        .Opaque_Black_Float      = .FLOAT_OPAQUE_BLACK,
+        .Opaque_Black_Int        = .INT_OPAQUE_BLACK,
+        .Opaque_White_Float      = .FLOAT_OPAQUE_WHITE,
+        .Opaque_White_Int        = .INT_OPAQUE_WHITE,
+}
+
+_Aniso_To_Vk := [Anisotropy]f32 {
+        .None = 1,
+        .x1   = 1,
+        .x2   = 2,
+        .x4   = 4,
+        .x8   = 8,
+        .x16  = 16,
+}
+
 _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) -> (res: Result) {
         unique_families := make(map[u32]struct{}, context.temp_allocator)
 
@@ -342,25 +394,56 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
         vkres = d.CreateImageView(d.device, &view_info, nil, &tex.full_view.view)
         check_result(vkres) or_return
 
+        sampler, sampler_exists := d.samplers[init_info.sampler_info]
+        if !sampler_exists {
+                init_sampler_info := init_info.sampler_info
+
+
+                sampler_info := vk.SamplerCreateInfo {
+                        sType                   = .SAMPLER_CREATE_INFO,
+                        magFilter               = _Filter_To_Vk[init_sampler_info.magnify_filter],
+                        minFilter               = _Filter_To_Vk[init_sampler_info.minify_filter],
+                        mipmapMode              = _Filter_To_Vk_Mip[init_sampler_info.mip_filter],
+                        addressModeU            = _Wrap_Mode_To_Vk[init_sampler_info.wrap_mode],
+                        addressModeV            = _Wrap_Mode_To_Vk[init_sampler_info.wrap_mode],
+                        addressModeW            = _Wrap_Mode_To_Vk[init_sampler_info.wrap_mode],
+                        mipLodBias              = init_sampler_info.mip_lod_bias,
+                        anisotropyEnable        = b32(init_sampler_info.anisotropy != .None),
+                        maxAnisotropy           = _Aniso_To_Vk[init_sampler_info.anisotropy],
+                        compareEnable           = false,
+                        compareOp               = .ALWAYS,
+                        minLod                  = init_sampler_info.min_lod,
+                        maxLod                  = init_sampler_info.max_lod,
+                        borderColor             = _Border_Color_To_Vk[init_sampler_info.border_color],
+                        unnormalizedCoordinates = b32(init_sampler_info.sample_by_pixel_index),
+                }
+
+                vkres = d.CreateSampler(d.device, &sampler_info, nil, &sampler)
+                check_result(vkres) or_return
+
+                d.samplers[init_info.sampler_info] = sampler 
+        }
+
+        tex.sampler = sampler
 
         // Create descriptors for access
         if tex.is_sampled {
                 tex.sampled_reference = _descriptor_reference_alloc(&d.descriptor_allocator_sampled_tex)
 
                 image_info := vk.DescriptorImageInfo {
-                        // sampler = d.default_sampler,
+                        sampler     = sampler,
                         imageLayout = .READ_ONLY_OPTIMAL,
-                        imageView = tex.full_view.view,
+                        imageView   = tex.full_view.view,
                 }
 
                 write_info := vk.WriteDescriptorSet {
-                        sType = .WRITE_DESCRIPTOR_SET,
-                        dstSet = d.bindless_set,
-                        dstBinding = 1, // 1 = sampled, 2 = storage
+                        sType           = .WRITE_DESCRIPTOR_SET,
+                        dstSet          = d.bindless_set,
+                        dstBinding      = 1, // 1=sampled, 2=storage
                         dstArrayElement = tex.sampled_reference.handle,
                         descriptorCount = 1,
-                        descriptorType = .COMBINED_IMAGE_SAMPLER,
-                        pImageInfo = &image_info,
+                        descriptorType  = .COMBINED_IMAGE_SAMPLER,
+                        pImageInfo      = &image_info,
                 }
                 d.UpdateDescriptorSets(d.device, 1, &write_info, 0, nil)
         }
@@ -369,19 +452,19 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
                 tex.storage_reference = _descriptor_reference_alloc(&d.descriptor_allocator_storage_tex)
                 
                 image_info := vk.DescriptorImageInfo {
-                        // sampler = d.default_sampler,
+                        sampler     = sampler,
                         imageLayout = .GENERAL,
-                        imageView = tex.full_view.view,
+                        imageView   = tex.full_view.view,
                 }
 
                 write_info := vk.WriteDescriptorSet {
-                        sType = .WRITE_DESCRIPTOR_SET,
-                        dstSet = d.bindless_set,
-                        dstBinding = 2, // 1 = sampled, 2 = storage
+                        sType           = .WRITE_DESCRIPTOR_SET,
+                        dstSet          = d.bindless_set,
+                        dstBinding      = 2, // 1=sampled, 2=storage
                         dstArrayElement = tex.sampled_reference.handle,
                         descriptorCount = 1,
-                        descriptorType = .STORAGE_IMAGE,
-                        pImageInfo = &image_info,
+                        descriptorType  = .STORAGE_IMAGE,
+                        pImageInfo      = &image_info,
                 }
                 d.UpdateDescriptorSets(d.device, 1, &write_info, 0, nil)
         }
@@ -816,6 +899,10 @@ _cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Text
         d.CmdBlitImage2(cb.buffer, &blit_info)
 }
 
+_cmd_upload_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, upload_info: ^Upload_Info) {
+        
+}
+
 
 // Internal use only - `old_buffers` must be destroyed only after they have finished being used
 _buffer_grow :: proc(d: ^Device, buffer: ^Buffer, old_buffers: ^[dynamic]Buffer) {
@@ -834,7 +921,7 @@ _buffer_grow :: proc(d: ^Device, buffer: ^Buffer, old_buffers: ^[dynamic]Buffer)
         _ = _buffer_init(d, buffer, &grow_info)
 }
 
-_cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+_cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Upload_Info) {
         sb := &cb.staging_buffer
 
         if upload_info.size > sb.available {
@@ -845,10 +932,10 @@ _cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_i
 }
 
 
-_cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, dst: ^Buffer, upload_info: ^Buffer_Upload_Info) {
+_cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, dst: ^Buffer, upload_info: ^Upload_Info) {
         // Bounds check? Might be caught by vulkan, but also it's a cmd so no return val.
 
-        transfer_info := Buffer_Transfer_Info {
+        transfer_info := Transfer_Info {
                 size       = upload_info.size,
                 src_offset = staging.size - staging.available,
                 dst_offset = upload_info.dst_offset,
@@ -863,7 +950,7 @@ _cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, ds
         _cmd_transfer_buffer(d, cb, staging, dst, &transfer_info)
 }
 
-_cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst: ^Buffer, transfer_info: ^Buffer_Transfer_Info) {
+_cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst: ^Buffer, transfer_info: ^Transfer_Info) {
         region := vk.BufferCopy {
                 size      = vk.DeviceSize(transfer_info.size),
                 srcOffset = vk.DeviceSize(transfer_info.src_offset),
@@ -918,9 +1005,6 @@ _cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, groups: [3]u32) {
 }
 
 /*
-
-texture_init             :: proc(d: ^Device, t: ^Texture, init_info: ^Texture_Init_Info) -> (res: Result)
-texture_destroy          :: proc(d: ^Device, t: ^Texture)
 
 sampler_init             :: proc(d: ^Device, s: ^Sampler, init_info: ^Sampler_Init_Info) -> (res: Result)
 sampler_destroy          :: proc(d: ^Device, s: ^Sampler)

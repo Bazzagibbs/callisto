@@ -42,9 +42,12 @@ Device :: struct {
         bindless_pool            : vk.DescriptorPool,
         bindless_set             : vk.DescriptorSet,
         bindless_pipeline_layout : vk.PipelineLayout,
+        
+        samplers                 : map[Sampler_Info]vk.Sampler,
 
         descriptor_allocator_sampled_tex : _Descriptor_Allocator,
         descriptor_allocator_storage_tex : _Descriptor_Allocator,
+
 }
 
 @(private)
@@ -98,16 +101,17 @@ Command_Buffer :: struct {
 
 
 Texture :: struct {
-        image       : vk.Image,
-        full_view   : Texture_View,
-        extent      : vk.Extent3D,
-        mip_count   : u32,
-        layer_count : u32,
-        allocation  : vma.Allocation,
-        is_sampled  : bool,
-        is_storage  : bool,
+        image             : vk.Image,
+        full_view         : Texture_View,
+        extent            : vk.Extent3D,
+        mip_count         : u32,
+        layer_count       : u32,
+        allocation        : vma.Allocation,
+        is_sampled        : bool,
+        is_storage        : bool,
         sampled_reference : Texture_Reference,
         storage_reference : Texture_Reference,
+        sampler           : vk.Sampler,
 }
 
 Texture_View   :: struct {
@@ -117,8 +121,6 @@ Texture_View   :: struct {
 Texture_Reference :: struct {
         handle: u32,
 }
-
-Sampler :: struct {}
 
 Shader :: struct {
         shader : vk.ShaderEXT,
