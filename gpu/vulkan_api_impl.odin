@@ -189,17 +189,17 @@ _descriptor_allocator_init :: proc(da: ^_Descriptor_Allocator) {
         }
 }
 
-// Acquire the next available descriptor handle
-_descriptor_handle_alloc :: proc(da: ^_Descriptor_Allocator) -> (handle: Texture_Handle) {
-        handle = Texture_Handle(da.free_list[da.next])
+// Acquire the next available descriptor reference
+_descriptor_reference_alloc :: proc(da: ^_Descriptor_Allocator) -> (reference: Texture_Reference) {
+        reference = Texture_Reference{ da.free_list[da.next] }
         da.next += 1
         return
 }
 
-// Release a descriptor handle to be reused
-_descriptor_handle_free :: proc(da: ^_Descriptor_Allocator, handle: Texture_Handle) {
+// Release a descriptor reference to be reused
+_descriptor_reference_free :: proc(da: ^_Descriptor_Allocator, reference: Texture_Reference) {
         da.next -= 1
-        da.free_list[da.next] = u32(handle)
+        da.free_list[da.next] = reference.handle
 }
 
 _Texture_Dimensions_To_Vk := [Texture_Dimensions]vk.ImageType {
@@ -344,7 +344,7 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
 
         // Create descriptors for access
         if tex.is_sampled {
-                tex.sampled_handle = _descriptor_handle_alloc(&d.descriptor_allocator_sampled_tex)
+                tex.sampled_reference = _descriptor_reference_alloc(&d.descriptor_allocator_sampled_tex)
 
                 image_info := vk.DescriptorImageInfo {
                         // sampler = d.default_sampler,
@@ -356,7 +356,7 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
                         sType = .WRITE_DESCRIPTOR_SET,
                         dstSet = d.bindless_set,
                         dstBinding = 1, // 1 = sampled, 2 = storage
-                        dstArrayElement = u32(tex.sampled_handle),
+                        dstArrayElement = tex.sampled_reference.handle,
                         descriptorCount = 1,
                         descriptorType = .COMBINED_IMAGE_SAMPLER,
                         pImageInfo = &image_info,
@@ -365,7 +365,7 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
         }
 
         if tex.is_storage {
-                tex.storage_handle = _descriptor_handle_alloc(&d.descriptor_allocator_storage_tex)
+                tex.storage_reference = _descriptor_reference_alloc(&d.descriptor_allocator_storage_tex)
                 
                 image_info := vk.DescriptorImageInfo {
                         // sampler = d.default_sampler,
@@ -377,7 +377,7 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
                         sType = .WRITE_DESCRIPTOR_SET,
                         dstSet = d.bindless_set,
                         dstBinding = 2, // 1 = sampled, 2 = storage
-                        dstArrayElement = u32(tex.sampled_handle),
+                        dstArrayElement = tex.sampled_reference.handle,
                         descriptorCount = 1,
                         descriptorType = .STORAGE_IMAGE,
                         pImageInfo = &image_info,
@@ -394,10 +394,10 @@ _texture_destroy :: proc(d: ^Device, tex: ^Texture) {
         vma.DestroyImage(d.allocator, tex.image, tex.allocation)
 
         if tex.is_sampled {
-                _descriptor_handle_free(&d.descriptor_allocator_sampled_tex, tex.sampled_handle)
+                _descriptor_reference_free(&d.descriptor_allocator_sampled_tex, tex.sampled_reference)
         }
         if tex.is_storage {
-                _descriptor_handle_free(&d.descriptor_allocator_storage_tex, tex.storage_handle)
+                _descriptor_reference_free(&d.descriptor_allocator_storage_tex, tex.storage_reference)
         }
 }
 
@@ -405,31 +405,14 @@ _texture_get_extent :: proc(d: ^Device, tex: ^Texture) -> [3]u32 {
         return {tex.extent.width, tex.extent.height, tex.extent.depth}
 }
 
-_texture_get_storage_handle :: proc(d: ^Device, tex: ^Texture) -> Texture_Handle {
-        return tex.storage_handle
+_texture_get_reference_storage :: proc(d: ^Device, tex: ^Texture) -> Texture_Reference {
+        return tex.storage_reference
 }
 
-_texture_get_sampled_handle :: proc(d: ^Device, tex: ^Texture) -> Texture_Handle {
-        return tex.sampled_handle
+_texture_get_reference_sampled :: proc(d: ^Device, tex: ^Texture) -> Texture_Reference {
+        return tex.sampled_reference
 }
 
-_Buffer_Usage_To_Vk := [Buffer_Usage_Flag]vk.BufferUsageFlag {
-        .Transfer_Src   = .TRANSFER_SRC,
-        .Transfer_Dst   = .TRANSFER_DST,
-        .Storage        = .STORAGE_BUFFER,
-        .Index          = .INDEX_BUFFER,
-        .Vertex         = .VERTEX_BUFFER,
-        .Device_Address = .SHADER_DEVICE_ADDRESS,
-}
-
-_buffer_usage_to_vk :: proc(usage: Buffer_Usage_Flags) -> vk.BufferUsageFlags {
-        vk_usage := vk.BufferUsageFlags{}
-        for flag in usage {
-                vk_usage += {_Buffer_Usage_To_Vk[flag]}
-        }
-        
-        return vk_usage
-}
 
 _get_unique_queue_indices :: proc(d: ^Device, flags: Queue_Flags) -> (indices: [8]u32, count: u32) {
         count = 0
@@ -457,6 +440,24 @@ _get_unique_queue_indices :: proc(d: ^Device, flags: Queue_Flags) -> (indices: [
         return
 }
 
+_Buffer_Usage_To_Vk := [Buffer_Usage_Flag]vk.BufferUsageFlag {
+        .Transfer_Src   = .TRANSFER_SRC,
+        .Transfer_Dst   = .TRANSFER_DST,
+        .Storage        = .STORAGE_BUFFER,
+        .Index          = .INDEX_BUFFER,
+        .Vertex         = .VERTEX_BUFFER,
+        .Addressable    = .SHADER_DEVICE_ADDRESS,
+}
+
+_buffer_usage_to_vk :: proc(usage: Buffer_Usage_Flags) -> vk.BufferUsageFlags {
+        vk_usage := vk.BufferUsageFlags{}
+        for flag in usage {
+                vk_usage += {_Buffer_Usage_To_Vk[flag]}
+        }
+        
+        return vk_usage
+}
+
 _buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Result {
         families, family_count := _get_unique_queue_indices(d, init_info.queue_usage)
 
@@ -476,6 +477,15 @@ _buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Re
         vkres := vma.CreateBuffer(d.allocator, &create_info, &alloc_create_info, &b.buffer, &b.allocation, &b.alloc_info)
         check_result(vkres) or_return
 
+        if .Addressable in init_info.usage {
+                bda_info := vk.BufferDeviceAddressInfo {
+                        sType  = .BUFFER_DEVICE_ADDRESS_INFO,
+                        buffer = b.buffer,
+                }
+
+                b.address = d.GetBufferDeviceAddress(d.device, &bda_info)
+        }
+
         return .Ok
 }
 
@@ -483,17 +493,12 @@ _buffer_destroy :: proc(d: ^Device, b: ^Buffer) {
         vma.DestroyBuffer(d.allocator, b.buffer, b.allocation)
 }
 
-_constant_buffer_init :: proc(d: ^Device, cbuf: ^Constant_Buffer, init_info: ^Constant_Buffer_Init_Info) -> Result {
-        // Create suballocation from descriptor set 0 buffer
-        unimplemented()
-}
+// _buffer_update :: proc(d: ^Device, b: ^Buffer, update_info: ^Buffer_Update_Info) {
+//         
+// }
 
-_constant_buffer_destroy :: proc(d: ^Device, cbuf: ^Constant_Buffer) {
-        unimplemented()
-}
-
-_constant_buffer_update :: proc(d: ^Device, cbuf: ^Constant_Buffer, new_data: rawptr) -> Result {
-        unimplemented()
+_buffer_get_reference :: proc(d: ^Device, b: ^Buffer, index: int) -> Buffer_Reference {
+        return Buffer_Reference {b.address + vk.DeviceAddress(b.stride) * vk.DeviceAddress(index)}
 }
 
 
@@ -779,7 +784,6 @@ _Bind_Point_To_Vk := [Bind_Point]vk.PipelineBindPoint {
         // .Ray_Tracing = .RAY_TRACING_EXT, // FEATURE(Ray tracing)
 }
 
-// This might go in _cmd_begin
 _cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         // log.debugf("Binding descriptor set %x at bind point %v",  d.bindless_set, bind_point)
         d.CmdBindDescriptorSets(
@@ -796,7 +800,7 @@ _cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
 
 _cmd_set_constant_buffers :: proc(d: ^Device, cb: ^Command_Buffer, buffer_infos: []Constant_Buffer_Set_Info) {
         for info in buffer_infos {
-                cb.push_constant_state[int(info.slot)] = info.buffer.device_address
+                cb.push_constant_state[int(info.slot)] = info.buffer_reference.address
         }
 
         d.CmdPushConstants(cb.buffer, 

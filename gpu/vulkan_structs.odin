@@ -104,15 +104,17 @@ Texture :: struct {
         allocation  : vma.Allocation,
         is_sampled  : bool,
         is_storage  : bool,
-        sampled_handle : Texture_Handle,
-        storage_handle : Texture_Handle,
+        sampled_reference : Texture_Reference,
+        storage_reference : Texture_Reference,
 }
 
 Texture_View   :: struct {
         view   : vk.ImageView,
 }
 
-Texture_Handle :: distinct u32
+Texture_Reference :: struct {
+        handle: u32,
+}
 
 Sampler :: struct {}
 
@@ -125,10 +127,12 @@ Buffer :: struct {
         buffer     : vk.Buffer,
         allocation : vma.Allocation,
         alloc_info : vma.AllocationInfo,
+        address    : vk.DeviceAddress,
+        stride     : u32,
 }
 
-Constant_Buffer :: struct {
-        device_address : vk.DeviceAddress
+Buffer_Reference :: struct {
+        address : vk.DeviceAddress,
 }
 
 // GPU -> CPU sync
