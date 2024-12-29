@@ -7,7 +7,7 @@ import shutil
 APP_NAME           = "callisto_app"
 COMPANY_NAME       = "callisto_default_company"
 
-ASSET_DIRECTORY    = "./assets"
+ASSET_DIRECTORY    = "./resources"
 CALLISTO_DIRECTORY = "./callisto"
 OUT_DIRECTORY      = "./out"
 

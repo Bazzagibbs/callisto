@@ -1,5 +1,9 @@
 package callisto
 
+import "core:strings"
+import "core:bytes"
+import "core:path/filepath"
+
 
 Window_Style_Flags_DEFAULT :: Window_Style_Flags {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
 
@@ -19,6 +23,24 @@ window_destroy :: proc(e: ^Engine, window: ^Window) {
 event_pump :: proc(e: ^Engine) {
         e.runner->event_pump()
 }
+
+
+// On reload this will be reacquired.
+@(private) 
+_exe_dir_buffer : [4096]byte // Linux length, windows is ~256
+@(private)
+_exe_dir : string
+
+get_asset_path :: proc(filename: string, allocator := context.allocator) -> string {
+        if _exe_dir == {} {
+                sb := strings.builder_from_bytes(_exe_dir_buffer[:])
+                strings.write_string(&sb, get_exe_directory(context.temp_allocator))
+                _exe_dir = strings.to_string(sb)
+        }
+        
+        return filepath.join({_exe_dir, "data/assets", filename}, allocator)
+}
+
 
 // Implemented in platform_*.odin
 

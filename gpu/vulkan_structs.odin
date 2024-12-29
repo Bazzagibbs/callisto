@@ -42,6 +42,9 @@ Device :: struct {
         bindless_pool            : vk.DescriptorPool,
         bindless_set             : vk.DescriptorSet,
         bindless_pipeline_layout : vk.PipelineLayout,
+
+        immediate_cb             : Command_Buffer,
+        immediate_cb_fence       : Fence,
         
         samplers                 : map[Sampler_Info]vk.Sampler,
 
@@ -85,18 +88,19 @@ Swapchain :: struct {
 
 // Use a separate Command_Buffer per thread.
 Command_Buffer :: struct {
-        queue               : Queue_Flag,
+        queue                : Queue_Flag,
 
-        pool                : vk.CommandPool,
-        buffer              : vk.CommandBuffer,
-        staging_buffer      : Buffer,   // When full, append to `staging_old` and create new with 2x capacity
-        staging_old         : [dynamic]Buffer, // Full buffers are deleted next time the command buffer begins
+        pool                 : vk.CommandPool,
+        buffer               : vk.CommandBuffer,
+        staging_buffer       : Buffer,   // When full, append to `staging_old` and create new with 2x capacity
+        staging_old          : [dynamic]Buffer, // Full buffers are deleted next time the command buffer begins
 
-        wait_sema           : vk.Semaphore,
-        signal_sema         : vk.Semaphore,
-        signal_fence        : vk.Fence,
+        wait_sema            : vk.Semaphore,
+        signal_sema          : vk.Semaphore,
+        signal_fence         : vk.Fence,
 
-        push_constant_state : [4]vk.DeviceAddress,
+        push_constant_state  : [4]vk.DeviceAddress,
+        push_constants_dirty : bool
 }
 
 
@@ -107,6 +111,7 @@ Texture :: struct {
         mip_count         : u32,
         layer_count       : u32,
         allocation        : vma.Allocation,
+        aspect            : Texture_Aspect_Flags,
         is_sampled        : bool,
         is_storage        : bool,
         sampled_reference : Texture_Reference,

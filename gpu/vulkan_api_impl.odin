@@ -55,7 +55,9 @@ _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #call
         _vk_instance_init(d, init_info) or_return
         _vk_physical_device_select(d, init_info) or_return
         _vk_device_init(d, init_info) or_return
+        _vk_descriptors_init(d) or_return
         _vk_vma_init(d) or_return
+        _vk_immediate_command_buffer_init(d) or_return
 
         return .Ok
 }
@@ -64,15 +66,14 @@ _device_init :: proc(d: ^Device, init_info: ^Device_Init_Info, location := #call
 _device_destroy :: proc(d: ^Device) {
         log.info("Destroying Device")
 
+        // Sampler library
         for info, sampler in d.samplers {
                 d.DestroySampler(d.device, sampler, nil)
         }
         delete(d.samplers)
 
-        d.DestroyDescriptorPool(d.device, d.bindless_pool, nil)
-        d.DestroyPipelineLayout(d.device, d.bindless_pipeline_layout, nil)
-        d.DestroyDescriptorSetLayout(d.device, d.bindless_layout, nil)
-
+        _vk_immediate_command_buffer_destroy(d)
+        _vk_descriptors_destroy(d)
         _vk_vma_destroy(d)
         _vk_device_destroy(d)
         _vk_instance_destroy(d)
@@ -81,6 +82,24 @@ _device_destroy :: proc(d: ^Device) {
 _device_wait_for_idle :: proc(d: ^Device) {
         d.DeviceWaitIdle(d.device)
 }
+
+_immediate_command_buffer_get :: proc(d: ^Device, cb: ^^Command_Buffer) -> Result {
+        cb^ = &d.immediate_cb
+        return .Ok
+}
+
+
+// Blocks until command buffer is complete
+_immediate_command_buffer_submit :: proc(d: ^Device, cb:  ^Command_Buffer) -> Result {
+        _command_buffer_submit(d, cb) or_return
+
+        vkres := d.WaitForFences(d.device, 1, &d.immediate_cb_fence.fence, true, max(u64))
+        check_result(vkres) or_return
+        vkres = d.ResetFences(d.device, 1, &d.immediate_cb_fence.fence)
+        check_result(vkres) or_return
+        return .Ok
+}
+
 
 
 _swapchain_init :: proc(d: ^Device, sc: ^Swapchain, init_info: ^Swapchain_Init_Info, location := #caller_location) -> (res: Result) {
@@ -187,7 +206,7 @@ _swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
 
 
 // Descriptor Allocator is a free-list of handles
-_descriptor_allocator_init :: proc(da: ^_Descriptor_Allocator) {
+_vk_descriptor_allocator_init :: proc(da: ^_Descriptor_Allocator) {
         da.next = 0
 
         for i in 0..<MAX_DESCRIPTORS {
@@ -196,14 +215,14 @@ _descriptor_allocator_init :: proc(da: ^_Descriptor_Allocator) {
 }
 
 // Acquire the next available descriptor reference
-_descriptor_reference_alloc :: proc(da: ^_Descriptor_Allocator) -> (reference: Texture_Reference) {
+_vk_descriptor_reference_alloc :: proc(da: ^_Descriptor_Allocator) -> (reference: Texture_Reference) {
         reference = Texture_Reference{ da.free_list[da.next] }
         da.next += 1
         return
 }
 
 // Release a descriptor reference to be reused
-_descriptor_reference_free :: proc(da: ^_Descriptor_Allocator, reference: Texture_Reference) {
+_vk_descriptor_reference_free :: proc(da: ^_Descriptor_Allocator, reference: Texture_Reference) {
         da.next -= 1
         da.free_list[da.next] = reference.handle
 }
@@ -316,12 +335,48 @@ _Border_Color_To_Vk := [Sampler_Border_Color]vk.BorderColor {
 
 _Aniso_To_Vk := [Anisotropy]f32 {
         .None = 1,
-        .x1   = 1,
-        .x2   = 2,
-        .x4   = 4,
-        .x8   = 8,
-        .x16  = 16,
+        ._1   = 1,
+        ._2   = 2,
+        ._4   = 4,
+        ._8   = 8,
+        ._16  = 16,
 }
+
+_fence_init :: proc(d: ^Device, fence: ^Fence, init_info: ^Fence_Init_Info) -> Result {
+        create_info := vk.FenceCreateInfo {
+                sType = .FENCE_CREATE_INFO,
+                flags = {},
+        }
+
+        if init_info.begin_signaled {
+                create_info.flags += {.SIGNALED}
+        }
+
+        vkres := d.CreateFence(d.device, &create_info, nil, &fence.fence)
+        check_result(vkres) or_return
+
+        return .Ok
+}
+
+_fence_destroy :: proc(d: ^Device, fence: ^Fence) {
+        d.DestroyFence(d.device, fence.fence, nil)
+}
+
+_semaphore_init :: proc(d: ^Device, sema: ^Semaphore, init_info: ^Semaphore_Init_Info) -> Result {
+        create_info := vk.SemaphoreCreateInfo {
+                sType = .SEMAPHORE_CREATE_INFO,
+        }
+
+        vkres := d.CreateSemaphore(d.device, &create_info, nil, &sema.sema)
+        check_result(vkres) or_return
+
+        return .Ok
+}
+
+_semaphore_destroy :: proc(d: ^Device, sema: ^Semaphore) {
+        d.DestroySemaphore(d.device, sema.sema, nil)
+}
+
 
 _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) -> (res: Result) {
         unique_families := make(map[u32]struct{}, context.temp_allocator)
@@ -337,7 +392,6 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
         for key, _ in unique_families {
                 append(&families, key)
         }
-
 
         usage := vk.ImageUsageFlags {}
         for flag in init_info.usage {
@@ -368,7 +422,8 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
                 sharingMode           = .EXCLUSIVE, // requires ownership transfer using image memory barrier
                 queueFamilyIndexCount = len32(families),
                 pQueueFamilyIndices   = raw_data(families),
-                initialLayout         = _Texture_Layout_To_Vk[init_info.initial_layout],
+                // initialLayout      = _Texture_Layout_To_Vk[init_info.initial_layout],
+                initialLayout         = .UNDEFINED,
         }
         
         tex.extent      = create_info.extent
@@ -428,7 +483,7 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
 
         // Create descriptors for access
         if tex.is_sampled {
-                tex.sampled_reference = _descriptor_reference_alloc(&d.descriptor_allocator_sampled_tex)
+                tex.sampled_reference = _vk_descriptor_reference_alloc(&d.descriptor_allocator_sampled_tex)
 
                 image_info := vk.DescriptorImageInfo {
                         sampler     = sampler,
@@ -449,7 +504,7 @@ _texture_init :: proc(d: ^Device, tex: ^Texture, init_info: ^Texture_Init_Info) 
         }
 
         if tex.is_storage {
-                tex.storage_reference = _descriptor_reference_alloc(&d.descriptor_allocator_storage_tex)
+                tex.storage_reference = _vk_descriptor_reference_alloc(&d.descriptor_allocator_storage_tex)
                 
                 image_info := vk.DescriptorImageInfo {
                         sampler     = sampler,
@@ -478,10 +533,10 @@ _texture_destroy :: proc(d: ^Device, tex: ^Texture) {
         vma.DestroyImage(d.allocator, tex.image, tex.allocation)
 
         if tex.is_sampled {
-                _descriptor_reference_free(&d.descriptor_allocator_sampled_tex, tex.sampled_reference)
+                _vk_descriptor_reference_free(&d.descriptor_allocator_sampled_tex, tex.sampled_reference)
         }
         if tex.is_storage {
-                _descriptor_reference_free(&d.descriptor_allocator_storage_tex, tex.storage_reference)
+                _vk_descriptor_reference_free(&d.descriptor_allocator_storage_tex, tex.storage_reference)
         }
 }
 
@@ -677,6 +732,10 @@ _command_buffer_begin :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) 
                 clear(&cb.staging_old)
         }
         cb.staging_buffer.available = cb.staging_buffer.size
+
+        // Reset push constant state
+        cb.push_constant_state = {}
+        cb.push_constants_dirty = true
 
         begin_info := vk.CommandBufferBeginInfo {
                 sType = .COMMAND_BUFFER_BEGIN_INFO,
@@ -899,43 +958,61 @@ _cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Text
         d.CmdBlitImage2(cb.buffer, &blit_info)
 }
 
-_cmd_upload_texture :: proc(d: ^Device, cb: ^Command_Buffer, tex: ^Texture, upload_info: ^Upload_Info) {
-        
-}
+// _cmd_update_texture // using cb internal staging?
 
-
-// Internal use only - `old_buffers` must be destroyed only after they have finished being used
-_buffer_grow :: proc(d: ^Device, buffer: ^Buffer, old_buffers: ^[dynamic]Buffer) {
-        append(old_buffers, buffer^)
-
-        new_size := 2 * buffer.size
-
-        buffer^ = {}
-
-        grow_info := Buffer_Init_Info {
-                size               = new_size,
-                usage              = {.Transfer_Src},
-                queue_usage        = {.Graphics, .Compute_Sync},
-                memory_access_type = .Staging,
+_cmd_upload_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, dst: ^Texture, upload_info: ^Texture_Upload_Info) {
+        transfer_info := Texture_Transfer_Info {
+                size           = upload_info.size,
+                src_offset     = staging.size - staging.available,
+                texture_aspect = .Color,
         }
-        _ = _buffer_init(d, buffer, &grow_info)
+
+        staging.available -= staging.size
+        
+        // memcpy to mapped memory
+        offset_mem := rawptr(uintptr(staging.mapped_mem) + uintptr(transfer_info.src_offset))
+        mem.copy(offset_mem, upload_info.data, int(upload_info.size))
+        _cmd_transfer_buffer_to_texture(d, cb, staging, dst, &transfer_info)
 }
 
-_cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Upload_Info) {
+_cmd_transfer_buffer_to_texture :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst: ^Texture, transfer_info: ^Texture_Transfer_Info) {
+
+        subresource := vk.ImageSubresourceLayers {
+                aspectMask     = {_Aspect_Flag_To_Vk[transfer_info.texture_aspect]},
+                mipLevel       = 0,
+                baseArrayLayer = 0,
+                layerCount     = 1,
+        }
+
+        region := vk.BufferImageCopy {
+                bufferOffset      = vk.DeviceSize(transfer_info.src_offset),
+                bufferRowLength   = 0,
+                bufferImageHeight = 0,
+                imageOffset       = {},
+                imageSubresource  = subresource,
+                imageExtent       = dst.extent,
+        }
+
+        d.CmdCopyBufferToImage(cb.buffer, src.buffer, dst.image, .TRANSFER_DST_OPTIMAL, 1, &region)
+}
+
+
+// This might be a bad idea, maybe just handle the staging buffer in the engine layer
+_cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Buffer_Upload_Info) {
         sb := &cb.staging_buffer
 
         if upload_info.size > sb.available {
-                _buffer_grow(d, sb, &cb.staging_old)
+                _vk_buffer_grow(d, sb, &cb.staging_old)
         }
 
         _cmd_upload_buffer(d, cb, sb, b, upload_info)
 }
 
 
-_cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, dst: ^Buffer, upload_info: ^Upload_Info) {
+_cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, dst: ^Buffer, upload_info: ^Buffer_Upload_Info) {
         // Bounds check? Might be caught by vulkan, but also it's a cmd so no return val.
 
-        transfer_info := Transfer_Info {
+        transfer_info := Buffer_Transfer_Info {
                 size       = upload_info.size,
                 src_offset = staging.size - staging.available,
                 dst_offset = upload_info.dst_offset,
@@ -950,7 +1027,7 @@ _cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, ds
         _cmd_transfer_buffer(d, cb, staging, dst, &transfer_info)
 }
 
-_cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst: ^Buffer, transfer_info: ^Transfer_Info) {
+_cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst: ^Buffer, transfer_info: ^Buffer_Transfer_Info) {
         region := vk.BufferCopy {
                 size      = vk.DeviceSize(transfer_info.size),
                 srcOffset = vk.DeviceSize(transfer_info.src_offset),
@@ -958,6 +1035,23 @@ _cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src: ^Buffer, dst:
         }
 
         d.CmdCopyBuffer(cb.buffer, src.buffer, dst.buffer, 1, &region)
+}
+
+// `old_buffers` must be destroyed only after they have finished being used
+_vk_buffer_grow :: proc(d: ^Device, buffer: ^Buffer, old_buffers: ^[dynamic]Buffer) {
+        append(old_buffers, buffer^)
+
+        new_size := 2 * buffer.size
+
+        buffer^ = {}
+
+        grow_info := Buffer_Init_Info {
+                size               = new_size,
+                usage              = {.Transfer_Src},
+                queue_usage        = {.Graphics, .Compute_Sync},
+                memory_access_type = .Staging,
+        }
+        _ = _buffer_init(d, buffer, &grow_info)
 }
 
 _Bind_Point_To_Vk := [Bind_Point]vk.PipelineBindPoint {
@@ -980,11 +1074,47 @@ _cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         )
 }
 
+_cmd_set_constant_buffer_scene :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        cb.push_constant_state[0] = buffer.address
+        cb.push_constants_dirty = true
+}
+
+_cmd_set_constant_buffer_pass :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        cb.push_constant_state[1] = buffer.address
+        cb.push_constants_dirty = true
+}
+
+_cmd_set_constant_buffer_material :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        cb.push_constant_state[2] = buffer.address
+        cb.push_constants_dirty = true
+}
+
+_cmd_set_constant_buffer_instance :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        cb.push_constant_state[3] = buffer.address
+        cb.push_constants_dirty = true
+}
+
+// Called on every draw/dispatch
+_vk_cmd_push_constants_if_dirty :: #force_inline proc(d: ^Device, cb: ^Command_Buffer) {
+        if cb.push_constants_dirty {
+                d.CmdPushConstants(cb.buffer, 
+                        layout     = d.bindless_pipeline_layout,
+                        stageFlags = vk.ShaderStageFlags_ALL,
+                        offset     = 0,
+                        size       = size_of(cb.push_constant_state),
+                        pValues    = raw_data(&cb.push_constant_state)
+                )
+
+                cb.push_constants_dirty = false
+        }
+}
+
 _cmd_set_constant_buffers :: proc(d: ^Device, cb: ^Command_Buffer, buffer_infos: []Constant_Buffer_Set_Info) {
         for info in buffer_infos {
                 cb.push_constant_state[int(info.slot)] = info.buffer_reference.address
         }
 
+        // TODO: Move this to draw/
         d.CmdPushConstants(cb.buffer, 
                 layout     = d.bindless_pipeline_layout,
                 stageFlags = vk.ShaderStageFlags_ALL,
@@ -1001,6 +1131,7 @@ _cmd_bind_shader :: proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
 
 
 _cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, groups: [3]u32) {
+        _vk_cmd_push_constants_if_dirty(d, cb)
         d.CmdDispatch(cb.buffer, groups.x, groups.y, groups.z)
 }
 
@@ -1387,6 +1518,10 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         pNext: rawptr
         // ADD PNEXT FEATURES HERE
 
+        features := vk.PhysicalDeviceFeatures {
+                samplerAnisotropy = true
+        }
+
         sync2_features := vk.PhysicalDeviceSynchronization2Features {
                 sType            = .PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
                 pNext            = pNext,
@@ -1441,7 +1576,7 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
                 pNext                   = pNext,
                 queueCreateInfoCount    = len32(queue_create_infos),
                 pQueueCreateInfos       = raw_data(queue_create_infos),
-                pEnabledFeatures        = {},
+                pEnabledFeatures        = &features,
                 enabledExtensionCount   = len32(device_extensions),
                 ppEnabledExtensionNames = raw_data(device_extensions),
         }
@@ -1457,6 +1592,11 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         d.GetDeviceQueue(d.device, present_family, 0, &d.present_queue)
 
 
+
+        return .Ok
+}
+
+_vk_descriptors_init :: proc(d: ^Device) -> Result {
         phys_props: vk.PhysicalDeviceProperties
         d.GetPhysicalDeviceProperties(d.phys_device, &phys_props)
         
@@ -1513,7 +1653,7 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
                 bindingCount = len32(descriptor_binding_infos),
                 pBindings    = raw_data(descriptor_binding_infos),
         }
-        vkres = d.CreateDescriptorSetLayout(d.device, &descriptor_set_layout_info, nil, &d.bindless_layout)
+        vkres := d.CreateDescriptorSetLayout(d.device, &descriptor_set_layout_info, nil, &d.bindless_layout)
         check_result(vkres) or_return
 
 
@@ -1525,9 +1665,9 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
                 // { .ACCELERATION_STRUCTURE_KHR, 1000 }, // FEATURE(Ray tracing)
         }
 
-        log.info("Max Storage", phys_props.limits.maxDescriptorSetStorageBuffers)
-        log.info("Max Samplers", phys_props.limits.maxDescriptorSetSamplers)
-        log.info("Max Storage Images", phys_props.limits.maxDescriptorSetStorageImages)
+        log.debug("Max Storage", phys_props.limits.maxDescriptorSetStorageBuffers)
+        log.debug("Max Samplers", phys_props.limits.maxDescriptorSetSamplers)
+        log.debug("Max Storage Images", phys_props.limits.maxDescriptorSetStorageImages)
 
         descriptor_pool_info := vk.DescriptorPoolCreateInfo {
                 sType         = .DESCRIPTOR_POOL_CREATE_INFO,
@@ -1570,12 +1710,11 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         check_result(vkres) or_return
 
 
-        _descriptor_allocator_init(&d.descriptor_allocator_storage_tex)
-        _descriptor_allocator_init(&d.descriptor_allocator_sampled_tex)
+        _vk_descriptor_allocator_init(&d.descriptor_allocator_storage_tex)
+        _vk_descriptor_allocator_init(&d.descriptor_allocator_sampled_tex)
 
         return .Ok
 }
-
 
 _vk_vma_init :: proc(d: ^Device) -> Result {
         // Is this ok? does vma copy the proc pointers?
@@ -1590,6 +1729,22 @@ _vk_vma_init :: proc(d: ^Device) -> Result {
 
         vkres := vma.CreateAllocator(&create_info, &d.allocator)
         return check_result(vkres)
+}
+
+_vk_immediate_command_buffer_init :: proc(d: ^Device) -> Result {
+        immediate_fence_info := Fence_Init_Info {
+                begin_signaled = false,
+        }
+        _fence_init(d, &d.immediate_cb_fence, &immediate_fence_info) or_return
+
+
+        immediate_cb_info := Command_Buffer_Init_Info {
+                queue = .Graphics,
+                signal_fence = &d.immediate_cb_fence,
+        }
+        _command_buffer_init(d, &d.immediate_cb, &immediate_cb_info) or_return
+
+        return .Ok
 }
 
 _vk_vma_destroy :: proc(d: ^Device) {
@@ -1608,6 +1763,17 @@ _vk_instance_destroy :: proc(d: ^Device) {
 _vk_device_destroy :: proc(d: ^Device) {
         log.debug("Destroying Vulkan device")
         d.DestroyDevice(d.device, nil)
+}
+
+_vk_descriptors_destroy :: proc(d: ^Device) {
+        d.DestroyDescriptorPool(d.device, d.bindless_pool, nil)
+        d.DestroyPipelineLayout(d.device, d.bindless_pipeline_layout, nil)
+        d.DestroyDescriptorSetLayout(d.device, d.bindless_layout, nil)
+}
+
+_vk_immediate_command_buffer_destroy :: proc(d: ^Device) {
+        _fence_destroy(d, &d.immediate_cb_fence)
+        _command_buffer_destroy(d, &d.immediate_cb)
 }
 
 // ======================================
@@ -1816,19 +1982,19 @@ _vk_swapchain_sync_init :: proc(d: ^Device, sc: ^Swapchain) -> Result {
 
         when VK_VALIDATION_LAYER {
 
-                @static image_avail_names := [?]cstring {
+                image_avail_names := [?]cstring {
                         "Image_Available_0",
                         "Image_Available_1",
                         "Image_Available_2",
                 }
 
-                @static render_finished_names := [?]cstring {
+                render_finished_names := [?]cstring {
                         "Render_Finished_0",
                         "Render_Finished_1",
                         "Render_Finished_2",
                 }
                 
-                @static in_flight_names := [?]cstring {
+                in_flight_names := [?]cstring {
                         "In_Flight_0",
                         "In_Flight_1",
                         "In_Flight_2",
@@ -1951,7 +2117,6 @@ _vk_swapchain_recreate :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
 // ======================================
 
 _Pipeline_Stage_To_Vk := [Pipeline_Stage]vk.PipelineStageFlag2 {
-        .Begin                          = .TOP_OF_PIPE,
         .Draw_Indirect                  = .DRAW_INDIRECT,
         .Vertex_Input                   = .VERTEX_INPUT,
         .Vertex_Shader                  = .VERTEX_SHADER,
@@ -1964,12 +2129,15 @@ _Pipeline_Stage_To_Vk := [Pipeline_Stage]vk.PipelineStageFlag2 {
         .Color_Target_Output            = .COLOR_ATTACHMENT_OUTPUT,
         .Compute_Shader                 = .COMPUTE_SHADER,
         .Transfer                       = .TRANSFER,
-        .End                            = .BOTTOM_OF_PIPE,
         .Host                           = .HOST,
         .Copy                           = .COPY,
         .Resolve                        = .RESOLVE,
         .Blit                           = .BLIT,
         .Clear                          = .CLEAR,
+        .Pre_Rasterization_Shaders      = .PRE_RASTERIZATION_SHADERS,
+        .All_Transfer                   = .ALL_TRANSFER,
+        .All_Graphics                   = .ALL_GRAPHICS,
+        .All_Commands                   = .ALL_COMMANDS,
 }
 
 _vk_pipeline_stages :: proc(ps: Pipeline_Stages) -> vk.PipelineStageFlags2 {

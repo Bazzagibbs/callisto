@@ -38,6 +38,13 @@ Vsync_Mode :: enum {
         Off,
 }
 
+// Nothing to configure currently
+Semaphore_Init_Info :: struct {}
+
+Fence_Init_Info :: struct {
+        begin_signaled : bool,
+}
+
 Command_Buffer_Init_Info :: struct {
         queue            : Queue_Flag,
         wait_semaphore   : ^Semaphore,
@@ -55,7 +62,6 @@ Queue_Flag :: enum {
 
 Pipeline_Stages :: bit_set[Pipeline_Stage]
 Pipeline_Stage :: enum {
-        Begin,
         Draw_Indirect,
         Vertex_Input,
         Vertex_Shader,
@@ -68,13 +74,20 @@ Pipeline_Stage :: enum {
         Color_Target_Output,
         Compute_Shader,
         Transfer,
-        End,
         Host,
         Copy,
         Resolve,
         Blit,
         Clear,
+        Pre_Rasterization_Shaders,
+        All_Transfer,
+        All_Graphics,
+        All_Commands,
+        // Task_Shader, // FEATURE(Mesh shading)
+        // Mesh_Shader,
+        // Acceleration_Structure_Copy, // FEATURE(Ray tracing)
 }
+
 
 Shader_Stages :: bit_set[Shader_Stage]
 Shader_Stage :: enum {
@@ -176,7 +189,7 @@ Texture_Init_Info :: struct {
         mip_count          : u32,
         layer_count        : u32,
         multisample        : Texture_Multisample,
-        initial_layout     : Texture_Layout,
+        // initial_layout     : Texture_Layout,
         sampler_info       : Sampler_Info,
 }
 
@@ -242,13 +255,13 @@ Sampler_Info :: struct {
 
 }
 
-Sampler_Init_DEFAULT :: Sampler_Info {
+Sampler_Info_DEFAULT :: Sampler_Info {
         wrap_mode             = .Clamp_To_Border,
         minify_filter         = .Linear,
         magnify_filter        = .Linear,
         mip_filter            = .Linear,
         mip_lod_bias          = 0,
-        anisotropy            = .x8,
+        anisotropy            = ._8,
         min_lod               = 0,
         max_lod               = 0,
         border_color          = .Transparent_Black_Float,
@@ -279,11 +292,11 @@ Sampler_Border_Color :: enum {
 
 Anisotropy :: enum {
         None,
-        x1,
-        x2,
-        x4,
-        x8,
-        x16,
+        _1,
+        _2,
+        _4,
+        _8,
+        _16,
 }
 
 Compare_Op :: enum {
@@ -360,16 +373,27 @@ Buffer_Usage_Flag :: enum {
         Addressable,
 }
 
-Upload_Info :: struct {
+Buffer_Upload_Info :: struct {
         size       : u64,
         dst_offset : u64,
         data       : rawptr,
 }
 
-Transfer_Info :: struct {
+Buffer_Transfer_Info :: struct {
         size       : u64,
         src_offset : u64,
         dst_offset : u64,
+}
+
+Texture_Upload_Info :: struct {
+        size           : u64,
+        data           : rawptr,
+}
+
+Texture_Transfer_Info :: struct {
+        size           : u64,
+        src_offset     : u64,
+        texture_aspect : Texture_Aspect_Flag,
 }
 
 
@@ -445,6 +469,17 @@ device_destroy :: proc (d: ^Device) {
 device_wait_for_idle :: proc (d: ^Device) {
         _device_wait_for_idle(d)
 }
+
+// The immediate command buffer is NOT thread-safe
+immediate_command_buffer_get :: proc(d: ^Device, cb: ^^Command_Buffer) -> Result {
+        return _immediate_command_buffer_get(d, cb)
+}
+
+// Blocks until command buffer is complete
+immediate_command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> Result {
+        return _immediate_command_buffer_submit(d, cb)
+}
+
 
 swapchain_init :: proc(d: ^Device, sc: ^Swapchain, swapchain_init_info: ^Swapchain_Init_Info, location := #caller_location) -> Result {
         return _swapchain_init(d, sc, swapchain_init_info, location)
@@ -562,17 +597,21 @@ cmd_blit_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Textu
         _cmd_blit_color_texture(d, cb, src, dst)
 }
 
+cmd_upload_color_texture :: proc(d: ^Device, cb: ^Command_Buffer, staging: ^Buffer, tex: ^Texture, upload_info: ^Texture_Upload_Info) {
+        _cmd_upload_color_texture(d, cb, staging, tex, upload_info)
+}
+
 // Uses cb's internal staging buffer. Prefer `cmd_upload_buffer` and provide a separate staging buffer
 // for uploading large resources.
-cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Upload_Info) {
+cmd_update_buffer :: proc(d: ^Device, cb: ^Command_Buffer, b: ^Buffer, upload_info: ^Buffer_Upload_Info) {
         _cmd_update_buffer(d, cb, b, upload_info)
 }
 
-cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging, dst: ^Buffer, upload_info: ^Upload_Info) {
+cmd_upload_buffer :: proc(d: ^Device, cb: ^Command_Buffer, staging, dst: ^Buffer, upload_info: ^Buffer_Upload_Info) {
         _cmd_upload_buffer(d, cb, staging, dst, upload_info)
 }
 
-cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Buffer, transfer_info: ^Transfer_Info) {
+cmd_transfer_buffer :: proc(d: ^Device, cb: ^Command_Buffer, src, dst: ^Buffer, transfer_info: ^Buffer_Transfer_Info) {
         _cmd_transfer_buffer(d, cb, src, dst, transfer_info)
 }
 
@@ -582,9 +621,19 @@ cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         _cmd_bind_all(d, cb, bind_point)
 }
 
-cmd_set_constant_buffers :: proc(d: ^Device, cb: ^Command_Buffer, buffer_infos: []Constant_Buffer_Set_Info) {
-        _cmd_set_constant_buffers(d, cb, buffer_infos)
+cmd_set_constant_buffer_scene :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_scene(d, cb, buffer)
 }
+cmd_set_constant_buffer_pass :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_pass(d, cb, buffer)
+}
+cmd_set_constant_buffer_material :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_material(d, cb, buffer)
+}
+cmd_set_constant_buffer_instance :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_instance(d, cb, buffer)
+}
+
 
 cmd_bind_shader ::  proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
         _cmd_bind_shader(d, cb, shader)
