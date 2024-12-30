@@ -1074,22 +1074,22 @@ _cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         )
 }
 
-_cmd_set_constant_buffer_scene :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+_cmd_set_constant_buffer_0 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
         cb.push_constant_state[0] = buffer.address
         cb.push_constants_dirty = true
 }
 
-_cmd_set_constant_buffer_pass :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+_cmd_set_constant_buffer_1 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
         cb.push_constant_state[1] = buffer.address
         cb.push_constants_dirty = true
 }
 
-_cmd_set_constant_buffer_material :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+_cmd_set_constant_buffer_2 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
         cb.push_constant_state[2] = buffer.address
         cb.push_constants_dirty = true
 }
 
-_cmd_set_constant_buffer_instance :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+_cmd_set_constant_buffer_3 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
         cb.push_constant_state[3] = buffer.address
         cb.push_constants_dirty = true
 }

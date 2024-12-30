@@ -621,17 +621,17 @@ cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         _cmd_bind_all(d, cb, bind_point)
 }
 
-cmd_set_constant_buffer_scene :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_scene(d, cb, buffer)
+cmd_set_constant_buffer_0 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_0(d, cb, buffer)
 }
-cmd_set_constant_buffer_pass :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_pass(d, cb, buffer)
+cmd_set_constant_buffer_1 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_1(d, cb, buffer)
 }
-cmd_set_constant_buffer_material :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_material(d, cb, buffer)
+cmd_set_constant_buffer_2 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_2(d, cb, buffer)
 }
-cmd_set_constant_buffer_instance :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_instance(d, cb, buffer)
+cmd_set_constant_buffer_3 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
+        _cmd_set_constant_buffer_3(d, cb, buffer)
 }
 
 
