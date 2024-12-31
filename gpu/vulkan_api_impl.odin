@@ -863,7 +863,6 @@ _shader_init :: proc(d: ^Device, s: ^Shader, init_info: ^Shader_Init_Info) -> (r
         s.stages = {_Shader_Stage_To_Vk[init_info.stage]}
 
         push_constant_ranges := []vk.PushConstantRange {
-                // {s.stages, 0, size_of([4]vk.DeviceAddress)}
                 {vk.ShaderStageFlags_ALL, 0, size_of([4]vk.DeviceAddress)}
         }
 
@@ -1521,6 +1520,15 @@ _vk_device_init :: proc(d: ^Device, init_info: ^Device_Init_Info) -> (res: Resul
         features := vk.PhysicalDeviceFeatures {
                 samplerAnisotropy = true
         }
+
+        vk11_features := vk.PhysicalDeviceVulkan11Features {
+                sType                         = .PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+                pNext                         = pNext,
+                variablePointers              = true,
+                variablePointersStorageBuffer = true,
+        }
+
+        pNext = &vk11_features
 
         sync2_features := vk.PhysicalDeviceSynchronization2Features {
                 sType            = .PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
