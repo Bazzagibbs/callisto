@@ -6,8 +6,6 @@ import "core:log"
 import "../config"
 import "../common"
 
-import vk "../gpu/vulkan"
-
 Runner :: struct {
         ctx                      : runtime.Context,
         app_memory               : rawptr,
@@ -34,12 +32,6 @@ Runner :: struct {
         window_destroy           : #type proc (runner: ^Runner, window: ^Window),
         event_pump               : #type proc (runner: ^Runner),
         logger_proc              : #type proc (logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location),
-        rhi_logger_proc          : Proc_RHI_Logger,
-}
-
-
-when config.RHI == "vulkan" {
-        Proc_RHI_Logger :: vk.ProcDebugUtilsMessengerCallbackEXT
 }
 
 

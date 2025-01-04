@@ -35,35 +35,3 @@ An RHI's logger callback must be owned by the Runner executable.
 Now in `device_init`, set up the logger with the callback in `Device_Init_Info.runner.rhi_logger`.
 
 
-## Design
-
-Thin wrapper around some Vulkan features (shader object + dynamic rendering workflow).
-This should be portable to other graphics APIs (GNM is apparently lower level than Vulkan)
-
-- Maybe replace texture transitions with something more ergonomic? 
-    - Per-thread `Texture_State` struct that keeps track of the current layout/access
-    - Several specialized `cmd_transition` commands that only take this struct as a parameter
-
-Currently all API-specific implementation details are accessable immediately in the struct.
-Replace the implementation-specific structs with the following pattern:
-```odin
-Texture :: struct {
-    // fields that are safe to access from the application side
-    extent    : [3]int,
-    full_view : Texture_View,
-    _impl     : Texture_Impl, // This is the only part implemented per-api
-}
-```
-
-This also replaces the getter procs `gpu.texture_get_extent()` etc.
-
-## Future development
-
-Some code is commented out alongside a corresponding `// FEATURE()` comment.
-These are areas of the code that need to be modified should the feature be implemented.
-
-Potential features include:
-- `// FEATURE(Stereo rendering)` for VR headset support
-- `// FEATURE(Ray tracing)`
-- `// FEATURE(Mesh shading)`
-- `// FEATURE(Texture limit)` in case an application requires more than the current arbitrary limit.

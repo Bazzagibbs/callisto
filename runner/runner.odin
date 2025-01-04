@@ -43,12 +43,8 @@ default_runner :: proc (ctx := context) -> cal.Runner {
                 window_destroy     = window_destroy,
                 event_pump         = event_pump,
                 logger_proc        = logger_multi_proc,
-                rhi_logger_proc    = nil, // set below
         }
 
-        when config.RHI == "vulkan" {
-                runner.rhi_logger_proc = vk_debug_messenger
-        }
 
         return runner
 }

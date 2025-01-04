@@ -55,3 +55,21 @@ assert_messagebox :: proc(assertion: bool, message_args: ..any, loc := #caller_l
                 }
         }
 }
+
+parse_hresult :: #force_inline proc(hres: win.HRESULT, allocator := context.temp_allocator) -> string {
+ buf: win.wstring
+        msg_len := win.FormatMessageW(
+                flags   =  win.FORMAT_MESSAGE_FROM_SYSTEM | win.FORMAT_MESSAGE_IGNORE_INSERTS | win.FORMAT_MESSAGE_ALLOCATE_BUFFER,
+                lpSrc   =  nil,
+                msgId   =  u32(hres),
+                langId  =  0,
+                buf     =  (win.LPWSTR)(&buf),
+                nsize   =  0,
+                args    =  nil
+        )
+
+        out_str, _ := win.utf16_to_utf8(buf[:msg_len], allocator)
+        win.LocalFree(buf)
+
+        return out_str
+}

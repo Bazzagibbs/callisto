@@ -21,6 +21,7 @@ Result :: enum {
         Device_Disconnected,
         Platform_Error,
         Swapchain_Rebuilt,
+        Synchronization_Error,
 }
 
 
