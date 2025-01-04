@@ -44,6 +44,19 @@ This should be portable to other graphics APIs (GNM is apparently lower level th
     - Per-thread `Texture_State` struct that keeps track of the current layout/access
     - Several specialized `cmd_transition` commands that only take this struct as a parameter
 
+Currently all API-specific implementation details are accessable immediately in the struct.
+Replace the implementation-specific structs with the following pattern:
+```odin
+Texture :: struct {
+    // fields that are safe to access from the application side
+    extent    : [3]int,
+    full_view : Texture_View,
+    _impl     : Texture_Impl, // This is the only part implemented per-api
+}
+```
+
+This also replaces the getter procs `gpu.texture_get_extent()` etc.
+
 ## Future development
 
 Some code is commented out alongside a corresponding `// FEATURE()` comment.

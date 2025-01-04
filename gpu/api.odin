@@ -12,8 +12,10 @@ Result :: common.Result
 Runner :: common.Runner
 Window :: common.Window
 
-Location :: runtime.Source_Code_Location
-
+Rect :: struct {
+        x, y          : int,
+        width, height : int,
+}
 
 Device_Init_Info :: struct {
         runner            : ^Runner,
@@ -310,31 +312,50 @@ Compare_Op :: enum {
 	Always,
 }
 
+Cull_Mode :: enum {
+        Never,
+        Counter_Clockwise,
+        Clockwise,
+        Always,
+}
+
 Shader_Init_Info :: struct {
         code              : []u8,
         stage             : Shader_Stage,
         // vertex_attributes : Vertex_Attribute_Flags,
-        resource_ranges   : []Resource_Type,
+        cull_mode         : Cull_Mode,
+        depth_test        : Compare_Op,
+        depth_write       : bool,
+        depth_bias        : f32,
+        // stencil_test   : Compare_Op,
+        // stencil_write  : bool,
+}
+
+Shader_Init_Info_DEFAULT :: Shader_Init_Info {
+        // code              = {},
+        // stage             = {},
+        // vertex_attributes = {},
+        cull_mode            = .Counter_Clockwise,
+        depth_test           = .Greater,
+        depth_write          = true,
+        depth_bias           = 0,
+        // stencil_test      = .Always,
+        // stencil_write     = false,
 }
 
 
-Resource_Type :: enum {
-        Buffer,
-        Sampled_Texture,
-        Storage_Texture,
-        // Acceleration_Structure, // FEATURE(Ray tracing)
-}
 
 Constant_Buffer_Set_Info :: struct {
         slot             : Constant_Buffer_Slot,
-        buffer_reference : ^Buffer_Reference,
+        buffer_reference : Buffer_Reference,
 }
 
 Constant_Buffer_Slot :: enum {
-        Per_Scene    = 0,
-        Per_Pass     = 1,
-        Per_Material = 2,
-        Per_Instance = 3,
+        Scene    = 0,
+        Camera   = 1,
+        Pass     = 2,
+        Material = 3,
+        Instance = 4,
 }
 
 
@@ -355,8 +376,29 @@ Vertex_Attribute_Flag :: enum {
         Weights_1,
 }
 
+Vertex_Attribute_Stride := [Vertex_Attribute_Flag]int {
+        .Position    = size_of([3]f32),
+        .Normal      = size_of([3]f16),
+        .Tangent     = size_of([4]f16),
+        .Color_0     = size_of([4]u8),
+        .Color_1     = size_of([4]u8),
+        .Tex_Coord_0 = size_of([2]f16),
+        .Tex_Coord_1 = size_of([2]f16),
+        .Tex_Coord_2 = size_of([2]f16),
+        .Tex_Coord_3 = size_of([2]f16),
+        .Joints_0    = size_of([4]u16),
+        .Joints_1    = size_of([4]u16),
+        .Weights_0   = size_of([4]f16),
+        .Weights_1   = size_of([4]f16),
+}
+
+Vertex_Buffer_Bind_Info :: struct {
+        attribute : Vertex_Attribute_Flag,
+        buffer    : Buffer_Reference,
+}
+
 Buffer_Init_Info :: struct {
-        size               : u64,
+        size               : int,
         usage              : Buffer_Usage_Flags,
         queue_usage        : Queue_Flags,
         memory_access_type : Memory_Access_Type,
@@ -374,92 +416,119 @@ Buffer_Usage_Flag :: enum {
 }
 
 Buffer_Upload_Info :: struct {
-        size       : u64,
-        dst_offset : u64,
+        size       : int,
+        src_offset : int,
+        dst_offset : int,
         data       : rawptr,
 }
 
 Buffer_Transfer_Info :: struct {
-        size       : u64,
-        src_offset : u64,
-        dst_offset : u64,
+        size       : int,
+        src_offset : int,
+        dst_offset : int,
 }
 
 Texture_Upload_Info :: struct {
-        size           : u64,
+        size           : int,
         data           : rawptr,
 }
 
 Texture_Transfer_Info :: struct {
-        size           : u64,
-        src_offset     : u64,
+        size           : int,
+        src_offset     : int,
         texture_aspect : Texture_Aspect_Flag,
 }
 
-
 /*
-Texture_View_Init_Info :: struct {
-        texture     : ^Texture,
-        format : Texture_Format,
-        dimensions  : Texture_View_Dimensions,
-        mip_base    : u32,
-        mip_count   : u32,
-        layer_base  : u32,
-        layer_count : u32,
+Depth_Stencil_Set_Info :: struct {
+        depth_test   : Compare_Op,
+        depth_write  : bool,
+        depth_bias   : f32,
+        stencil_test : bool,
 }
 
-/*
-Buffer_Init_Info :: struct {}
+Cull_Set_Info :: struct {
+        cull_mode    : Cull_Mode,
+}
 
-Buffer_Transfer_Info :: struct {}
+Cull_Mode :: enum {
+        Never,
+        Counter_Clockwise,
+        Clockwise,
+        Always,
+}
+
+Viewport_Scissor_Set_Info :: struct {
+        
+}
 */
 
-
-
-Color_Target_Info :: struct {
-        texture              : ^Texture,
-        texture_view         : ^Texture_View,  //optional
-        resolve_texture      : ^Texture,
-        resolve_texture_view : ^Texture_View,  // optional
-        clear_value          : [4]f32,
-        load_op              : Load_Op,
-        store_op             : Store_Op,
+Index_Type :: enum {
+        U16 = 0,
+        U32 = 1,
 }
 
-Depth_Stencil_Target_Info :: struct {
-        texture              : ^Texture,
-        texture_view         : ^Texture_View,  // optional
-        resolve_texture      : ^Texture,
-        resolve_texture_view : ^Texture_View,  // optional
-        clear_value          : struct {depth: f32, stencil: u32},
-        load_op              : Load_Op,
-        store_op             : Store_Op,
+Texture_Clear_Value :: struct #raw_union {
+        color   : [4]f32,
+        depth   : f32,
+        stencil : u32,
 }
 
-Load_Op :: enum {
+
+Texture_Load_Op :: enum {
         Load,
         Clear,
-        Dont_Care
+        Dont_Care,
 }
 
-Store_Op :: enum {
+Texture_Store_Op :: enum {
         Store,
         Dont_Care,
-        Resolve,
-        Resolve_And_Store,
 }
 
-Resolve_Mode_Flags :: bit_set[Resolve_Mode_Flag]
-Resolve_Mode_Flag :: enum {
-        Sample_0,
-        Average,
-        Min,
-        Max,
-}
-*/
 
-device_init :: proc(d: ^Device, device_init_info: ^Device_Init_Info, location := #caller_location) -> Result {
-        return _device_init(d, device_init_info, location) 
+Texture_Attachment_Info :: struct {
+        texture_view           : ^Texture_View,
+        texture_layout         : Texture_Layout,
+        // resolve_mode           : Resolve_Mode, // FEATURE(MSAA)
+        // resolve_texture_view   : ^Texture_View,
+        // resolve_texture_layout : Texture_Layout,
+
+        load_op                : Texture_Load_Op,
+        store_op               : Texture_Store_Op,
+        clear_value            : Texture_Clear_Value,
+}
+
+Render_Begin_Info :: struct {
+        render_area     : Rect,
+        layer_count     : int,
+        color_textures  : []Texture_Attachment_Info,
+        depth_texture   : ^Texture_Attachment_Info,
+        stencil_texture : ^Texture_Attachment_Info,
+}
+
+
+Upload_Buffer_Command :: struct {
+        size : int,
+        data : rawptr,
+        dst  : ^Buffer,
+}
+
+Upload_Texture_Command :: struct {
+        size : int,
+        data : rawptr,
+        dst  : ^Texture,
+}
+
+Upload_Builder :: struct {
+        size             : int,
+        offset           : int,
+        buffer_commands  : [dynamic]Upload_Buffer_Command,
+        texture_commands : [dynamic]Upload_Texture_Command,
+}
+
+device_init :: proc(d: ^Device, device_init_info: ^Device_Init_Info) -> Result {
+        return _device_init(d, device_init_info) 
 }
 
 device_destroy :: proc (d: ^Device) {
@@ -489,9 +558,9 @@ swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
         _swapchain_destroy(d, sc)
 }
 
-// swapchain_rebuild :: proc(d: ^Device, sc: ^Swapchain) -> Result {
-//         return _swapchain_rebuild(d, sc)
-// }
+swapchain_rebuild :: proc(d: ^Device, sc: ^Swapchain) -> Result {
+        return _swapchain_recreate(d, sc)
+}
 
 
 swapchain_get_frame_in_flight_index :: proc(d: ^Device, sc: ^Swapchain) -> int {
@@ -540,16 +609,20 @@ texture_destroy :: proc(d: ^Device, tex: ^Texture) {
         _texture_destroy(d, tex)
 }
 
-texture_get_extent :: proc(d: ^Device, tex: ^Texture) -> [3]u32 {
+texture_get_extent :: proc(d: ^Device, tex: ^Texture) -> [3]int {
         return _texture_get_extent(d, tex)
 }
 
-texture_get_reference_sampled :: proc(d: ^Device, tex: ^Texture) -> Texture_Reference {
-        return _texture_get_reference_sampled(d, tex)
+texture_get_reference :: proc(d: ^Device, tex: ^Texture) -> Texture_Reference {
+        return _texture_get_reference(d, tex)
 }
 
-texture_get_reference_storage :: proc(d: ^Device, tex: ^Texture) -> Texture_Reference {
-        return _texture_get_reference_storage(d, tex)
+texture_get_reference_render_target :: proc(d: ^Device, tex: ^Texture) -> Render_Target_Reference {
+        return _texture_get_reference_render_target(d, tex)
+}
+
+texture_get_full_view :: proc(d: ^Device, tex: ^Texture) -> ^Texture_View {
+        return _texture_get_full_view(d, tex)
 }
 
 buffer_init :: proc(d: ^Device, b: ^Buffer, init_info: ^Buffer_Init_Info) -> Result {
@@ -560,10 +633,24 @@ buffer_destroy :: proc(d: ^Device, b: ^Buffer) {
         _buffer_destroy(d, b)
 }
 
-buffer_get_reference :: proc(d: ^Device, b: ^Buffer, stride, index: int) -> Buffer_Reference {
-        return _buffer_get_reference(d, b, stride, index)
+buffer_get_reference :: proc {
+        buffer_get_reference_base,
+        buffer_get_reference_index,
+        buffer_get_reference_offset,
 }
 
+buffer_get_reference_base :: proc(d: ^Device, b: ^Buffer) -> Buffer_Reference {
+        return _buffer_get_reference_base(d, b)
+}
+
+
+buffer_get_reference_index :: proc(d: ^Device, b: ^Buffer, $T: typeid, index: int) -> Buffer_Reference {
+        return _buffer_get_reference(d, b, T, index)
+}
+
+buffer_get_reference_offset :: proc(d: ^Device, b: ^Buffer, offset: int) -> Buffer_Reference {
+        return _buffer_get_reference_offset(d, b, offset)
+}
 
 command_buffer_init :: proc(d: ^Device, cb: ^Command_Buffer, command_buffer_init_info: ^Command_Buffer_Init_Info, location := #caller_location) -> Result {
         return _command_buffer_init(d, cb, command_buffer_init_info, location) 
@@ -621,29 +708,70 @@ cmd_bind_all :: proc(d: ^Device, cb: ^Command_Buffer, bind_point: Bind_Point) {
         _cmd_bind_all(d, cb, bind_point)
 }
 
-cmd_set_constant_buffer_0 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_0(d, cb, buffer)
-}
-cmd_set_constant_buffer_1 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_1(d, cb, buffer)
-}
-cmd_set_constant_buffer_2 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_2(d, cb, buffer)
-}
-cmd_set_constant_buffer_3 :: proc(d: ^Device, cb: ^Command_Buffer, buffer: ^Buffer_Reference) {
-        _cmd_set_constant_buffer_3(d, cb, buffer)
+cmd_set_constant_buffer :: proc(d: ^Device, cb: ^Command_Buffer, slot: Constant_Buffer_Slot, buffer: Buffer_Reference) {
+        _cmd_set_constant_buffer(d, cb, slot, buffer)
 }
 
+cmd_bind_vertex_shader ::  proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
+        _cmd_bind_vertex_shader(d, cb, shader)
+}
 
-cmd_bind_shader ::  proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
-        _cmd_bind_shader(d, cb, shader)
+cmd_bind_fragment_shader ::  proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
+        _cmd_bind_fragment_shader(d, cb, shader)
+}
+
+cmd_bind_compute_shader ::  proc(d: ^Device, cb: ^Command_Buffer, shader: ^Shader) {
+        _cmd_bind_compute_shader(d, cb, shader)
+}
+
+cmd_bind_vertex_buffers :: proc(d: ^Device, cb: ^Command_Buffer, bind_infos: []Vertex_Buffer_Bind_Info) {
+        _cmd_bind_vertex_buffers(d, cb, bind_infos)
+}
+
+cmd_bind_index_buffer :: proc(d: ^Device, cb: ^Command_Buffer, buffer: Buffer_Reference, count: int, index_type: Index_Type) {
+        _cmd_bind_index_buffer(d, cb, buffer, count, index_type)
+}
+
+cmd_begin_render :: proc(d: ^Device, cb: ^Command_Buffer, render_begin_info: ^Render_Begin_Info) {
+        _cmd_begin_render(d, cb, render_begin_info)
+}
+
+cmd_end_render :: proc(d: ^Device, cb: ^Command_Buffer) {
+        _cmd_end_render(d, cb)
+}
+
+cmd_draw :: proc(d: ^Device, cb: ^Command_Buffer) {
+        _cmd_draw(d, cb)
 }
 
 cmd_dispatch :: proc(d: ^Device, cb: ^Command_Buffer, groups: [3]u32) {
         _cmd_dispatch(d, cb, groups)
 }
 
-// cmd_draw :: proc(d: ^Device, cb: ^Command_Buffer, vertex_buffer: ^Buffer, index_buffer: ^Buffer)
+upload_builder_init :: proc {
+        upload_builder_init_cap,
+}
+
+upload_builder_init_cap :: proc(d: ^Device, upload_builder: ^Upload_Builder, buffer_cap: int, texture_cap: int) {
+
+}
+
+upload_builder_init_bytes :: proc(d: ^Device, upload_builder: ^Upload_Builder, buffer_backing: []Upload_Buffer_Command, texture_backing: []Upload_Texture_Command) {
+
+} 
+
+immediate_upload_begin :: proc(d: ^Device, upload_builder: ^Upload_Builder) -> Result {
+
+}
+
+immediate_upload_submit :: proc(d: ^Device, upload_builder: ^Upload_Builder) -> Result {
+
+}
+
+upload_buffer :: proc(d: ^Device, b: ^Upload_Builder, size: int, data: rawptr, out_buffer: ^Buffer) {
+
+}
+
 
 
 // cmd_begin_render : proc(^Device, ^Command_Buffer) : _cmd_begin_render

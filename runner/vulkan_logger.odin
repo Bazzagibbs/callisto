@@ -16,7 +16,12 @@ when config.RHI == "vulkan" {
                         msg_fixed, _ := strings.replace_all(string(callback_data.pMessage), "|", "\n|", context.temp_allocator)
                         log.log(vk_to_logger_level(message_severity), vk_fix_message_types(message_types), msg_fixed)
                 } else {
-                        log.log(vk_to_logger_level(message_severity), vk_fix_message_types(message_types), callback_data.pMessage)
+
+                        level := vk_to_logger_level(message_severity)
+                        if level <= .Info && .GENERAL in message_types {
+                                level = .Debug
+                        } 
+                        log.log(level, vk_fix_message_types(message_types), callback_data.pMessage)
                 }
 
                 return false

@@ -99,8 +99,20 @@ Command_Buffer :: struct {
         signal_sema          : vk.Semaphore,
         signal_fence         : vk.Fence,
 
-        push_constant_state  : [4]vk.DeviceAddress,
-        push_constants_dirty : bool
+        push_constant_state  : [Constant_Buffer_Slot]vk.DeviceAddress,
+        push_constants_dirty : bool,
+
+        vert_state_buffers   : [Vertex_Attribute_Flag]vk.Buffer,
+        vert_state_offsets   : [Vertex_Attribute_Flag]vk.DeviceSize,
+
+        index_state_count    : u32,
+}
+
+
+@(private)
+_Vertex_Buffer_And_Offset :: struct {
+        buffer: vk.Buffer,
+        offset: vk.DeviceSize,
 }
 
 
@@ -115,15 +127,23 @@ Texture :: struct {
         is_sampled        : bool,
         is_storage        : bool,
         sampled_reference : Texture_Reference,
-        storage_reference : Texture_Reference,
+        storage_reference : Render_Target_Reference,
         sampler           : vk.Sampler,
 }
 
+
+@(private)
 Texture_View   :: struct {
+        // Not sure if this should stay. User facing APIs use Textures directly (using their full_view)
+        // Might be useful to have api variants that take views instead? For now it's private
         view   : vk.ImageView,
 }
 
 Texture_Reference :: struct {
+        handle: u32,
+}
+
+Render_Target_Reference :: struct {
         handle: u32,
 }
 
@@ -137,13 +157,15 @@ Buffer :: struct {
         allocation : vma.Allocation,
         alloc_info : vma.AllocationInfo,
         address    : vk.DeviceAddress,
-        size       : u64,
-        available  : u64,
+        size       : int,
+        available  : int,
         mapped_mem : rawptr,
 }
 
 Buffer_Reference :: struct {
-        address : vk.DeviceAddress,
+        base_buffer  : vk.Buffer,
+        base_address : vk.DeviceAddress,
+        address      : vk.DeviceAddress,
 }
 
 // GPU -> CPU sync
