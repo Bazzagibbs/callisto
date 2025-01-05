@@ -239,6 +239,12 @@ swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
         _swapchain_destroy(d, sc)
 }
 
+
+// Pass `resolution = {0, 0}` to use the full window resolution
+swapchain_resize :: proc(d: ^Device, sc: ^Swapchain, resolution: [2]int = {0, 0}) -> (res: Result) {
+        return _swapchain_resize(d, sc, resolution)
+}
+
 swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
         return _swapchain_present(d, sc)
 }

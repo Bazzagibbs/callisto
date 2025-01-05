@@ -8,13 +8,15 @@ import dxgi "vendor:directx/dxgi"
 import win "core:sys/windows"
 import "../common"
 
+import "core:fmt"
+
 // when RHI == "d3d11" {
 
 check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string = "", loc := #caller_location) -> Result {
         if hres >= 0 {
                 return .Ok
-        }
-
+        }        
+        
         log.error(message, "-", common.parse_hresult(hres), location = loc)
         
         _flush_debug_messages(d, loc = loc)
@@ -318,6 +320,62 @@ _swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
 
         sc._impl.render_target_view->Release()
         sc._impl.swapchain->Release()
+}
+
+_swapchain_resize :: proc(d: ^Device, sc: ^Swapchain, resolution: [2]int) -> (res: Result) {
+        defer _flush_debug_messages(d)
+
+
+        d.immediate_command_buffer._impl.ctx->OMSetRenderTargets(
+                NumViews            = 0,
+                ppRenderTargetViews = nil,
+                pDepthStencilView   = nil
+        )
+
+        sc.render_target_view._impl.view->Release()
+
+        hres := sc._impl.swapchain->ResizeBuffers(
+                BufferCount    = 0,
+                Width          = u32(resolution.x),
+                Height         = u32(resolution.y),
+                NewFormat      = .UNKNOWN,
+                SwapChainFlags = {}
+        )
+
+        check_result(d, hres, "Swapchain resize failed") or_return
+
+        framebuffer: ^dx.ITexture2D
+        hres = sc._impl.swapchain->GetBuffer(
+                Buffer    = 0,
+                riid      = dx.ITexture2D_UUID,
+                ppSurface = (^rawptr)(&framebuffer)
+        )
+        
+        check_result(d, hres, "Get Framebuffer failed")
+
+        defer framebuffer->Release()
+
+        hres = d._impl.device->CreateRenderTargetView(
+                pResource = framebuffer,
+                pDesc     = nil,
+                ppRTView  = &sc._impl.render_target_view
+        )
+
+        check_result(d, hres, "Create RenderTargetView failed") or_return
+
+        sc.render_target_view = {{
+                view = sc._impl.render_target_view,
+        }}
+
+
+        fb_desc : dx.TEXTURE2D_DESC
+        framebuffer->GetDesc(&fb_desc)
+
+        sc.resolution = {int(fb_desc.Width), int(fb_desc.Height)}
+
+        log.info("Swapchain resized")
+
+        return .Ok
 }
 
 
