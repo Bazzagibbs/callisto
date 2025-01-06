@@ -4,7 +4,7 @@ import "base:runtime"
 import "../common"
 import "../config"
 
-RHI :: config.RHI
+RHI_BACKEND :: config.RHI_BACKEND
 
 Result :: common.Result
 Runner :: common.Runner
@@ -46,6 +46,14 @@ Swapchain :: struct {
         _impl              : _Swapchain_Impl,
 }
 
+
+Shader_Stage_Flags :: bit_set[Shader_Stage_Flag]
+Shader_Stage_Flag :: enum {
+        Vertex,
+        Fragment,
+        Compute,
+        // FEATURE(Geometry shaders)
+}
 
 Vertex_Shader_Create_Info :: struct {
         code              : []u8,
@@ -334,6 +342,14 @@ cmd_set_vertex_buffers :: proc(cb: ^Command_Buffer, buffers: []^Buffer) {
 
 cmd_set_index_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer) {
         _cmd_set_index_buffer(cb, buffer)
+}
+
+cmd_update_constant_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer, data: rawptr) {
+        _cmd_update_constant_buffer(cb, buffer, data)
+}
+
+cmd_set_constant_buffers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, buffers: []^Buffer) {
+        _cmd_set_constant_buffers(cb, stages, start_slot, buffers)
 }
 
 cmd_clear_render_target :: proc(cb: ^Command_Buffer, view: ^Render_Target_View, color: [4]f32) {

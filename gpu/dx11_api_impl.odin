@@ -3,6 +3,8 @@ package callisto_gpu
 
 import "core:strings"
 import "core:log"
+import "core:mem"
+
 import dx "vendor:directx/d3d11"
 import dxgi "vendor:directx/dxgi"
 import win "core:sys/windows"
@@ -10,7 +12,7 @@ import "../common"
 
 import "core:fmt"
 
-// when RHI == "d3d11" {
+// when RHI_BACKEND == "d3d11" {
 
 check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string = "", loc := #caller_location) -> Result {
         if hres >= 0 {
@@ -38,8 +40,12 @@ check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string = "", loc := 
         return .Unknown_RHI_Error
 }
 
-hres_succeeded :: proc(hres: dx.HRESULT) -> bool {
+hres_succeeded :: #force_inline proc(hres: dx.HRESULT) -> bool {
         return hres >= 0
+}
+
+hres_failed :: #force_inline proc(hres: dx.HRESULT) -> bool {
+        return hres < 0
 }
 
 
@@ -145,6 +151,8 @@ _device_create :: proc(info: ^Device_Create_Info) -> (d: Device, res: Result) {
         )
 
         check_result(&d, hres) or_return
+
+        d.immediate_command_buffer._impl.is_immediate = true
 
         // Debug layer
         when ODIN_DEBUG {
@@ -687,6 +695,7 @@ _Command_Buffer_Recording_State_Flag :: enum {
 
 _Command_Buffer_Impl :: struct {
         ctx                : ^dx.IDeviceContext,
+        command_list       : ^dx.ICommandList,
         is_immediate       : bool,
         recording_state    : _Command_Buffer_Recording_State_Flag,
         bound_index_count  : u32,
@@ -724,6 +733,15 @@ _command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
                 log.error("command_buffer_end called while not in Recording state. Current state:", cb._impl.recording_state)
                 return .Synchronization_Error
         }
+        
+        if cb._impl.is_immediate == false {
+                hres := cb._impl.ctx->FinishCommandList(
+                        RestoreDeferredContextState = false,
+                        ppCommandList = &cb._impl.command_list
+                )
+
+                check_result(d, hres, "command_buffer_end failed") or_return
+        }
 
         cb._impl.recording_state = .Pending_Submission
         return .Ok
@@ -734,6 +752,16 @@ _command_buffer_submit :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result)
                 log.error("command_buffer_submit called while not in Pending_Submission state. Current state:", cb._impl.recording_state)
                 return .Synchronization_Error
         }
+
+        if cb._impl.is_immediate == false {
+                d.immediate_command_buffer._impl.ctx->ExecuteCommandList(
+                        pCommandList        = cb._impl.command_list,
+                        RestoreContextState = false
+                )
+
+                cb._impl.command_list->Release()
+        }
+
 
         cb._impl.recording_state = .Ready
         return .Ok
@@ -875,6 +903,63 @@ _cmd_set_index_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer) {
         )
 }
 
+_cmd_update_constant_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer, data: rawptr) {
+        mapped_subresource : dx.MAPPED_SUBRESOURCE
+        hres := cb._impl.ctx->Map(
+                pResource       = buffer._impl.buffer,
+                Subresource     = 0,
+                MapType         = .WRITE_DISCARD,
+                MapFlags        = {},
+                pMappedResource = &mapped_subresource
+        )
+
+        if hres_failed(hres) {
+                log.error("Constant buffer map failed")
+                return 
+        }
+       
+        mem.copy(mapped_subresource.pData, data, buffer.size)
+        
+        cb._impl.ctx->Unmap(
+                pResource = buffer._impl.buffer, 
+                Subresource = 0
+        )
+}
+
+_cmd_set_constant_buffers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, buffers: []^Buffer) {
+        MAX_CB :: dx.COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT
+        dx_buffers : [MAX_CB]^dx.IBuffer
+
+        length := clamp_slice_length_and_log(len(buffers), MAX_CB - start_slot)
+        for i in 0..<length {
+                dx_buffers[i] = buffers[i]._impl.buffer
+        }
+
+        if .Vertex in stages {
+                cb._impl.ctx->VSSetConstantBuffers(
+                        StartSlot         = u32(start_slot),
+                        NumBuffers        = u32(length),
+                        ppConstantBuffers = raw_data(&dx_buffers)
+                )
+        }
+        
+        if .Fragment in stages {
+                cb._impl.ctx->PSSetConstantBuffers(
+                        StartSlot         = u32(start_slot),
+                        NumBuffers        = u32(length),
+                        ppConstantBuffers = raw_data(&dx_buffers)
+                )
+        }
+        
+        if .Compute in stages {
+                cb._impl.ctx->CSSetConstantBuffers(
+                        StartSlot         = u32(start_slot),
+                        NumBuffers        = u32(length),
+                        ppConstantBuffers = raw_data(&dx_buffers)
+                )
+        }
+}
+
 _cmd_clear_render_target :: proc(cb: ^Command_Buffer, view: ^Render_Target_View, color: [4]f32) {
         color := color
         cb._impl.ctx->ClearRenderTargetView(view._impl.view, &color)
@@ -885,4 +970,4 @@ _cmd_draw :: proc(cb: ^Command_Buffer) {
 }
 
 
-// } // when RHI == "d3d11"
+// } // when RHI_BACKEND == "d3d11"

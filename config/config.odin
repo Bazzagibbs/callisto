@@ -25,5 +25,5 @@ PROFILER_FILENAME         :: #config(PROFILER_FILENAME, "profiler.spall")
 PROFILER_REALTIME_HISTORY :: #config(PROFILER_REALTIME_HISORY, 144 * 10) // Approximately 10 seconds at vsync
 
 
-RHI :: #config(RHI, "vulkan")
+RHI_BACKEND :: #config(RHI_BACKEND, "d3d11")
 

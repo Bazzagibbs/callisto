@@ -17,21 +17,18 @@ If you're an application developer, ignore this section.
 
 ### API Interface
 
-1. Copy the commented interface from `api.odin` into `<rhi>_api_impl.odin`. These are the user-facing procedures and structs.
-2. Wrap the file in a `when RHI == "<rhi>"` block
-3. Implement all the procedure and struct stubs.
-    - Create internal rhi-specific files using the naming convention `<rhi>_filename[_platform].odin`.
+1. Copy the interface procs from `api.odin` into `<api>_api_impl.odin`.
+2. Wrap the file in a `when RHI_BACKEND == "<api>"` block
+3. Implement all the procedure stubs and struct `_impl`s.
 
-### Debug logger
+GPU object structs follow the pattern:
 
-An RHI's logger callback must be owned by the Runner executable.
+```odin
+Gpu_Object :: struct {
+    read_only_a : int,
+    read_only_b : bool,
+    _impl       : _Gpu_Object_Impl,
+}
+```
 
-1. Create the callback signature in `callisto/common/runner_api.odin`
-    - `when RHI == "<rhi>" { Proc_Rhi_Logger :: <rhi_logger_signature> }`
-2. Implement the callback in `callisto/runner/<rhi>_logger.odin`
-3. Register the callback in `callisto/runner/runner.odin`
-    - `when RHI == "<rhi>" { runner.<rhi>_logger = <rhi_logger_implementation> }` 
-
-Now in `device_init`, set up the logger with the callback in `Device_Init_Info.runner.rhi_logger`.
-
-
+This is to prevent application code from accidentally relying on implementation-specific details, causing issues when porting to a different graphics API.
