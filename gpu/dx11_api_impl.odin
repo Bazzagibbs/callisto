@@ -269,14 +269,16 @@ _swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info) -> (s
                         .Fit     = .ASPECT_RATIO_STRETCH,
                 }
 
+                sample_desc := dxgi.SAMPLE_DESC {
+                        Count   = _multisample_to_dx11(create_info.multisample),
+                        Quality = 0xffffffff, // D3D11_STANDARD_MULTISAMPLE_PATTERN
+                }
+
                 swapchain_desc := dxgi.SWAP_CHAIN_DESC1 {
-                        Width  = u32(create_info.resolution.x),
-                        Height = u32(create_info.resolution.y),
-                        Format = .B8G8R8A8_UNORM,
-                        SampleDesc = {
-                                Count   = 1,
-                                Quality = 0,
-                        },
+                        Width       = u32(create_info.resolution.x),
+                        Height      = u32(create_info.resolution.y),
+                        Format      = .B8G8R8A8_UNORM,
+                        SampleDesc  = sample_desc,
                         BufferUsage = {.RENDER_TARGET_OUTPUT},
                         BufferCount = 2,
                         Scaling     = swapchain_scaling_flag_to_dx[create_info.scaling],
@@ -503,6 +505,7 @@ _Vertex_Shader_Impl :: struct {
 
 
 _vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Info) -> (shader: Vertex_Shader, res: Result) {
+        defer _flush_debug_messages(d)
         
         hres := d._impl.device->CreateVertexShader(
                 pShaderBytecode = raw_data(create_info.code),
@@ -606,41 +609,17 @@ _Buffer_Impl :: struct {
         buffer: ^dx.IBuffer,
 }
 
-_Usage_Access_Pair :: struct {
-        usage  : dx.USAGE,
-        access : dx.CPU_ACCESS_FLAGS,
-}
-
-_Resource_Access_To_Dx11 := [Resource_Access_Flag]_Usage_Access_Pair {
-        .Device_General   = { .DEFAULT, {} },
-        .Device_Immutable = { .IMMUTABLE, {} },
-        .Host_To_Device   = { .DYNAMIC, {.WRITE} },
-        .Device_To_Host   = { .STAGING, {.READ} },
-}
-
-_Buffer_Usage_To_Dx11 := [Buffer_Usage_Flag]dx.BIND_FLAG {
-        .Vertex           = .VERTEX_BUFFER,
-        .Index            = .INDEX_BUFFER,
-        .Constant         = .CONSTANT_BUFFER,
-        .Shader_Resource  = .SHADER_RESOURCE,
-        .Unordered_Access = .UNORDERED_ACCESS,
-}
 
 _buffer_create :: proc(d: ^Device, create_info: ^Buffer_Create_Info) -> (buffer: Buffer, res: Result) {
         defer _flush_debug_messages(d)
 
         ua := _Resource_Access_To_Dx11[create_info.access]
 
-        bind_flags := dx.BIND_FLAGS {}
-        for usage in create_info.usage {
-                bind_flags += {_Buffer_Usage_To_Dx11[usage]}
-        }
-
         buffer_desc := dx.BUFFER_DESC {
                 ByteWidth              = u32(create_info.size),
                 Usage                  = ua.usage,
                 CPUAccessFlags         = ua.access,
-                BindFlags              = bind_flags,
+                BindFlags              = _buffer_usage_flags_to_dx11(create_info.usage),
                 MiscFlags              = {}, // FEATURE(Indirect) // Structured
                 // StructureByteStride = 0,
         }
@@ -673,19 +652,106 @@ _buffer_destroy :: proc(d: ^Device, buffer: ^Buffer) {
         buffer._impl.buffer->Release()
 }
 
+
+// _texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info) -> (tex: Texture1D, res: Result) {
+// defer _flush_debug_messages(d)
+//
+// }
+//
+// _texture1d_destroy :: proc(d: ^Device, tex: ^Texture1D) {
+// defer _flush_debug_messages(d)
+//
+// }
+
+_Texture2D_Impl :: struct {
+        texture : ^dx.ITexture2D,
+}
+
+_texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info) -> (tex: Texture2D, res: Result) {
+        defer _flush_debug_messages(d)
+
+        ua := _Resource_Access_To_Dx11[create_info.access]
+
+        sample_desc := dxgi.SAMPLE_DESC {
+                Count = _multisample_to_dx11(create_info.multisample),
+                Quality = 0xffffffff, // D3D11_STANDARD_MULTISAMPLE_PATTERN
+        }
+
+        desc := dx.TEXTURE2D_DESC {
+                Width          = u32(create_info.resolution.x),
+                Height         = u32(create_info.resolution.y),
+                MipLevels      = u32(create_info.mip_levels),
+                ArraySize      = u32(create_info.array_layers),
+                Format         = _Format_To_Dx11[create_info.format],
+                SampleDesc     = sample_desc,
+                Usage          = ua.usage,
+                BindFlags      = _texture_usage_flags_to_dx11(create_info.usage),
+                CPUAccessFlags = ua.access,
+                MiscFlags      = {}
+        }
+
+
+        if create_info.is_cubemap {
+                desc.MiscFlags += {.TEXTURECUBE}
+        }
+
+        if create_info.generate_mips {
+                desc.MiscFlags += {.GENERATE_MIPS}
+        }
+
+        subresource_data := dx.SUBRESOURCE_DATA {
+                pSysMem = create_info.initial_data,
+                SysMemPitch = u32(create_info.initial_data_row_size),
+        }
+
+        hres := d._impl.device->CreateTexture2D(&desc, &subresource_data, &tex._impl.texture)
+        check_result(d, hres, "Create Texture 2D failed") or_return
+
+
+        tex.resolution   = create_info.resolution
+        tex.mip_levels   = create_info.mip_levels
+        tex.array_layers = create_info.array_layers
+        tex.format       = create_info.format
+
+        return tex, .Ok
+}
+
+_texture2d_destroy :: proc(d: ^Device, tex: ^Texture2D) {
+        defer _flush_debug_messages(d)
+
+        tex._impl.texture->Release()
+}
+
+// _texture3d_create :: proc(d: ^Device, create_info: ^Texture3D_Create_Info) -> (tex: Texture3D, res: Result) {
+// defer _flush_debug_messages(d)
+//
+// }
+//
+// _texture3d_destroy :: proc(d: ^Device, tex: ^Texture3D) {
+// defer _flush_debug_messages(d)
+//
+// }
+
+
 _Render_Target_View_Impl :: struct {
         view : ^dx.IRenderTargetView,
 }
 
 // _render_target_view_create :: proc()
+// defer _flush_debug_messages(d)
+
 // _render_target_view_destroy :: proc()
+// defer _flush_debug_messages(d)
 
 _Depth_Stencil_View_Impl :: struct {
         view : ^dx.IDepthStencilView,
 }
 
 // _depth_stencil_view_create :: proc()
+// defer _flush_debug_messages(d)
+
 // _depth_stencil_view_destroy :: proc()
+// defer _flush_debug_messages(d)
 
 _Command_Buffer_Recording_State_Flag :: enum {
         Ready,
@@ -703,9 +769,11 @@ _Command_Buffer_Impl :: struct {
 }
 
 // _command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info) -> (cb: Command_Buffer, res: Result) {
+// defer _flush_debug_messages(d)
 // }
 //
 // _command_buffer_destroy :: proc(d: ^Device, cb: ^Command_Buffer) {
+// defer _flush_debug_messages(d)
 // }
 
 

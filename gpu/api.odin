@@ -31,11 +31,20 @@ Swapchain_Scaling_Flag :: enum {
         Fit,
 }
 
+Multisample_Flag :: enum {
+        _1,
+        _2,
+        _4,
+        _8,
+        _16,
+}
+
 Swapchain_Create_Info :: struct {
-        window     : ^Window,
-        resolution : [2]int, // Leave as 0 to match window
-        scaling    : Swapchain_Scaling_Flag,
-        vsync      : bool,
+        window      : ^Window,
+        resolution  : [2]int, // Leave as 0 to match window
+        scaling     : Swapchain_Scaling_Flag,
+        multisample : Multisample_Flag,
+        vsync       : bool,
 }
 
 Swapchain :: struct {
@@ -125,9 +134,9 @@ Buffer_Usage_Flag :: enum {
 Buffer_Create_Info :: struct {
         size         : int,
         stride       : int,
-        initial_data : rawptr,
         access       : Resource_Access_Flag,
         usage        : Buffer_Usage_Flags,
+        initial_data : rawptr,
 }
 
 Buffer :: struct {
@@ -139,6 +148,127 @@ Buffer :: struct {
         _impl  : _Buffer_Impl,
 }
 
+
+Texture_Format_Flag :: enum u32 {
+        Unknown = 0,
+
+        // 128-bit
+        R32G32B32A32_UNTYPED,
+        R32G32B32A32_FLOAT,
+        R32G32B32A32_UINT,
+        R32G32B32A32_SINT,
+        
+        // 96-bit
+        R32G32B32_UNTYPED,
+        R32G32B32_FLOAT,
+        R32G32B32_UINT,
+        R32G32B32_SINT,
+
+        // 64-bit
+        R16G16B16A16_UNTYPED,
+        R16G16B16A16_FLOAT,
+        R16G16B16A16_UNORM,
+        R16G16B16A16_UINT,
+        R16G16B16A16_SNORM,
+        R16G16B16A16_SINT,
+
+        R32G32_UNTYPED,
+        R32G32_FLOAT,
+        R32G32_UINT,
+        R32G32_SINT,
+
+        // 64-bit depth/stencil
+        D32_FLOAT_S8X24_UINT, // X24 is unused
+        
+        // 32-bit
+        R8G8B8A8_UNTYPED,
+        R8G8B8A8_UNORM,
+        R8G8B8A8_UINT,
+        R8G8B8A8_SNORM,
+        R8G8B8A8_SINT,
+        R8G8B8A8_UNORM_SRGB,
+
+        R10G10B10A2_UNTYPED,
+        R10G10B10A2_UNORM,
+        R10G10B10A2_UINT,
+        R11G11B10_FLOAT,
+
+        R16G16_UNTYPED,
+        R16G16_FLOAT,
+        R16G16_UNORM,
+        R16G16_UINT,
+        R16G16_SNORM,
+        R16G16_SINT,
+
+        R32_UNTYPED,
+        R32_FLOAT,
+        R32_UINT,
+        R32_SINT,
+        
+        B8G8R8A8_UNTYPED,
+        B8G8R8A8_UNORM,
+        B8G8R8A8_UNORM_SRGB,
+
+        // 32-bit depth/stencil
+        D32_FLOAT,
+        D24_UNORM_S8_UINT,
+
+        // 16-bit
+        R8G8_UNTYPED,
+        R8G8_UNORM,
+        R8G8_UINT,
+        R8G8_SNORM,
+        R8G8_SINT,
+
+        R16_UNTYPED,
+        R16_FLOAT,
+        R16_UNORM,
+        R16_UINT,
+        R16_SNORM,
+        R16_SINT,
+       
+        B4G4R4A4_UNORM,
+        B5G5R5A1_UNORM,
+        B5G6R5_UNORM,
+
+        // 16-bit depth/stencil
+        D16_UNORM,
+
+        // 8-bit
+        R8_UNTYPED,
+        R8_UNORM,
+        R8_UINT,
+        R8_SNORM,
+        R8_SINT,
+
+        A8_UNORM,
+
+        // 1-bit
+        R1_UNORM,
+
+        // Block compressed
+        BC1_UNTYPED,
+        BC1_UNORM,
+        BC1_UNORM_SRGB,
+        BC2_UNTYPED,
+        BC2_UNORM,
+        BC2_UNORM_SRGB,
+        BC3_UNTYPED,
+        BC3_UNORM,
+        BC3_UNORM_SRGB,
+        BC4_UNTYPED,
+        BC4_UNORM,
+        BC4_SNORM,
+        BC5_UNTYPED,
+        BC5_UNORM,
+        BC5_SNORM,
+        BC6H_UNTYPED,
+        BC6H_UFLOAT,
+        BC6H_SFLOAT,
+        BC7_UNTYPED,
+        BC7_UNORM,
+        BC7_UNORM_SRGB,
+}
 
 
 Texture_Usage_Flags :: bit_set[Texture_Usage_Flag]
@@ -152,13 +282,27 @@ Texture_Usage_Flag :: enum {
 }
 
 
-Texture_Create_Info :: struct {
-        access : Resource_Access_Flag,
-        usage  : Texture_Usage_Flags,
+
+Texture2D_Create_Info :: struct {
+        resolution            : [2]int,
+        mip_levels            : int,
+        array_layers          : int,
+        multisample           : Multisample_Flag,
+        format                : Texture_Format_Flag,
+        access                : Resource_Access_Flag,
+        usage                 : Texture_Usage_Flags,
+        is_cubemap            : bool,
+        generate_mips         : bool,
+        initial_data          : rawptr,
+        initial_data_row_size : int,
 }
 
-Texture :: struct {
-        // _impl : _Texture_Impl,
+Texture2D :: struct {
+        resolution   : [2]int,
+        mip_levels   : int,
+        array_layers : int,
+        format       : Texture_Format_Flag,
+        _impl        : _Texture2D_Impl,
 }
 
 
@@ -290,6 +434,29 @@ buffer_destroy :: proc(d: ^Device, buffer: ^Buffer) {
         _buffer_destroy(d, buffer)
 }
 
+// texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info) -> (tex: Texture1D, res: Result) {
+//         return _texture1d_create(d, create_info)
+// }
+//
+// texture1d_destroy :: proc(d: ^Device, tex: ^Texture1D) {
+//         _texture1d_destroy(d, tex)
+// }
+
+texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info) -> (tex: Texture2D, res: Result) {
+        return _texture2d_create(d, create_info)
+}
+
+texture2d_destroy :: proc(d: ^Device, tex: ^Texture2D) {
+        _texture2d_destroy(d, tex)
+}
+
+// texture3d_create :: proc(d: ^Device, create_info: ^Texture3D_Create_Info) -> (tex: Texture3D, res: Result) {
+//         return _texture3d_create(d, create_info)
+// }
+//
+// texture3d_destroy :: proc(d: ^Device, tex: ^Texture3D) {
+//         _texture3d_destroy(d, tex)
+// }
 
 // command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info) -> (cb: Command_Buffer, res: Result) {
 //         return _command_buffer_create(d, create_info)
