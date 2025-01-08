@@ -25,5 +25,8 @@ PROFILER_FILENAME         :: #config(PROFILER_FILENAME, "profiler.spall")
 PROFILER_REALTIME_HISTORY :: #config(PROFILER_REALTIME_HISORY, 144 * 10) // Approximately 10 seconds at vsync
 
 
-RHI_BACKEND :: #config(RHI_BACKEND, "d3d11")
+RHI_BACKEND               :: #config(RHI_BACKEND, "d3d11")
+RHI_TRACK_RESOURCES       :: #config(RHI_TRACK_RESOURCES, false)
+// Can be enabled in Release mode with RHI_VALIDATION, and disabled in Debug mode with RHI_NO_VALIDATION
+RHI_VALIDATION            :: (ODIN_DEBUG || #config(RHI_VALIDATION, false)) && !#config(RHI_NO_VALIDATION, false)
 

@@ -1,6 +1,7 @@
 #+ private
 package callisto_gpu
 
+import "base:runtime"
 import "core:strings"
 import "core:log"
 import "core:mem"
@@ -14,7 +15,7 @@ import "core:fmt"
 
 // when RHI_BACKEND == "d3d11" {
 
-check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string = "", loc := #caller_location) -> Result {
+check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string, loc: runtime.Source_Code_Location) -> Result {
         if hres >= 0 {
                 return .Ok
         }        
@@ -128,7 +129,7 @@ _Device_Impl :: struct {
 }
 
 
-_device_create :: proc(info: ^Device_Create_Info) -> (d: Device, res: Result) {
+_device_create :: proc(info: ^Device_Create_Info, location: runtime.Source_Code_Location) -> (d: Device, res: Result) {
         feature_levels := []dx.FEATURE_LEVEL { ._11_1 }
 
         creation_flags := dx.CREATE_DEVICE_FLAGS {}
@@ -150,7 +151,7 @@ _device_create :: proc(info: ^Device_Create_Info) -> (d: Device, res: Result) {
                 ppImmediateContext = &d.immediate_command_buffer._impl.ctx,
         )
 
-        check_result(&d, hres) or_return
+        check_result(&d, hres, "Create Device failed", location) or_return
 
         d.immediate_command_buffer._impl.is_immediate = true
 
@@ -210,9 +211,11 @@ _device_destroy :: proc(d: ^Device) {
 
         when ODIN_DEBUG {
                 if d._impl.debug != nil {
-                        d._impl.debug->ReportLiveDeviceObjects({.SUMMARY, .DETAIL, .IGNORE_INTERNAL})
+                        when RHI_TRACK_RESOURCES {
+                                d._impl.debug->ReportLiveDeviceObjects({.SUMMARY, .DETAIL, .IGNORE_INTERNAL})
+                                log.info("Expect ID3D11Device Refcount == 3. Ignore the next warning if this is the case.")
+                        }
                         _flush_debug_messages(d)
-                        log.info("Expected ID3D11Device Refcount == 3. Ignore previous warning if this is the case.")
                         d._impl.debug->Release()
                 }
 
@@ -235,7 +238,7 @@ _Swapchain_Impl :: struct {
 }
 
 
-_swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info) -> (sc: Swapchain, res: Result) {
+_swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info, location: runtime.Source_Code_Location) -> (sc: Swapchain, res: Result) {
         defer _flush_debug_messages(d)
         device := d._impl.device
 
@@ -243,12 +246,12 @@ _swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info) -> (s
         {
                 gi_device: ^dxgi.IDevice1
                 hres := device->QueryInterface(dxgi.IDevice1_UUID, (^rawptr)(&gi_device))
-                check_result(d, hres, "DXGI device interface query failed") or_return
+                check_result(d, hres, "DXGI device interface query failed", location) or_return
                 defer gi_device->Release()
 
                 gi_adapter: ^dxgi.IAdapter
                 hres = gi_device->GetAdapter(&gi_adapter)
-                check_result(d, hres, "DXGI adapter interface query failed") or_return
+                check_result(d, hres, "DXGI adapter interface query failed", location) or_return
                 defer gi_adapter->Release()
 
                 adapter_desc: dxgi.ADAPTER_DESC
@@ -256,22 +259,24 @@ _swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info) -> (s
                 log.infof("Graphics device: %s", adapter_desc.Description)
 
                 hres = gi_adapter->GetParent(dxgi.IFactory2_UUID, (^rawptr)(&factory))
-                check_result(d, hres, "Get DXGI Factory failed") or_return
+                check_result(d, hres, "Get DXGI Factory failed", location) or_return
         }
         defer factory->Release()
 
 
         // Swapchain
         {
+
                 swapchain_scaling_flag_to_dx := [Swapchain_Scaling_Flag]dxgi.SCALING {
                         .None    = .NONE,
                         .Stretch = .STRETCH,
                         .Fit     = .ASPECT_RATIO_STRETCH,
                 }
 
+                // Don't allow MSAA at swapchain level - create an intermediate render texture and explicitly resolve it.
                 sample_desc := dxgi.SAMPLE_DESC {
-                        Count   = _multisample_to_dx11(create_info.multisample),
-                        Quality = 0xffffffff, // D3D11_STANDARD_MULTISAMPLE_PATTERN
+                        Count   = 1,
+                        Quality = 0,
                 }
 
                 swapchain_desc := dxgi.SWAP_CHAIN_DESC1 {
@@ -299,18 +304,18 @@ _swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info) -> (s
                         pRestrictToOutput = nil,
                         ppSwapChain       = &sc._impl.swapchain
                 )
-                check_result(d, hres, "Create Swapchain failed") or_return
+                check_result(d, hres, "Create Swapchain failed", location) or_return
         }
 
         // Render target view
         {
                 framebuffer : ^dx.ITexture2D
                 hres := sc._impl.swapchain->GetBuffer(0, dx.ITexture2D_UUID, (^rawptr)(&framebuffer))
-                check_result(d, hres, "Get Framebuffer failed") or_return
+                check_result(d, hres, "Get Framebuffer failed", location) or_return
                 defer framebuffer->Release()
 
                 hres  = device->CreateRenderTargetView(framebuffer, nil, &sc._impl.render_target_view)
-                check_result(d, hres, "Create Render Target View failed") or_return
+                check_result(d, hres, "Create Render Target View failed", location) or_return
 
                 fb_desc : dx.TEXTURE2D_DESC
                 framebuffer->GetDesc(&fb_desc)
@@ -352,7 +357,7 @@ _swapchain_resize :: proc(d: ^Device, sc: ^Swapchain, resolution: [2]int) -> (re
                 SwapChainFlags = {}
         )
 
-        check_result(d, hres, "Swapchain resize failed") or_return
+        check_result(d, hres, "Swapchain resize failed", #location()) or_return
 
         framebuffer: ^dx.ITexture2D
         hres = sc._impl.swapchain->GetBuffer(
@@ -361,7 +366,7 @@ _swapchain_resize :: proc(d: ^Device, sc: ^Swapchain, resolution: [2]int) -> (re
                 ppSurface = (^rawptr)(&framebuffer)
         )
         
-        check_result(d, hres, "Get Framebuffer failed")
+        check_result(d, hres, "Get Framebuffer failed", #location())
 
         defer framebuffer->Release()
 
@@ -371,7 +376,7 @@ _swapchain_resize :: proc(d: ^Device, sc: ^Swapchain, resolution: [2]int) -> (re
                 ppRTView  = &sc._impl.render_target_view
         )
 
-        check_result(d, hres, "Create RenderTargetView failed") or_return
+        check_result(d, hres, "Create RenderTargetView failed", #location()) or_return
 
         sc.render_target_view = {{
                 view = sc._impl.render_target_view,
@@ -398,7 +403,7 @@ _swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
                 SyncInterval = 1,
                 Flags        = flags
         )
-        check_result(d, hres) or_return
+        check_result(d, hres, "Swapchain Present failed", #location()) or_return
 
         return .Ok
 }
@@ -409,6 +414,15 @@ _Input_Descs_ALL := [Vertex_Attribute_Flag]dx.INPUT_ELEMENT_DESC {
                 SemanticName         = "POSITION",
                 SemanticIndex        = 0,
                 Format               = .R32G32B32_FLOAT,
+                // InputSlot         = 0,
+                AlignedByteOffset    = 0,
+                InputSlotClass       = .VERTEX_DATA,
+                InstanceDataStepRate = 0,
+        },
+        .Position2D = {
+                SemanticName         = "POSITION",
+                SemanticIndex        = 0,
+                Format               = .R32G32_FLOAT,
                 // InputSlot         = 0,
                 AlignedByteOffset    = 0,
                 InputSlotClass       = .VERTEX_DATA,
@@ -504,7 +518,7 @@ _Vertex_Shader_Impl :: struct {
 }
 
 
-_vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Info) -> (shader: Vertex_Shader, res: Result) {
+_vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Info, location: runtime.Source_Code_Location) -> (shader: Vertex_Shader, res: Result) {
         defer _flush_debug_messages(d)
         
         hres := d._impl.device->CreateVertexShader(
@@ -513,7 +527,7 @@ _vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Inf
                 pClassLinkage   = nil,
                 ppVertexShader  = &shader._impl.shader
         )
-        check_result(d, hres, "Vertex Shader Create failed") or_return
+        check_result(d, hres, "Vertex Shader Create failed", location) or_return
 
 
         layout, exists := d._impl.input_layout_cache[create_info.vertex_attributes]
@@ -538,7 +552,7 @@ _vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Inf
                         BytecodeLength = dx.SIZE_T(len(create_info.code)),
                         ppInputLayout = &layout
                 )
-                check_result(d, hres) or_return
+                check_result(d, hres, "Create Input Layout failed", location) or_return
                 d._impl.input_layout_cache[create_info.vertex_attributes] = layout
         }
 
@@ -559,7 +573,7 @@ _Fragment_Shader_Impl :: struct {
         shader : ^dx.IPixelShader,
 }
 
-_fragment_shader_create :: proc(d: ^Device, create_info: ^Fragment_Shader_Create_Info) -> (shader: Fragment_Shader, res: Result) {
+_fragment_shader_create :: proc(d: ^Device, create_info: ^Fragment_Shader_Create_Info, location: runtime.Source_Code_Location) -> (shader: Fragment_Shader, res: Result) {
         defer _flush_debug_messages(d)
         
         hres := d._impl.device->CreatePixelShader(
@@ -568,7 +582,7 @@ _fragment_shader_create :: proc(d: ^Device, create_info: ^Fragment_Shader_Create
                 pClassLinkage   = nil,
                 ppPixelShader  = &shader._impl.shader
         )
-        check_result(d, hres, "Vertex Shader Create failed") or_return
+        check_result(d, hres, "Vertex Shader Create failed", location) or_return
 
         return shader, .Ok
 }
@@ -584,7 +598,7 @@ _Compute_Shader_Impl :: struct {
         shader : ^dx.IComputeShader,
 }
 
-_compute_shader_create :: proc(d: ^Device, create_info: ^Compute_Shader_Create_Info) -> (shader: Compute_Shader, res: Result) {
+_compute_shader_create :: proc(d: ^Device, create_info: ^Compute_Shader_Create_Info, location: runtime.Source_Code_Location) -> (shader: Compute_Shader, res: Result) {
         defer _flush_debug_messages(d)
         
         hres := d._impl.device->CreateComputeShader(
@@ -593,7 +607,7 @@ _compute_shader_create :: proc(d: ^Device, create_info: ^Compute_Shader_Create_I
                 pClassLinkage   = nil,
                 ppComputeShader  = &shader._impl.shader
         )
-        check_result(d, hres, "Vertex Shader Create failed") or_return
+        check_result(d, hres, "Vertex Shader Create failed", location) or_return
 
         return shader, .Ok
 }
@@ -610,7 +624,7 @@ _Buffer_Impl :: struct {
 }
 
 
-_buffer_create :: proc(d: ^Device, create_info: ^Buffer_Create_Info) -> (buffer: Buffer, res: Result) {
+_buffer_create :: proc(d: ^Device, create_info: ^Buffer_Create_Info, location: runtime.Source_Code_Location) -> (buffer: Buffer, res: Result) {
         defer _flush_debug_messages(d)
 
         ua := _Resource_Access_To_Dx11[create_info.access]
@@ -635,7 +649,7 @@ _buffer_create :: proc(d: ^Device, create_info: ^Buffer_Create_Info) -> (buffer:
                 pInitialData = &subresource_data,
                 ppBuffer     = &buffer._impl.buffer
         )
-        check_result(d, hres, "Create Buffer failed") or_return
+        check_result(d, hres, "Create Buffer failed", location) or_return
 
         buffer.size   = create_info.size
         buffer.stride = create_info.stride
@@ -652,13 +666,49 @@ _buffer_destroy :: proc(d: ^Device, buffer: ^Buffer) {
         buffer._impl.buffer->Release()
 }
 
+_Sampler_Impl :: struct {
+        sampler : ^dx.ISamplerState,
+}
 
-// _texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info) -> (tex: Texture1D, res: Result) {
+
+_sampler_create :: proc(d: ^Device, create_info: ^Sampler_Create_Info, location: runtime.Source_Code_Location) -> (sampler: Sampler, res: Result) {
+        defer _flush_debug_messages(d)
+
+        address_mode := _Sampler_Address_Flag_To_Dx11[create_info.address_mode]
+
+        desc := dx.SAMPLER_DESC {
+                Filter         = _sampler_filter_to_dx11(create_info.min_filter, create_info.mag_filter, create_info.mip_filter, create_info.max_anisotropy),
+                AddressU       = address_mode,
+                AddressV       = address_mode,
+                AddressW       = address_mode,
+                MipLODBias     = create_info.lod_bias,
+                MaxAnisotropy  = _sampler_aniso_to_dx11(create_info.max_anisotropy),
+                ComparisonFunc = .ALWAYS,
+                BorderColor    = _Sampler_Border_Color_Flag_To_Dx11[create_info.border_color],
+                MinLOD         = create_info.min_lod,
+                MaxLOD         = create_info.max_lod,
+        }
+
+        // D3D11 caches identical samplers internally
+        hres := d._impl.device->CreateSamplerState(&desc, &sampler._impl.sampler)
+        check_result(d, hres, "Create Sampler failed", location) or_return
+
+        return sampler, .Ok
+}
+
+_sampler_destroy :: proc(d: ^Device, sampler: ^Sampler) {
+        defer _flush_debug_messages(d)
+
+        sampler._impl.sampler->Release()
+}
+
+
+// _texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info, location: runtime.Source_Code_Location) -> (tex: Texture1D, res: Result) {
 // defer _flush_debug_messages(d)
 //
 // }
 //
-// _texture1d_destroy :: proc(d: ^Device, tex: ^Texture1D) {
+// _texture1d_destroy :: proc(d: ^Device, tex: ^Texture1D, location: runtime.Source_Code_Location) {
 // defer _flush_debug_messages(d)
 //
 // }
@@ -667,21 +717,23 @@ _Texture2D_Impl :: struct {
         texture : ^dx.ITexture2D,
 }
 
-_texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info) -> (tex: Texture2D, res: Result) {
+_texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info, location: runtime.Source_Code_Location) -> (tex: Texture2D, res: Result) {
         defer _flush_debug_messages(d)
+
+        MAX_MIP :: 16 // actually 14 (d3d11 max texture size is 2^14)
 
         ua := _Resource_Access_To_Dx11[create_info.access]
 
         sample_desc := dxgi.SAMPLE_DESC {
                 Count = _multisample_to_dx11(create_info.multisample),
-                Quality = 0xffffffff, // D3D11_STANDARD_MULTISAMPLE_PATTERN
+                Quality = 0 if create_info.multisample == .None else 0xffffffff, // D3D11_STANDARD_MULTISAMPLE_PATTERN
         }
 
         desc := dx.TEXTURE2D_DESC {
                 Width          = u32(create_info.resolution.x),
                 Height         = u32(create_info.resolution.y),
                 MipLevels      = u32(create_info.mip_levels),
-                ArraySize      = u32(create_info.array_layers),
+                ArraySize      = 1,
                 Format         = _Format_To_Dx11[create_info.format],
                 SampleDesc     = sample_desc,
                 Usage          = ua.usage,
@@ -690,27 +742,36 @@ _texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info) -> (t
                 MiscFlags      = {}
         }
 
+        // Move to separate type
+        // if create_info.is_cubemap {
+        //         desc.MiscFlags += {.TEXTURECUBE}
+        // }
 
-        if create_info.is_cubemap {
-                desc.MiscFlags += {.TEXTURECUBE}
-        }
-
-        if create_info.generate_mips {
+        if create_info.allow_generate_mips {
+                desc.BindFlags += {.RENDER_TARGET}
                 desc.MiscFlags += {.GENERATE_MIPS}
         }
 
-        subresource_data := dx.SUBRESOURCE_DATA {
-                pSysMem = create_info.initial_data,
-                SysMemPitch = u32(create_info.initial_data_row_size),
+        subresource_infos: [MAX_MIP]dx.SUBRESOURCE_DATA = ---
+       
+        for i in 0..<len(create_info.initial_data) {
+                subresource_infos[i] = {
+                        pSysMem     = raw_data(create_info.initial_data[i].data),
+                        SysMemPitch = u32(create_info.initial_data[i].row_size),
+                }
+        }
+        
+        p_subresource_data := raw_data(&subresource_infos)
+        if create_info.initial_data == nil {
+                p_subresource_data = nil
         }
 
-        hres := d._impl.device->CreateTexture2D(&desc, &subresource_data, &tex._impl.texture)
-        check_result(d, hres, "Create Texture 2D failed") or_return
+        hres := d._impl.device->CreateTexture2D(&desc, p_subresource_data, &tex._impl.texture)
+        check_result(d, hres, "Create Texture 2D failed", location) or_return
 
 
         tex.resolution   = create_info.resolution
         tex.mip_levels   = create_info.mip_levels
-        tex.array_layers = create_info.array_layers
         tex.format       = create_info.format
 
         return tex, .Ok
@@ -722,7 +783,7 @@ _texture2d_destroy :: proc(d: ^Device, tex: ^Texture2D) {
         tex._impl.texture->Release()
 }
 
-// _texture3d_create :: proc(d: ^Device, create_info: ^Texture3D_Create_Info) -> (tex: Texture3D, res: Result) {
+// _texture3d_create :: proc(d: ^Device, create_info: ^Texture3D_Create_Info, location: runtime.Source_Code_Location) -> (tex: Texture3D, res: Result) {
 // defer _flush_debug_messages(d)
 //
 // }
@@ -753,6 +814,83 @@ _Depth_Stencil_View_Impl :: struct {
 // _depth_stencil_view_destroy :: proc()
 // defer _flush_debug_messages(d)
 
+_Texture_View_Impl :: struct {
+        view : ^dx.IShaderResourceView,
+}
+
+_texture2d_view_create :: proc(d: ^Device, tex: ^Texture2D, create_info: ^Texture2D_View_Create_Info, location: runtime.Source_Code_Location) -> (view: Texture_View, res: Result) {
+        defer _flush_debug_messages(d)
+
+        // Nil info is valid usage - create full view
+        if create_info == nil {
+                hres := d._impl.device->CreateShaderResourceView(tex._impl.texture, nil, &view._impl.view)
+                check_result(d, hres, "Texture View Create failed", location) or_return
+
+                return view, .Ok
+        }
+        // -----
+       
+
+        dimension := _texture_view_dimension_to_dx11(._2, create_info.multisample, create_info.array, create_info.cubemap)
+
+        desc := dx.SHADER_RESOURCE_VIEW_DESC {
+                Format = _Format_To_Dx11[create_info.format],
+                ViewDimension = dimension,
+                
+        }
+        
+        #partial switch dimension {
+
+        case .TEXTURE2D:
+                desc.Texture2D = {
+                        MostDetailedMip = u32(create_info.mip_lowest_level),
+                        MipLevels       = u32(create_info.mip_levels),
+                }
+
+        case .TEXTURE2DMS:
+                desc.Texture2DMS = {}
+
+        case .TEXTURE2DARRAY:
+                desc.Texture2DArray = {
+                        MostDetailedMip = u32(create_info.mip_lowest_level),
+                        MipLevels       = u32(create_info.mip_levels),
+                        FirstArraySlice = u32(create_info.array_start_layer),
+                        ArraySize       = u32(create_info.array_layers),
+                }
+
+        case .TEXTURE2DMSARRAY:
+                desc.Texture2DMSArray = {
+                        FirstArraySlice = u32(create_info.array_start_layer),
+                        ArraySize       = u32(create_info.array_layers),
+                }
+
+        case .TEXTURECUBE:
+                desc.TextureCube = {
+                        MostDetailedMip = u32(create_info.mip_lowest_level),
+                        MipLevels       = u32(create_info.mip_levels),
+                }
+
+        case .TEXTURECUBEARRAY:
+                desc.TextureCubeArray = {
+                        MostDetailedMip  = u32(create_info.mip_lowest_level),
+                        MipLevels        = u32(create_info.mip_levels),
+                        First2DArrayFace = u32(create_info.array_start_layer * 6),
+                        NumCubes         = u32(create_info.array_layers),
+                }
+        }
+
+        hres := d._impl.device->CreateShaderResourceView(tex._impl.texture, &desc, &view._impl.view)
+        check_result(d, hres, "Texture View Create failed", location) or_return
+
+        return view, .Ok
+}
+
+_texture_view_destroy :: proc(d: ^Device, view: ^Texture_View) {
+        defer _flush_debug_messages(d)
+
+        view._impl.view->Release()
+}
+
 _Command_Buffer_Recording_State_Flag :: enum {
         Ready,
         Recording,
@@ -768,7 +906,7 @@ _Command_Buffer_Impl :: struct {
         bound_input_layout : ^dx.IInputLayout,
 }
 
-// _command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info) -> (cb: Command_Buffer, res: Result) {
+// _command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info, location: runtime.Source_Code_Location) -> (cb: Command_Buffer, res: Result) {
 // defer _flush_debug_messages(d)
 // }
 //
@@ -808,7 +946,7 @@ _command_buffer_end :: proc(d: ^Device, cb: ^Command_Buffer) -> (res: Result) {
                         ppCommandList = &cb._impl.command_list
                 )
 
-                check_result(d, hres, "command_buffer_end failed") or_return
+                check_result(d, hres, "command_buffer_end failed", #location()) or_return
         }
 
         cb._impl.recording_state = .Pending_Submission
@@ -861,7 +999,7 @@ _cmd_set_viewports :: proc(cb: ^Command_Buffer, viewports: []Viewport_Info) {
 }
 
 
-_cmd_set_scissor_rects :: proc(cb: ^Command_Buffer, scissor_rects: []Rect_2D) {
+_cmd_set_scissor_rects :: proc(cb: ^Command_Buffer, scissor_rects: []Rect2D) {
         MAX_SCISSOR :: dx.VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE
         length := clamp_slice_length_and_log(len(scissor_rects), MAX_SCISSOR)
 
@@ -970,6 +1108,80 @@ _cmd_set_index_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer) {
                 Offset       = 0,
         )
 }
+
+
+// _cmd_set_buffer_views :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, views: []^Buffer_View) {
+// // copy _cmd_set_texture_views, they're the same
+// }
+
+_cmd_set_texture_views :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, views: []^Texture_View) {
+        MAX_RES :: dx.COMMONSHADER_INPUT_RESOURCE_REGISTER_COUNT
+        dx_views : [MAX_RES]^dx.IShaderResourceView
+
+        length := clamp_slice_length_and_log(len(views), MAX_RES - start_slot)
+        for i in 0..<length {
+                dx_views[i] = views[i]._impl.view
+        }
+        
+        if .Vertex in stages {
+                cb._impl.ctx->VSSetShaderResources(
+                        StartSlot             = u32(start_slot),
+                        NumViews              = u32(length),
+                        ppShaderResourceViews = raw_data(&dx_views)
+                )
+        }
+        
+        if .Fragment in stages {
+                cb._impl.ctx->PSSetShaderResources(
+                        StartSlot             = u32(start_slot),
+                        NumViews              = u32(length),
+                        ppShaderResourceViews = raw_data(&dx_views)
+                )
+        }
+        
+        if .Compute in stages {
+                cb._impl.ctx->CSSetShaderResources(
+                        StartSlot             = u32(start_slot),
+                        NumViews              = u32(length),
+                        ppShaderResourceViews = raw_data(&dx_views)
+                )
+        }
+}
+
+_cmd_set_samplers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, samplers: []^Sampler) {
+        MAX_SAMPLERS :: dx.COMMONSHADER_SAMPLER_SLOT_COUNT
+        dx_samplers : [MAX_SAMPLERS]^dx.ISamplerState
+
+        length := clamp_slice_length_and_log(len(samplers), MAX_SAMPLERS - start_slot)
+        for i in 0..<length {
+                dx_samplers[i] = samplers[i]._impl.sampler
+        }
+        
+        if .Vertex in stages {
+                cb._impl.ctx->VSSetSamplers(
+                        StartSlot   = u32(start_slot),
+                        NumSamplers = u32(length),
+                        ppSamplers  = raw_data(&dx_samplers)
+                )
+        }
+        
+        if .Fragment in stages {
+                cb._impl.ctx->PSSetSamplers(
+                        StartSlot   = u32(start_slot),
+                        NumSamplers = u32(length),
+                        ppSamplers  = raw_data(&dx_samplers)
+                )
+        }
+        
+        if .Compute in stages {
+                cb._impl.ctx->CSSetSamplers(
+                        StartSlot   = u32(start_slot),
+                        NumSamplers = u32(length),
+                        ppSamplers  = raw_data(&dx_samplers)
+                )
+        }
+}
+
 
 _cmd_update_constant_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer, data: rawptr) {
         mapped_subresource : dx.MAPPED_SUBRESOURCE

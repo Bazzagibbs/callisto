@@ -184,4 +184,65 @@ _buffer_usage_flags_to_dx11 :: proc(usage_flags: Buffer_Usage_Flags) -> dx.BIND_
         return bind_flags
 }
 
-//} // when RHI_BACKEND == "d3d11
+_sampler_filter_to_dx11 :: proc(min_filter, mag_filter, mip_filter: Sampler_Filter_Flag, aniso: Sampler_Anisotropy_Flag) -> dx.FILTER {
+        if aniso != .None {
+                return .ANISOTROPIC
+        }
+
+        min_shift := i32(min_filter) << dx.MIN_FILTER_SHIFT
+        mag_shift := i32(mag_filter) << dx.MAG_FILTER_SHIFT
+        mip_shift := i32(mip_filter) << dx.MIP_FILTER_SHIFT
+
+        return dx.FILTER(min_shift | mag_shift | mip_shift)
+}
+
+
+_Sampler_Address_Flag_To_Dx11 := [Sampler_Address_Flag]dx.TEXTURE_ADDRESS_MODE {
+        .Wrap            = .WRAP,
+        .Mirror          = .MIRROR,
+        .Clamp           = .CLAMP,
+        .Border          = .BORDER,
+        .Mirror_Negative = .MIRROR_ONCE,
+}
+
+_sampler_aniso_to_dx11 :: proc(aniso: Sampler_Anisotropy_Flag) -> u32 {
+        return 1 << u32(aniso)
+}
+
+_Sampler_Border_Color_Flag_To_Dx11 := [Sampler_Border_Color_Flag][4]f32 {
+        .Black_Opaque      = {0, 0, 0, 1},
+        .White_Opaque      = {1, 1, 1, 1},
+        .Black_Transparent = {0, 0, 0, 0},
+        .White_Transparent = {1, 1, 1, 0},
+}
+
+_Texture_Dimension_Flag :: enum {
+        _1,
+        _2,
+        _3,
+}
+
+_texture_view_dimension_to_dx11 :: proc(dimension: _Texture_Dimension_Flag, is_ms, is_array, is_cube: bool) -> dx.SRV_DIMENSION {
+        switch dimension {      
+        case ._1: 
+                return .TEXTURE1DARRAY if is_array else .TEXTURE1D
+
+        case ._2: 
+                if is_cube {
+                        return .TEXTURECUBEARRAY if is_array else .TEXTURECUBE
+                }
+                if is_ms {
+                        return .TEXTURE2DMSARRAY if is_array else .TEXTURE2DMS
+                }
+
+                return .TEXTURE2DARRAY if is_array else .TEXTURE2D
+
+        case ._3: 
+                return .TEXTURE3D
+
+        }
+
+        unreachable()
+}
+
+//} // when RHI_BACKEND == "d3d11"

@@ -1,16 +1,21 @@
 package callisto_gpu
 
 import "base:runtime"
+import "core:log"
 import "../common"
 import "../config"
 
-RHI_BACKEND :: config.RHI_BACKEND
+RHI_BACKEND         :: config.RHI_BACKEND
+RHI_TRACK_RESOURCES :: config.RHI_TRACK_RESOURCES
+RHI_VALIDATION      :: config.RHI_VALIDATION
 
 Result :: common.Result
 Runner :: common.Runner
 Window :: common.Window
 
-Rect_2D :: struct {
+// TODO: add location := #caller_location to all create procs
+
+Rect2D :: struct {
         x, y          : int,
         width, height : int,
 }
@@ -31,19 +36,10 @@ Swapchain_Scaling_Flag :: enum {
         Fit,
 }
 
-Multisample_Flag :: enum {
-        _1,
-        _2,
-        _4,
-        _8,
-        _16,
-}
-
 Swapchain_Create_Info :: struct {
         window      : ^Window,
         resolution  : [2]int, // Leave as 0 to match window
         scaling     : Swapchain_Scaling_Flag,
-        multisample : Multisample_Flag,
         vsync       : bool,
 }
 
@@ -102,6 +98,7 @@ Command_Buffer :: struct {
 Vertex_Attribute_Flags :: bit_set[Vertex_Attribute_Flag]
 Vertex_Attribute_Flag :: enum {
         Position,
+        Position2D,
         Color,
         Tex_Coord_0,
         Tex_Coord_1,
@@ -281,20 +278,28 @@ Texture_Usage_Flag :: enum {
         // Encoder,
 }
 
+Multisample_Flag :: enum {
+        None,
+        _2,
+        _4,
+        _8,
+        _16,
+}
 
+Texture2D_Upload_Info :: struct {
+        data     : []u8,
+        row_size : int,
+}
 
 Texture2D_Create_Info :: struct {
         resolution            : [2]int,
-        mip_levels            : int,
-        array_layers          : int,
+        mip_levels            : int, // 0 creates a full mip chain
         multisample           : Multisample_Flag,
         format                : Texture_Format_Flag,
         access                : Resource_Access_Flag,
         usage                 : Texture_Usage_Flags,
-        is_cubemap            : bool,
-        generate_mips         : bool,
-        initial_data          : rawptr,
-        initial_data_row_size : int,
+        allow_generate_mips   : bool,
+        initial_data          : []Texture2D_Upload_Info, // requires a buffer per mip level
 }
 
 Texture2D :: struct {
@@ -314,6 +319,24 @@ Depth_Stencil_View :: struct {
         _impl : _Depth_Stencil_View_Impl,
 }
 
+Texture2D_View_Create_Info :: struct {
+        format            : Texture_Format_Flag,
+        multisample       : bool, // Cannot be used with cubemap
+        array             : bool,
+        cubemap           : bool,
+        mip_lowest_level  : int,
+        mip_levels        : int,
+        array_start_layer : int, // When array == true and cubemap == true, the index of the first cube.
+        array_layers      : int, // When array == true and cubemap == true, the number of cubes.
+}
+
+
+Texture_View :: struct {
+        _impl : _Texture_View_Impl,
+}
+
+// Buffer_View :: struct {}
+
 Compare_Op :: enum {
         Never,
         Less,
@@ -331,7 +354,7 @@ Sampler_Filter_Flag :: enum {
 }
 
 Sampler_Anisotropy_Flag :: enum {
-        _1,
+        None,
         _2,
         _4,
         _8,
@@ -354,7 +377,10 @@ Sampler_Border_Color_Flag :: enum {
 }
 
 
-Sampler_Info :: struct {
+min_lod_UNCLAMPED :: min(f32)
+max_lod_UNCLAMPED :: max(f32)
+
+Sampler_Create_Info :: struct {
         min_filter     : Sampler_Filter_Flag,
         mag_filter     : Sampler_Filter_Flag,
         mip_filter     : Sampler_Filter_Flag,
@@ -366,16 +392,21 @@ Sampler_Info :: struct {
         border_color   : Sampler_Border_Color_Flag,
 }
 
+
+Sampler :: struct {
+        _impl : _Sampler_Impl,
+}
+
 Viewport_Info :: struct {
-        rect      : Rect_2D,
+        rect      : Rect2D,
         min_depth : f32,
         max_depth : f32,
 }
 
 
 
-device_create :: proc(create_info: ^Device_Create_Info) -> (d: Device, res: Result) {
-        return _device_create(create_info) 
+device_create :: proc(create_info: ^Device_Create_Info, location := #caller_location) -> (d: Device, res: Result) {
+        return _device_create(create_info, location) 
 }
 
 device_destroy :: proc (d: ^Device) {
@@ -383,8 +414,8 @@ device_destroy :: proc (d: ^Device) {
 }
 
 
-swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info) -> (sc: Swapchain, res: Result) {
-        return _swapchain_create(d, create_info)
+swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info, location := #caller_location) -> (sc: Swapchain, res: Result) {
+        return _swapchain_create(d, create_info, location)
 }
 
 swapchain_destroy :: proc(d: ^Device, sc: ^Swapchain) {
@@ -401,24 +432,24 @@ swapchain_present :: proc(d: ^Device, sc: ^Swapchain) -> (res: Result) {
         return _swapchain_present(d, sc)
 }
 
-vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Info) -> (shader: Vertex_Shader, res: Result) {
-        return _vertex_shader_create(d, create_info)
+vertex_shader_create :: proc(d: ^Device, create_info: ^Vertex_Shader_Create_Info, location := #caller_location) -> (shader: Vertex_Shader, res: Result) {
+        return _vertex_shader_create(d, create_info, location)
 }
 
 vertex_shader_destroy :: proc(d: ^Device, shader: ^Vertex_Shader) {
         _vertex_shader_destroy(d, shader)
 }
 
-fragment_shader_create :: proc(d: ^Device, create_info: ^Fragment_Shader_Create_Info) -> (shader: Fragment_Shader, res: Result) {
-        return _fragment_shader_create(d, create_info)
+fragment_shader_create :: proc(d: ^Device, create_info: ^Fragment_Shader_Create_Info, location := #caller_location) -> (shader: Fragment_Shader, res: Result) {
+        return _fragment_shader_create(d, create_info, location)
 }
 
 fragment_shader_destroy :: proc(d: ^Device, shader: ^Fragment_Shader) {
         _fragment_shader_destroy(d, shader)
 }
 
-compute_shader_create :: proc(d: ^Device, create_info: ^Compute_Shader_Create_Info) -> (shader: Compute_Shader, res: Result) {
-        return _compute_shader_create(d, create_info)
+compute_shader_create :: proc(d: ^Device, create_info: ^Compute_Shader_Create_Info, location := #caller_location) -> (shader: Compute_Shader, res: Result) {
+        return _compute_shader_create(d, create_info, location)
 }
 
 compute_shader_destroy :: proc(d: ^Device, shader: ^Compute_Shader) {
@@ -426,40 +457,79 @@ compute_shader_destroy :: proc(d: ^Device, shader: ^Compute_Shader) {
 }
 
 
-buffer_create :: proc(d: ^Device, create_info: ^Buffer_Create_Info) -> (buffer: Buffer, res: Result) {
-        return _buffer_create(d, create_info)
+buffer_create :: proc(d: ^Device, create_info: ^Buffer_Create_Info, location := #caller_location) -> (buffer: Buffer, res: Result) {
+        return _buffer_create(d, create_info, location)
 }
 
 buffer_destroy :: proc(d: ^Device, buffer: ^Buffer) {
         _buffer_destroy(d, buffer)
 }
 
-// texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info) -> (tex: Texture1D, res: Result) {
-//         return _texture1d_create(d, create_info)
+// Identical samplers are cached and refcounted internally.
+sampler_create :: proc(d: ^Device, create_info: ^Sampler_Create_Info, location := #caller_location) -> (sampler: Sampler, res: Result) {
+        return _sampler_create(d, create_info, location)
+}
+
+sampler_destroy :: proc(d: ^Device, sampler: ^Sampler) {
+        _sampler_destroy(d, sampler)
+}
+
+
+// texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info, location := #caller_location) -> (tex: Texture1D, res: Result) {
+//         return _texture1d_create(d, create_info, location)
 // }
 //
 // texture1d_destroy :: proc(d: ^Device, tex: ^Texture1D) {
 //         _texture1d_destroy(d, tex)
 // }
 
-texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info) -> (tex: Texture2D, res: Result) {
-        return _texture2d_create(d, create_info)
+texture2d_create :: proc(d: ^Device, create_info: ^Texture2D_Create_Info, location := #caller_location) -> (tex: Texture2D, res: Result) {
+        _validate_texture2d_create(create_info, location) or_return
+
+        return _texture2d_create(d, create_info, location)
 }
 
 texture2d_destroy :: proc(d: ^Device, tex: ^Texture2D) {
         _texture2d_destroy(d, tex)
 }
 
-// texture3d_create :: proc(d: ^Device, create_info: ^Texture3D_Create_Info) -> (tex: Texture3D, res: Result) {
-//         return _texture3d_create(d, create_info)
+
+
+// texture3d_create :: proc(d: ^Device, create_info: ^Texture3D_Create_Info, location := #caller_location) -> (tex: Texture3D, res: Result) {
+//         return _texture3d_create(d, create_info, location)
 // }
 //
 // texture3d_destroy :: proc(d: ^Device, tex: ^Texture3D) {
 //         _texture3d_destroy(d, tex)
 // }
 
-// command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info) -> (cb: Command_Buffer, res: Result) {
-//         return _command_buffer_create(d, create_info)
+// Pass `create_info = nil` to create a full texture view
+texture_view_create :: proc {
+        // texture1d_view_create,
+        texture2d_view_create,
+        // texture3d_view_create,
+}
+
+// texture1d_view_create :: proc(d: ^Device, tex: ^Texture1D, create_info: ^Texture1D_View_Create_Info = nil, location := #caller_location = nil) -> (view: Texture_View, res: Result) {
+//         return _texture1d_view_create(d, tex, create_info, location)
+// }
+
+// Pass `create_info = nil` to create a full texture view
+texture2d_view_create :: proc(d: ^Device, tex: ^Texture2D, create_info: ^Texture2D_View_Create_Info = nil, location := #caller_location) -> (view: Texture_View, res: Result) {
+        return _texture2d_view_create(d, tex, create_info, location)
+}
+
+// texture3d_view_create :: proc(d: ^Device, tex: ^Texture3D, create_info: ^Texture3D_View_Create_Info = nil, location := #caller_location) -> (view: Texture_View, res: Result) {
+//         return _texture3d_view_create(d, tex, create_info, location)
+// }
+
+
+texture_view_destroy :: proc(d: ^Device, view: ^Texture_View) {
+        _texture_view_destroy(d, view)
+}
+
+// command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info, location := #caller_location) -> (cb: Command_Buffer, res: Result) {
+//         return _command_buffer_create(d, create_info, location)
 // }
 //
 // command_buffer_destroy :: proc(d: ^Device, cb: ^Command_Buffer) {
@@ -483,7 +553,7 @@ cmd_set_viewports :: proc(cb: ^Command_Buffer, viewports: []Viewport_Info) {
         _cmd_set_viewports(cb, viewports)
 }
 
-cmd_set_scissor_rects :: proc(cb: ^Command_Buffer, scissor_rects: []Rect_2D) {
+cmd_set_scissor_rects :: proc(cb: ^Command_Buffer, scissor_rects: []Rect2D) {
         _cmd_set_scissor_rects(cb, scissor_rects)
 }
 
@@ -511,6 +581,20 @@ cmd_set_index_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer) {
         _cmd_set_index_buffer(cb, buffer)
 }
 
+// // Note: buffer_views and texture_views share shader resource slots per stage.
+// cmd_set_buffer_views :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, views: []^Buffer_View) {
+//         _cmd_set_buffer_views(cb, stages, start_slot, views)
+// }
+
+// Note: buffer_views and texture_views share shader resource slots per stage.
+cmd_set_texture_views :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, views: []^Texture_View) {
+        _cmd_set_texture_views(cb, stages, start_slot, views)
+}
+
+cmd_set_samplers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags, start_slot: int, samplers: []^Sampler) {
+        _cmd_set_samplers(cb, stages, start_slot, samplers)
+}
+
 cmd_update_constant_buffer :: proc(cb: ^Command_Buffer, buffer: ^Buffer, data: rawptr) {
         _cmd_update_constant_buffer(cb, buffer, data)
 }
@@ -519,6 +603,7 @@ cmd_set_constant_buffers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags
         _cmd_set_constant_buffers(cb, stages, start_slot, buffers)
 }
 
+
 cmd_clear_render_target :: proc(cb: ^Command_Buffer, view: ^Render_Target_View, color: [4]f32) {
         _cmd_clear_render_target(cb, view, color)
 }
@@ -526,3 +611,4 @@ cmd_clear_render_target :: proc(cb: ^Command_Buffer, view: ^Render_Target_View, 
 cmd_draw :: proc(cb: ^Command_Buffer) {
         _cmd_draw(cb)
 }
+
