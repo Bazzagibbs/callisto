@@ -245,4 +245,54 @@ _texture_view_dimension_to_dx11 :: proc(dimension: _Texture_Dimension_Flag, is_m
         unreachable()
 }
 
+_Blend_To_Dx11 := [Blend_Flag]dx.BLEND {
+        .Zero                     = .ZERO,
+        .One                      = .ONE,
+        .Src_Color                = .SRC_COLOR,
+        .One_Minus_Src_Color      = .INV_SRC_COLOR,
+        .Dst_Color                = .DEST_COLOR,
+        .One_Minus_Dst_Color      = .INV_DEST_COLOR,
+        .Src_Alpha                = .SRC_ALPHA,
+        .One_Minus_Src_Alpha      = .INV_SRC_ALPHA,
+        .Dst_Alpha                = .DEST_ALPHA,
+        .One_Minus_Dst_Alpha      = .INV_DEST_ALPHA,
+        .Src_Alpha_Saturate       = .SRC_ALPHA_SAT,
+        .Blend_Constant           = .BLEND_FACTOR,
+        .One_Minus_Blend_Constant = .INV_BLEND_FACTOR,
+        .Src1_Color               = .SRC1_COLOR,
+        .One_Minus_Src1_Color     = .INV_SRC1_COLOR,
+        .Src1_Alpha               = .SRC1_ALPHA,
+        .One_Minus_Src1_Alpha     = .INV_SRC1_ALPHA,
+}
+
+_Blend_Op_To_Dx11 := [Blend_Op_Flag]dx.BLEND_OP {
+        .Add              = .ADD,
+        .Subtract         = .SUBTRACT,
+        .Subtract_Reverse = .REV_SUBTRACT,
+        .Min              = .MIN,
+        .Max              = .MAX,
+}
+
+_Compare_Op_To_Dx11 := [Compare_Op_Flag]dx.COMPARISON_FUNC {
+        .Never            = .NEVER,
+        .Less             = .LESS,
+        .Equal            = .EQUAL,
+        .Less_Or_Equal    = .LESS_EQUAL,
+        .Greater          = .GREATER,
+        .Not_Equal        = .NOT_EQUAL,
+        .Greater_Or_Equal = .GREATER_EQUAL,
+        .Always           = .ALWAYS,
+}
+
+_Stencil_Op_To_Dx11 := [Stencil_Op_Flag]dx.STENCIL_OP {
+        .Keep               = .KEEP,
+        .Zero               = .ZERO,
+        .Replace            = .REPLACE,
+        .Increment_Saturate = .INCR_SAT,
+        .Decrement_Saturate = .DECR_SAT,
+        .Invert             = .INVERT,
+        .Increment          = .INCR,
+        .Decrement          = .DECR,
+}
+
 //} // when RHI_BACKEND == "d3d11"

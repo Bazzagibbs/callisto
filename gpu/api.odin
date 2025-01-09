@@ -146,6 +146,112 @@ Buffer :: struct {
 }
 
 
+Blend_Flag :: enum {
+        Zero,
+        One,
+        Src_Color,
+        One_Minus_Src_Color,
+        Dst_Color,
+        One_Minus_Dst_Color,
+        Src_Alpha,
+        One_Minus_Src_Alpha,
+        Dst_Alpha,
+        One_Minus_Dst_Alpha,
+        Src_Alpha_Saturate,
+        Blend_Constant,
+        One_Minus_Blend_Constant,
+        Src1_Color,
+        One_Minus_Src1_Color,
+        Src1_Alpha,
+        One_Minus_Src1_Alpha,
+}
+
+Blend_Op_Flag :: enum {
+        Add,
+        Subtract,
+        Subtract_Reverse, // B - A
+        Min,
+        Max,
+}
+
+Color_Component_Flags :: bit_set[Color_Component_Flag; u8]
+Color_Component_Flag :: enum {
+        R,
+        G,
+        B,
+        A,
+}
+
+Color_Component_Flags_ALL :: Color_Component_Flags {.R, .G, .B, .A}
+
+
+// out := src * src_blend_factor <op> dst * dst_blend_factor
+Render_Target_Blend_Info :: struct {
+        blend_enable           : bool,
+        src_color_blend_factor : Blend_Flag,
+        dst_color_blend_factor : Blend_Flag,
+        color_blend_op         : Blend_Op_Flag,
+        src_alpha_blend_factor : Blend_Flag,
+        dst_alpha_blend_factor : Blend_Flag,
+        alpha_blend_op         : Blend_Op_Flag,
+        color_write_mask       : Color_Component_Flags,
+}
+
+Blend_State_Create_Info :: struct {
+        alpha_to_coverage    : bool,
+        independent_blends   : bool, // when false, `render_target_blends[0]` is used for all render targets.
+        render_target_blends : []Render_Target_Blend_Info,
+}
+
+Blend_State :: struct {
+        _impl : _Blend_State_Impl,
+}
+
+Compare_Op_Flag :: enum {
+        Never,
+        Less,
+        Equal,
+        Less_Or_Equal,
+        Greater,
+        Not_Equal,
+        Greater_Or_Equal,
+        Always,
+}
+
+Stencil_Op_Flag :: enum {
+        Keep,
+        Zero,
+        Replace,
+        Increment_Saturate,
+        Decrement_Saturate,
+        Invert,
+        Increment,
+        Decrement,
+}
+
+Stencil_Behaviour_Info :: struct { 
+        stencil_fail_op    : Stencil_Op_Flag,
+        depth_fail_op      : Stencil_Op_Flag,
+        stencil_pass_op    : Stencil_Op_Flag,
+        stencil_compare_op : Compare_Op_Flag,
+}
+
+Depth_Stencil_State_Create_Info :: struct {
+        depth_enable       : bool,
+        depth_write_enable : bool,
+        depth_compare_op   : Compare_Op_Flag,
+        stencil_enable     : bool,
+        stencil_read_mask  : u8,
+        stencil_write_mask : u8,
+        stencil_backface   : Stencil_Behaviour_Info,
+        stencil_frontface  : Stencil_Behaviour_Info,
+}
+
+Depth_Stencil_State :: struct {
+        _impl : _Depth_Stencil_State_Impl,
+}
+
+
 Texture_Format_Flag :: enum u32 {
         Unknown = 0,
 
@@ -337,17 +443,6 @@ Texture_View :: struct {
 
 // Buffer_View :: struct {}
 
-Compare_Op :: enum {
-        Never,
-        Less,
-        Equal,
-        Less_Or_Equal,
-        Greater,
-        Not_Equal,
-        Greater_Or_Equal,
-        Always,
-}
-
 Sampler_Filter_Flag :: enum {
         Point,
         Linear,
@@ -472,6 +567,24 @@ sampler_create :: proc(d: ^Device, create_info: ^Sampler_Create_Info, location :
 
 sampler_destroy :: proc(d: ^Device, sampler: ^Sampler) {
         _sampler_destroy(d, sampler)
+}
+
+
+blend_state_create :: proc(d: ^Device, create_info: ^Blend_State_Create_Info, location := #caller_location) -> (blend: Blend_State, res: Result) {
+        // validate length <= 8
+        return _blend_state_create(d, create_info, location)
+}
+
+blend_state_destroy :: proc(d: ^Device, blend: ^Blend_State) {
+        _blend_state_destroy(d, blend)
+}
+
+depth_stencil_state_create :: proc(d: ^Device, create_info: ^Depth_Stencil_State_Create_Info, location := #caller_location) -> (depth_stencil_state: Depth_Stencil_State, res: Result) {
+        return _depth_stencil_state_create(d, create_info, location)
+}
+
+depth_stencil_state_destroy :: proc(d: ^Device, depth_stencil_state: ^Depth_Stencil_State) {
+        _depth_stencil_state_destroy(d, depth_stencil_state)
 }
 
 

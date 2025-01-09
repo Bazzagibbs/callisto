@@ -703,6 +703,87 @@ _sampler_destroy :: proc(d: ^Device, sampler: ^Sampler) {
 }
 
 
+_Blend_State_Impl :: struct {
+        state: ^dx.IBlendState,
+}
+
+_blend_state_create :: proc(d: ^Device, create_info: ^Blend_State_Create_Info, location: runtime.Source_Code_Location) -> (blend: Blend_State, res: Result) {
+        defer _flush_debug_messages(d)
+
+        target_desc: [8]dx.RENDER_TARGET_BLEND_DESC = ---
+        for i in 0..<len(create_info.render_target_blends) {
+                rt_blend := create_info.render_target_blends[i]
+                target_desc[i] = {
+                        BlendEnable           = dx.BOOL(rt_blend.blend_enable),
+                        SrcBlend              = _Blend_To_Dx11[rt_blend.src_color_blend_factor],
+                        DestBlend             = _Blend_To_Dx11[rt_blend.dst_color_blend_factor],
+                        BlendOp               = _Blend_Op_To_Dx11[rt_blend.color_blend_op],
+                        SrcBlendAlpha         = _Blend_To_Dx11[rt_blend.src_alpha_blend_factor],
+                        DestBlendAlpha        = _Blend_To_Dx11[rt_blend.dst_alpha_blend_factor],
+                        BlendOpAlpha          = _Blend_Op_To_Dx11[rt_blend.alpha_blend_op],
+                        RenderTargetWriteMask = transmute(u8)(rt_blend.color_write_mask),
+                }
+        }
+
+        blend_desc := dx.BLEND_DESC {
+                AlphaToCoverageEnable  = dx.BOOL(create_info.alpha_to_coverage),
+                IndependentBlendEnable = dx.BOOL(create_info.independent_blends),
+                RenderTarget           = target_desc,
+        }
+
+        hres := d._impl.device->CreateBlendState(&blend_desc, &blend._impl.state)
+        check_result(d, hres, "Blend State Create failed", location) or_return
+
+        return blend, .Ok
+}
+
+_blend_state_destroy :: proc(d: ^Device, blend: ^Blend_State) {
+        defer _flush_debug_messages(d)
+        blend._impl.state->Release()
+}
+
+_Depth_Stencil_State_Impl :: struct {
+        state: ^dx.IDepthStencilState,
+}
+
+_depth_stencil_state_create :: proc(d: ^Device, create_info: ^Depth_Stencil_State_Create_Info, location: runtime.Source_Code_Location) -> (depth_stencil_state: Depth_Stencil_State, res: Result) {
+        defer _flush_debug_messages(d)
+
+        front := dx.DEPTH_STENCILOP_DESC {
+                StencilFailOp      = _Stencil_Op_To_Dx11[create_info.stencil_frontface.stencil_fail_op],
+                StencilDepthFailOp = _Stencil_Op_To_Dx11[create_info.stencil_frontface.depth_fail_op],
+                StencilPassOp      = _Stencil_Op_To_Dx11[create_info.stencil_frontface.stencil_pass_op],
+                StencilFunc        = _Compare_Op_To_Dx11[create_info.stencil_frontface.stencil_compare_op],
+        }
+
+        back := dx.DEPTH_STENCILOP_DESC {
+                StencilFailOp      = _Stencil_Op_To_Dx11[create_info.stencil_backface.stencil_fail_op],
+                StencilDepthFailOp = _Stencil_Op_To_Dx11[create_info.stencil_backface.depth_fail_op],
+                StencilPassOp      = _Stencil_Op_To_Dx11[create_info.stencil_backface.stencil_pass_op],
+                StencilFunc        = _Compare_Op_To_Dx11[create_info.stencil_backface.stencil_compare_op],
+        }
+
+        desc := dx.DEPTH_STENCIL_DESC {
+                DepthEnable      = dx.BOOL(create_info.depth_enable),
+                DepthWriteMask   = .ALL if create_info.depth_write_enable else .ZERO,
+                DepthFunc        = _Compare_Op_To_Dx11[create_info.depth_compare_op],
+                StencilEnable    = dx.BOOL(create_info.stencil_enable),
+                StencilReadMask  = create_info.stencil_read_mask,
+                StencilWriteMask = create_info.stencil_write_mask,
+                FrontFace        = front,
+                BackFace         = back,
+        }
+
+        hres := d._impl.device->CreateDepthStencilState(&desc, &depth_stencil_state._impl.state)
+        check_result(d, hres, "Create DepthStencil State failed", location) or_return
+        return depth_stencil_state, .Ok
+}
+
+_depth_stencil_state_destroy :: proc(d: ^Device, depth_stencil_state: ^Depth_Stencil_State) {
+        defer _flush_debug_messages(d)
+        depth_stencil_state._impl.state->Release()
+}
+
 // _texture1d_create :: proc(d: ^Device, create_info: ^Texture1D_Create_Info, location: runtime.Source_Code_Location) -> (tex: Texture1D, res: Result) {
 // defer _flush_debug_messages(d)
 //
