@@ -11,34 +11,18 @@ when ODIN_OS != .Windows {
         #panic("Callisto currently only supports Windows. Other platform layers may be implemented in the future.")
 }
 
-validate_info :: common.validate_info
-@(private)
-Valid_Not_Nil :: common.Valid_Not_Nil
-@(private)
-Valid_Range_Int :: common.Valid_Range_Int
-@(private)
-Valid_Range_Float :: common.Valid_Range_Float
-
-
-engine_init :: proc(e: ^Engine, init_info: ^Engine_Init_Info, allocator := context.allocator, location := #caller_location) -> (res: Result) {
-        validate_info(location,
-                Valid_Not_Nil{".runner", init_info.runner},
-                // Valid_Not_Nil{".app_memory", init_info.app_memory},
-        ) or_return
-
-        e.runner                 = init_info.runner
-        e.runner.app_memory      = init_info.app_memory
-        e.runner.event_behaviour = init_info.event_behaviour
+engine_create :: proc(create_info: ^Engine_Create_Info, allocator := context.allocator, location := #caller_location) -> (e: Engine, res: Result) {
+        e.runner                 = create_info.runner
+        e.runner.app_memory      = create_info.app_memory
+        e.runner.event_behaviour = create_info.event_behaviour
         e.allocator              = allocator
 
-        e.runner->platform_init(init_info)
+        e.runner->platform_init(create_info)
 
-        return .Ok
+        return e, .Ok
 }
 
 
 engine_destroy :: proc(e: ^Engine) {
         e.runner->platform_destroy()
-        e^ = {}
-
 }

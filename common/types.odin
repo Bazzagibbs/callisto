@@ -31,7 +31,7 @@ Engine :: struct {
 }
 
 
-Engine_Init_Info :: struct {
+Engine_Create_Info :: struct {
         runner            : ^Runner, // required
         app_memory        : rawptr,
         icon              : ^image.Image,
@@ -39,9 +39,11 @@ Engine_Init_Info :: struct {
 }
 
 
-Window :: _Platform_Window
+Window :: struct {
+        _impl : _Window_Impl,
+}
 
-Window_Init_Info :: struct {
+Window_Create_Info :: struct {
         name     : string,
         style    : Window_Style_Flags,
         position : Maybe([2]int),

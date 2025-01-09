@@ -7,14 +7,12 @@ import "core:path/filepath"
 
 Window_Style_Flags_DEFAULT :: Window_Style_Flags {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
 
-window_init :: proc(e: ^Engine, w: ^Window, init_info: ^Window_Init_Info, location := #caller_location) -> (res: Result) {
-        // validate_info()
-        return e.runner->window_init(w, init_info)
+window_create :: proc(e: ^Engine, create_info: ^Window_Create_Info, location := #caller_location) -> (window: Window, res: Result) {
+        return e.runner->window_create(create_info)
 }
 
 window_destroy :: proc(e: ^Engine, window: ^Window) {
         e.runner->window_destroy(window)
-        window^ = {}
 }
 
 

@@ -8,13 +8,13 @@ Result             :: common.Result
 Exit_Code          :: common.Exit_Code
 
 Engine             :: common.Engine
-Engine_Init_Info   :: common.Engine_Init_Info
+Engine_Create_Info   :: common.Engine_Create_Info
 
 Runner             :: common.Runner
 Dll_Symbol_Table   :: common.Dll_Symbol_Table
 
 Window             :: common.Window
-Window_Init_Info   :: common.Window_Init_Info
+Window_Create_Info :: common.Window_Create_Info
 Window_Style_Flags :: common.Window_Style_Flags
 Window_Style_Flag  :: common.Window_Style_Flag
 

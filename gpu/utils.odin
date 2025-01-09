@@ -5,11 +5,6 @@ package callisto_gpu
 import "core:log"
 import "../common"
 
-validate_info     :: common.validate_info
-Valid_Not_Nil     :: common.Valid_Not_Nil
-Valid_Range_Int   :: common.Valid_Range_Int
-Valid_Range_Float :: common.Valid_Range_Float
-
 assert_messagebox :: common.assert_messagebox
 
 len32 :: proc {

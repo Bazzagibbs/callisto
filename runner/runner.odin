@@ -23,7 +23,7 @@ default_runner :: proc (ctx := context) -> cal.Runner {
                 ctx                = ctx,
                 app_memory         = nil,
                 profiler           = {},
-                _platform_data     = {},
+                _impl              = {},
 
                 // Events/Input
                 event_behaviour    = .Before_Loop,
@@ -39,7 +39,7 @@ default_runner :: proc (ctx := context) -> cal.Runner {
                 // Executable-owned callbacks
                 platform_init      = platform_init,
                 platform_destroy   = platform_destroy,
-                window_init        = window_init,
+                window_create      = window_create,
                 window_destroy     = window_destroy,
                 event_pump         = event_pump,
                 logger_proc        = logger_multi_proc,

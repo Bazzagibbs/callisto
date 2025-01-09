@@ -298,7 +298,7 @@ _swapchain_create :: proc(d: ^Device, create_info: ^Swapchain_Create_Info, locat
 
                 hres := factory->CreateSwapChainForHwnd(
                         pDevice           = device,
-                        hWnd              = create_info.window^,
+                        hWnd              = create_info.window._impl.hwnd,
                         pDesc             = &swapchain_desc,
                         pFullscreenDesc   = nil,
                         pRestrictToOutput = nil,

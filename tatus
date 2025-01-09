@@ -1,0 +1,230 @@
+[1mdiff --git a/common/runner_api.odin b/common/runner_api.odin[m
+[1mindex b8c70ca..57e3c31 100644[m
+[1m--- a/common/runner_api.odin[m
+[1m+++ b/common/runner_api.odin[m
+[36m@@ -10,7 +10,7 @@[m [mRunner :: struct {[m
+         ctx                      : runtime.Context,[m
+         app_memory               : rawptr,[m
+         profiler                 : common.Profiler,[m
+[31m-        _platform_data           : _Platform_Runner_Data,[m
+[32m+[m[32m        _impl                    : _Runner_Data_Impl, // Platform-specific data[m
+ [m
+         // Events/Input[m
+         event_behaviour          : Event_Behaviour,[m
+[36m@@ -26,9 +26,9 @@[m [mRunner :: struct {[m
+         // Executable-owned callbacks[m
+         // These might not even need to cross the Runner boundary? [m
+         // Maybe they should though, so we can have a "virtual runner" in the editor.[m
+[31m-        platform_init            : #type proc (runner: ^Runner, init_info: ^Engine_Init_Info) -> Result,[m
+[32m+[m[32m        platform_init            : #type proc (runner: ^Runner, create_info: ^Engine_Create_Info) -> Result,[m
+         platform_destroy         : #type proc (runner: ^Runner),[m
+[31m-        window_init              : #type proc (runner: ^Runner, window: ^Window, init_info: ^Window_Init_Info) -> Result,[m
+[32m+[m[32m        window_create            : #type proc (runner: ^Runner, create_info: ^Window_Create_Info) -> (Window, Result),[m
+         window_destroy           : #type proc (runner: ^Runner, window: ^Window),[m
+         event_pump               : #type proc (runner: ^Runner),[m
+         logger_proc              : #type proc (logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location),[m
+[1mdiff --git a/common/types.odin b/common/types.odin[m
+[1mindex 10200ba..4aaca3f 100644[m
+[1m--- a/common/types.odin[m
+[1m+++ b/common/types.odin[m
+[36m@@ -31,7 +31,7 @@[m [mEngine :: struct {[m
+ }[m
+ [m
+ [m
+[31m-Engine_Init_Info :: struct {[m
+[32m+[m[32mEngine_Create_Info :: struct {[m
+         runner            : ^Runner, // required[m
+         app_memory        : rawptr,[m
+         icon              : ^image.Image,[m
+[36m@@ -39,9 +39,11 @@[m [mEngine_Init_Info :: struct {[m
+ }[m
+ [m
+ [m
+[31m-Window :: _Platform_Window[m
+[32m+[m[32mWindow :: struct {[m
+[32m+[m[32m        _impl : _Window_Impl,[m
+[32m+[m[32m}[m
+ [m
+[31m-Window_Init_Info :: struct {[m
+[32m+[m[32mWindow_Create_Info :: struct {[m
+         name     : string,[m
+         style    : Window_Style_Flags,[m
+         position : Maybe([2]int),[m
+[1mdiff --git a/common/types_windows.odin b/common/types_windows.odin[m
+[1mindex 21e85fa..5810e40 100644[m
+[1m--- a/common/types_windows.odin[m
+[1m+++ b/common/types_windows.odin[m
+[36m@@ -2,9 +2,10 @@[m [mpackage callisto_common[m
+ [m
+ import win "core:sys/windows"[m
+ [m
+[31m-[m
+[31m-_Platform_Runner_Data :: struct {[m
+[32m+[m[32m_Runner_Data_Impl :: struct {[m
+         window_icon : win.HICON,[m
+ }[m
+ [m
+[31m-_Platform_Window :: win.HWND[m
+[32m+[m[32m_Window_Impl :: struct {[m
+[32m+[m[32m        hwnd: win.HWND,[m
+[32m+[m[32m}[m
+[1mdiff --git a/common/validation.odin b/common/validation.odin[m
+[1mdeleted file mode 100644[m
+[1mindex efda1b6..0000000[m
+[1m--- a/common/validation.odin[m
+[1m+++ /dev/null[m
+[36m@@ -1,77 +0,0 @@[m
+[31m-package callisto_common[m
+[31m-import "base:intrinsics"[m
+[31m-import "base:runtime"[m
+[31m-import "core:reflect"[m
+[31m-import "core:strconv"[m
+[31m-import "core:log"[m
+[31m-import "core:fmt"[m
+[31m-[m
+[31m-NO_INFO_VALIDATION :: #config(CALLISTO_NO_VALIDATION, false)[m
+[31m-[m
+[31m-Validation_Rule :: union {[m
+[31m-        Valid_Not_Nil,[m
+[31m-        Valid_Range_Int,[m
+[31m-        Valid_Range_Float,[m
+[31m-}[m
+[31m-[m
+[31m-Valid_Not_Nil :: struct {[m
+[31m-        name  : string,[m
+[31m-        value : rawptr,[m
+[31m-}[m
+[31m-[m
+[31m-Valid_Range_Int :: struct {[m
+[31m-        name  : string,[m
+[31m-        value : int,[m
+[31m-        min   : Maybe(int),[m
+[31m-        max   : Maybe(int),[m
+[31m-}[m
+[31m-[m
+[31m-Valid_Range_Float :: struct {[m
+[31m-        name  : string,[m
+[31m-        value : f32,[m
+[31m-        min   : Maybe(f32),[m
+[31m-        max   : Maybe(f32),[m
+[31m-}[m
+[31m-[m
+[31m-validate_info :: #force_inline proc (loc: runtime.Source_Code_Location, rules: ..Validation_Rule) -> (res: Result) {[m
+[31m-        res = .Ok[m
+[31m-        when !NO_INFO_VALIDATION {[m
+[31m-                for rule in rules {[m
+[31m-                        if _validate_rule(rule, loc) == false {[m
+[31m-                                res = .Argument_Invalid[m
+[31m-                        }[m
+[31m-                }[m
+[31m-        }[m
+[31m-[m
+[31m-        return res[m
+[31m-}[m
+[31m-[m
+[31m-[m
+[31m-@(private)[m
+[31m-_validate_rule :: proc(rule: Validation_Rule, loc: runtime.Source_Code_Location) -> bool {[m
+[31m-        switch r in rule {[m
+[31m-        case Valid_Not_Nil:[m
+[31m-                if r.value == nil {[m
+[31m-                        log.errorf("[VALIDATION] Required argument \"%v\" is nil", r.name, location = loc)[m
+[31m-                        return false[m
+[31m-                }[m
+[31m-        case Valid_Range_Int:[m
+[31m-                min_val := r.min.(int) or_else min(int)[m
+[31m-                max_val := r.max.(int) or_else max(int)[m
+[31m-                if r.value < min_val || r.value > max_val {[m
+[31m-                        log.errorf("[VALIDATION] Argument \"%v\"(%v) is out of range %v..=%v", r.name, min_val, max_val, location = loc)[m
+[31m-                        return false[m
+[31m-                }[m
+[31m-                [m
+[31m-        case Valid_Range_Float:[m
+[31m-                min_val := r.min.(f32) or_else min(f32)[m
+[31m-                max_val := r.max.(f32) or_else max(f32)[m
+[31m-                if r.value < min_val || r.value > max_val {[m
+[31m-                        log.errorf("[VALIDATION] Argument \"%v\"(%v) is out of range %v..=%v", r.name, min_val, max_val)[m
+[31m-                        return false[m
+[31m-                }[m
+[31m-                return false[m
+[31m-        }[m
+[31m-[m
+[31m-        return true[m
+[31m-}[m
+[1mdiff --git a/runner/platform_windows.odin b/runner/platform_windows.odin[m
+[1mindex f9811ff..4f1a7ac 100644[m
+[1m--- a/runner/platform_windows.odin[m
+[1m+++ b/runner/platform_windows.odin[m
+[36m@@ -209,10 +209,10 @@[m [m_dispatch_callisto_event :: #force_inline proc "contextless" (hwnd: win.HWND, ev[m
+         return runner.symbols.callisto_event(event, runner.app_memory)[m
+ }[m
+ [m
+[31m-platform_init :: proc (runner: ^cal.Runner, init_info: ^cal.Engine_Init_Info) -> (res: cal.Result) {[m
+[32m+[m[32mplatform_init :: proc (runner: ^cal.Runner, create_info: ^cal.Engine_Create_Info) -> (res: cal.Result) {[m
+         hIcon : win.HICON[m
+ [m
+[31m-        if init_info.icon != nil {[m
+[32m+[m[32m        if create_info.icon != nil {[m
+                 // TODO: custom icon creation here[m
+                 hIcon = win.LoadIconW(nil, transmute(win.wstring)(win.IDI_APPLICATION))[m
+         } else {[m
+[36m@@ -273,7 +273,7 @@[m [mplatform_destroy :: proc (runner: ^cal.Runner) {[m
+ }[m
+ [m
+ [m
+[31m-window_init :: proc (runner: ^cal.Runner, window: ^cal.Window, create_info: ^cal.Window_Init_Info) -> (res: cal.Result) {[m
+[32m+[m[32mwindow_create :: proc (runner: ^cal.Runner, create_info: ^cal.Window_Create_Info) -> (window: cal.Window, res: cal.Result) {[m
+         dwStyle : win.DWORD[m
+         [m
+         win.SetProcessDpiAwarenessContext(win.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)[m
+[36m@@ -295,7 +295,7 @@[m [mwindow_init :: proc (runner: ^cal.Runner, window: ^cal.Window, create_info: ^cal[m
+         test_style := win.WS_OVERLAPPEDWINDOW | win.WS_VISIBLE[m
+ [m
+ [m
+[31m-        window^ = win.CreateWindowExW([m
+[32m+[m[32m        window = win.CreateWindowExW([m
+                 dwExStyle    = win.WS_EX_OVERLAPPEDWINDOW,[m
+                 lpClassName  = win.L(WIN_CLASS_NAME),[m
+                 lpWindowName = raw_data(win.utf8_to_utf16(create_info.name)),[m
+[36m@@ -310,7 +310,7 @@[m [mwindow_init :: proc (runner: ^cal.Runner, window: ^cal.Window, create_info: ^cal[m
+                 lpParam      = runner[m
+         )[m
+ [m
+[31m-        if window^ == nil {[m
+[32m+[m[32m        if window == nil {[m
+                 log.error("window_create failed")[m
+                 return .Platform_Error[m
+         }[m
+[1mdiff --git a/runner/runner.odin b/runner/runner.odin[m
+[1mindex a4335a0..5e7a233 100644[m
+[1m--- a/runner/runner.odin[m
+[1m+++ b/runner/runner.odin[m
+[36m@@ -39,7 +39,7 @@[m [mdefault_runner :: proc (ctx := context) -> cal.Runner {[m
+                 // Executable-owned callbacks[m
+                 platform_init      = platform_init,[m
+                 platform_destroy   = platform_destroy,[m
+[31m-                window_init        = window_init,[m
+[32m+[m[32m                window_create      = window_create,[m
+                 window_destroy     = window_destroy,[m
+                 event_pump         = event_pump,[m
+                 logger_proc        = logger_multi_proc,[m
+[1mdiff --git a/types.odin b/types.odin[m
+[1mindex a507e7b..4dade3e 100644[m
+[1m--- a/types.odin[m
+[1m+++ b/types.odin[m
+[36m@@ -8,13 +8,13 @@[m [mResult             :: common.Result[m
+ Exit_Code          :: common.Exit_Code[m
+ [m
+ Engine             :: common.Engine[m
+[31m-Engine_Init_Info   :: common.Engine_Init_Info[m
+[32m+[m[32mEngine_Create_Info   :: common.Engine_Create_Info[m
+ [m
+ Runner             :: common.Runner[m
+ Dll_Symbol_Table   :: common.Dll_Symbol_Table[m
+ [m
+ Window             :: common.Window[m
+[31m-Window_Init_Info   :: common.Window_Init_Info[m
+[32m+[m[32mWindow_Create_Info :: common.Window_Create_Info[m
+ Window_Style_Flags :: common.Window_Style_Flags[m
+ Window_Style_Flag  :: common.Window_Style_Flag[m
+ [m

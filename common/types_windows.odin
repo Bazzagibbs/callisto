@@ -2,9 +2,10 @@ package callisto_common
 
 import win "core:sys/windows"
 
-
-_Platform_Runner_Data :: struct {
+_Runner_Data_Impl :: struct {
         window_icon : win.HICON,
 }
 
-_Platform_Window :: win.HWND
+_Window_Impl :: struct {
+        hwnd: win.HWND,
+}
