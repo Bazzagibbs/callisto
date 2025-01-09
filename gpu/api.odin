@@ -21,9 +21,7 @@ Rect2D :: struct {
 }
 
 
-Device_Create_Info :: struct {
-        runner : ^Runner,
-}
+Device_Create_Info :: struct {} // Nothing needed for now - may be used to specify required feature set
 
 Device :: struct {
         immediate_command_buffer : Command_Buffer, // This probably shouldn't be exposed - create a default CB instead?

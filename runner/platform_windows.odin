@@ -121,25 +121,25 @@ _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPAR
                         return 0
                 }
 
-        // case win.WM_MOUSEMOVE:
-        //         mouse_pos := [2]i32{
-        //                 i32(win.LOWORD(lparam)), 
-        //                 i32(win.HIWORD(lparam))
-        //         }
-        //
-        //         event := Input_Event {
-        //                 window = hwnd,
-        //                 device_id = 0,
-        //                 event = Input_Vector2 {
-        //                         source = .Mouse_Position_Cursor,
-        //                         modifiers = _get_input_modifiers(),
-        //                         value = {f32(mouse_pos.x), f32(mouse_pos.y)},
-        //                 },
-        //         }
-        //
-        //         if _dispatch_callisto_event(hwnd, event) {
-        //                 return 0
-        //         }
+        case win.WM_MOUSEMOVE:
+                mouse_pos := [2]i32{
+                        i32(win.LOWORD(lparam)), 
+                        i32(win.HIWORD(lparam))
+                }
+
+                event := common.Input_Event {
+                        window = hwnd,
+                        device_id = 0,
+                        event = common.Input_Vector2 {
+                                source = .Mouse_Position_Cursor,
+                                modifiers = _get_input_modifiers(),
+                                value = {f32(mouse_pos.x), f32(mouse_pos.y)},
+                        },
+                }
+
+                if _dispatch_callisto_event(hwnd, event) {
+                        return 0
+                }
 
         case win.WM_INPUT:
                 runner := _wndproc_runner_from_user_data(hwnd)
