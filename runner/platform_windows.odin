@@ -206,7 +206,7 @@ _dispatch_callisto_event :: #force_inline proc "contextless" (hwnd: win.HWND, ev
         }
 
         context = runner.ctx
-        return runner.symbols.callisto_event(event, runner.app_memory)
+        return runner.symbols.callisto_event(runner.app_memory, event)
 }
 
 platform_init :: proc (runner: ^cal.Runner, create_info: ^cal.Engine_Create_Info) -> (res: cal.Result) {
@@ -280,15 +280,21 @@ window_create :: proc (runner: ^cal.Runner, create_info: ^cal.Window_Create_Info
 
         pos  := [2]c.int{win.CW_USEDEFAULT, win.CW_USEDEFAULT}
         size := [2]c.int{win.CW_USEDEFAULT, win.CW_USEDEFAULT}
-        
-        pos_temp, pos_exists := create_info.position.?
-        if pos_exists {
-                pos = {c.int(pos_temp.x), c.int(pos_temp.y)}
-        }
 
-        size_temp, size_exists := create_info.size.?
-        if size_exists {
-                size = {c.int(size_temp.x), c.int(size_temp.y)}
+        if create_info.position.x != max(int) {
+                pos.x = c.int(create_info.position.x)
+        }
+        
+        if create_info.position.y != max(int) {
+                pos.y = c.int(create_info.position.y)
+        }
+        
+        if create_info.size.x != max(int) {
+                size.x = c.int(create_info.size.x)
+        }
+        
+        if create_info.size.y != max(int) {
+                size.y = c.int(create_info.size.y)
         }
 
         style := _window_style_to_win32(create_info.style)
@@ -326,8 +332,10 @@ window_destroy :: proc (runner: ^cal.Runner, window: ^cal.Window) {
 
 
 event_pump :: proc (runner: ^cal.Runner) {
+        message_count := 0
+
         msg: win.MSG
-        for win.PeekMessageW(&msg, nil, 0, 0, win.PM_REMOVE) {
+        for message_count < MAX_EVENTS_PER_FRAME && win.PeekMessageW(&msg, nil, 0, 0, win.PM_REMOVE) {
                 if msg.message == win.WM_QUIT {
                         runner.should_close = true
                         runner.exit_code = cal.Exit_Code(msg.wParam)
@@ -335,6 +343,8 @@ event_pump :: proc (runner: ^cal.Runner) {
 
                 win.TranslateMessage(&msg)
                 win.DispatchMessageW(&msg)
+
+                message_count += 1
         }
 }
 

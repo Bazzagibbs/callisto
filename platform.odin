@@ -5,8 +5,6 @@ import "core:bytes"
 import "core:path/filepath"
 
 
-Window_Style_Flags_DEFAULT :: Window_Style_Flags {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
-
 window_create :: proc(e: ^Engine, create_info: ^Window_Create_Info, location := #caller_location) -> (window: Window, res: Result) {
         return e.runner->window_create(create_info)
 }

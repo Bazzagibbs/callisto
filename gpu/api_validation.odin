@@ -21,7 +21,7 @@ import "base:runtime"
 
 _validate :: proc(condition: bool, assertion: bool, location: runtime.Source_Code_Location, description := "", condition_expr := #caller_expression(condition), assertion_expr := #caller_expression(assertion)) -> bool {
         if condition == true && assertion == false {
-                log.error("Validation failed: When ", condition_expr, ", ", assertion_expr, " must be true. ", description, sep = "", location = location)
+                log.error("Validation failed: When ", condition_expr, ", the following must hold: ", assertion_expr, " ", description, sep = "", location = location)
                 return false
         }
 
@@ -30,7 +30,7 @@ _validate :: proc(condition: bool, assertion: bool, location: runtime.Source_Cod
 
 _validate_always :: proc(assertion: bool, location: runtime.Source_Code_Location, description := "", assertion_expr := #caller_expression(assertion)) -> bool {
         if assertion == false {
-                log.error("Validation failed: ", assertion_expr, " must be true. ", description, sep = "", location = location)
+                log.error("Validation failed: The following must hold: ", assertion_expr, " ", description, sep = "", location = location)
                 return false
         }
 
@@ -50,7 +50,6 @@ _validate_texture2d_create :: proc(create_info: ^Texture2D_Create_Info, location
                 valid &= _validate(create_info.allow_generate_mips == true, create_info.access == .Device_General, location, "Generating mips requires that a texture is writable from the GPU.") 
                 valid &= _validate(create_info.mip_levels == 0, create_info.initial_data == nil, location, "A mip level count must be provided to upload initial data.")
                 valid &= _validate(create_info.initial_data != nil, len(create_info.initial_data) == create_info.mip_levels, location, "Initial data must be provided for all mip levels, or no mip levels.")
-                valid &= _validate(create_info.mip_levels != 0, len(create_info.initial_data) == create_info.mip_levels, location)
 
                 if !valid { 
                         return .Argument_Invalid

@@ -917,7 +917,6 @@ _texture2d_view_create :: proc(d: ^Device, tex: ^Texture2D, create_info: ^Textur
         desc := dx.SHADER_RESOURCE_VIEW_DESC {
                 Format = _Format_To_Dx11[create_info.format],
                 ViewDimension = dimension,
-                
         }
         
         #partial switch dimension {
@@ -967,6 +966,63 @@ _texture2d_view_create :: proc(d: ^Device, tex: ^Texture2D, create_info: ^Textur
 }
 
 _texture_view_destroy :: proc(d: ^Device, view: ^Texture_View) {
+        defer _flush_debug_messages(d)
+
+        view._impl.view->Release()
+}
+
+
+_depth_stencil_view_create :: proc(d: ^Device, tex: ^Texture2D, create_info: ^Depth_Stencil_View_Create_Info, location: runtime.Source_Code_Location) -> (view: Depth_Stencil_View, res: Result) {
+        defer _flush_debug_messages(d)
+
+        // Nil info is valid usage - create full view
+        if create_info == nil {
+                hres := d._impl.device->CreateDepthStencilView(tex._impl.texture, nil, &view._impl.view)
+                check_result(d, hres, "Texture View Create failed", location) or_return
+
+                return view, .Ok
+        }
+        // -----
+       
+
+        dimension := _depth_view_dimension_to_dx11(._2, create_info.multisample, create_info.array)
+
+        desc := dx.DEPTH_STENCIL_VIEW_DESC {
+                Format = _Format_To_Dx11[create_info.format],
+                ViewDimension = dimension,
+        }
+
+        #partial switch dimension {
+        case .TEXTURE2D:
+                desc.Texture2D = {
+                        MipSlice = u32(create_info.mip_level),
+                }
+
+        case .TEXTURE2DMS:
+                desc.Texture2DMS = {}
+
+        case .TEXTURE2DARRAY:
+                desc.Texture2DArray = {
+                        MipSlice        = u32(create_info.mip_level),
+                        FirstArraySlice = u32(create_info.array_start_layer),
+                        ArraySize       = u32(create_info.array_layers),
+                }
+
+        case .TEXTURE2DMSARRAY:
+                desc.Texture2DMSArray = {
+                        FirstArraySlice = u32(create_info.array_start_layer),
+                        ArraySize       = u32(create_info.array_layers),
+                }
+
+        }
+        
+        hres := d._impl.device->CreateDepthStencilView(tex._impl.texture, &desc, &view._impl.view)
+        check_result(d, hres, "Texture View Create failed", location) or_return
+
+        return view, .Ok
+}
+
+_depth_stencil_view_destroy :: proc(d: ^Device, view: ^Depth_Stencil_View) {
         defer _flush_debug_messages(d)
 
         view._impl.view->Release()
@@ -1101,6 +1157,15 @@ _cmd_set_scissor_rects :: proc(cb: ^Command_Buffer, scissor_rects: []Rect2D) {
                 NumRects = min(MAX_SCISSOR, len32(scissor_rects)),
                 pRects = raw_data(&dx_scissors)
         )
+}
+
+_cmd_set_depth_stencil_state :: proc(cb: ^Command_Buffer, state: ^Depth_Stencil_State, stencil_constant: u32) {
+        cb._impl.ctx->OMSetDepthStencilState(state._impl.state, stencil_constant)
+}
+
+_cmd_set_blend_state :: proc(cb: ^Command_Buffer, state: ^Blend_State, blend_constant: [4]f32) {
+        blend_constant := blend_constant
+        cb._impl.ctx->OMSetBlendState(state._impl.state, &blend_constant, 0xffffffff /* MSAA? */)
 }
 
 _cmd_set_render_targets :: proc(cb: ^Command_Buffer, render_target_views: []^Render_Target_View, depth_stencil_view : ^Depth_Stencil_View) {
@@ -1324,6 +1389,10 @@ _cmd_set_constant_buffers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flag
 _cmd_clear_render_target :: proc(cb: ^Command_Buffer, view: ^Render_Target_View, color: [4]f32) {
         color := color
         cb._impl.ctx->ClearRenderTargetView(view._impl.view, &color)
+}
+
+_cmd_clear_depth_stencil :: proc(cb: ^Command_Buffer, view: ^Depth_Stencil_View, clear_aspect: Depth_Stencil_Aspect_Flags, depth_value: f32, stencil_value: u8) {
+        cb._impl.ctx->ClearDepthStencilView(view._impl.view, _depth_aspect_to_dx11(clear_aspect), depth_value, stencil_value)
 }
 
 _cmd_draw :: proc(cb: ^Command_Buffer) {

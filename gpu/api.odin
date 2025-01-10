@@ -414,14 +414,16 @@ Texture2D :: struct {
         _impl        : _Texture2D_Impl,
 }
 
+Depth_Stencil_Aspect_Flags :: bit_set[Depth_Stencil_Aspect_Flag]
+Depth_Stencil_Aspect_Flag :: enum {
+        Depth,
+        Stencil,
+}
 
 Render_Target_View :: struct {
         _impl : _Render_Target_View_Impl,
 }
 
-Depth_Stencil_View :: struct {
-        _impl : _Depth_Stencil_View_Impl,
-}
 
 Texture2D_View_Create_Info :: struct {
         format            : Texture_Format_Flag,
@@ -438,6 +440,23 @@ Texture2D_View_Create_Info :: struct {
 Texture_View :: struct {
         _impl : _Texture_View_Impl,
 }
+
+
+Depth_Stencil_View_Create_Info :: struct {
+        format            : Texture_Format_Flag,
+        multisample       : bool,
+        array             : bool,
+        read_only         : Depth_Stencil_Aspect_Flags,
+        mip_level         : int,
+        array_start_layer : int,
+        array_layers      : int,
+}
+
+
+Depth_Stencil_View :: struct {
+        _impl : _Depth_Stencil_View_Impl,
+}
+
 
 // Buffer_View :: struct {}
 
@@ -639,6 +658,15 @@ texture_view_destroy :: proc(d: ^Device, view: ^Texture_View) {
         _texture_view_destroy(d, view)
 }
 
+
+depth_stencil_view_create :: proc(d: ^Device, tex: ^Texture2D, create_info: ^Depth_Stencil_View_Create_Info = nil, location := #caller_location) -> (view: Depth_Stencil_View, res: Result) {
+        return _depth_stencil_view_create(d, tex, create_info, location)
+}
+
+depth_stencil_view_destroy :: proc(d: ^Device, view: ^Depth_Stencil_View) {
+        _depth_stencil_view_destroy(d, view)
+}
+
 // command_buffer_create :: proc(d: ^Device, create_info: ^Command_Buffer_Create_Info, location := #caller_location) -> (cb: Command_Buffer, res: Result) {
 //         return _command_buffer_create(d, create_info, location)
 // }
@@ -668,9 +696,18 @@ cmd_set_scissor_rects :: proc(cb: ^Command_Buffer, scissor_rects: []Rect2D) {
         _cmd_set_scissor_rects(cb, scissor_rects)
 }
 
+cmd_set_depth_stencil_state :: proc(cb: ^Command_Buffer, state: ^Depth_Stencil_State, stencil_constant: u32 = 0) {
+        _cmd_set_depth_stencil_state(cb, state, stencil_constant)
+}
+
+cmd_set_blend_state :: proc(cb: ^Command_Buffer, state: ^Blend_State, blend_constant: [4]f32 = {1, 1, 1, 1}) {
+        _cmd_set_blend_state(cb, state, blend_constant)
+}
+
 cmd_set_render_targets :: proc(cb: ^Command_Buffer, render_target_views : []^Render_Target_View, depth_stencil_view : ^Depth_Stencil_View) {
         _cmd_set_render_targets(cb, render_target_views, depth_stencil_view)
 }
+
 
 cmd_set_vertex_shader :: proc(cb: ^Command_Buffer, shader: ^Vertex_Shader) {
         _cmd_set_vertex_shader(cb, shader)
@@ -717,6 +754,10 @@ cmd_set_constant_buffers :: proc(cb: ^Command_Buffer, stages: Shader_Stage_Flags
 
 cmd_clear_render_target :: proc(cb: ^Command_Buffer, view: ^Render_Target_View, color: [4]f32) {
         _cmd_clear_render_target(cb, view, color)
+}
+
+cmd_clear_depth_stencil :: proc(cb: ^Command_Buffer, view: ^Depth_Stencil_View, clear_aspect: Depth_Stencil_Aspect_Flags, depth_value: f32, stencil_value: u8) {
+        _cmd_clear_depth_stencil(cb, view, clear_aspect, depth_value, stencil_value)
 }
 
 cmd_draw :: proc(cb: ^Command_Buffer) {

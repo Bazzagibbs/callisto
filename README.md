@@ -137,6 +137,7 @@ This directory is in the following location:
 
 ## Current development state
 
+
 ### Complete
 
 - Hot reloading
@@ -150,12 +151,17 @@ This directory is in the following location:
     - Keyboard/Mouse input events
 
 
+### Feature wishlist
+
+- Mark assets as "placeholder" + a way to vet placeholder assets at compile time
+
+
 ### Project Plan
 
 - Input abstraction (Actions API)
 - Renderer
-- Developer console + convars
 - Immediate-mode rendering for debug UI
+- Developer console + convars
 - Asset saving and loading
 - Retained 2D/UI/sprite rendering
 - Maybe ECS for scene management - gameplay will probably be managed outside of the ECS

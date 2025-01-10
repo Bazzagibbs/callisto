@@ -13,10 +13,13 @@ Engine_Create_Info   :: common.Engine_Create_Info
 Runner             :: common.Runner
 Dll_Symbol_Table   :: common.Dll_Symbol_Table
 
-Window             :: common.Window
-Window_Create_Info :: common.Window_Create_Info
-Window_Style_Flags :: common.Window_Style_Flags
-Window_Style_Flag  :: common.Window_Style_Flag
+Window                     :: common.Window
+Window_Create_Info         :: common.Window_Create_Info
+Window_Style_Flags         :: common.Window_Style_Flags
+Window_Style_Flag          :: common.Window_Style_Flag
+Window_Style_Flags_DEFAULT :: common.Window_Style_Flags_DEFAULT
+Window_Position_AUTO       :: common.Window_Position_AUTO
+Window_Size_AUTO           :: common.Window_Size_AUTO
 
 
 Event                :: common.Event

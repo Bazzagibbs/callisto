@@ -39,7 +39,7 @@ Dll_Symbol_Table :: struct {
         lib              : dynlib.Library,
         callisto_init    : #type proc (runner: ^Runner),
         callisto_destroy : #type proc (app_memory: rawptr),
-        callisto_event   : #type proc (event: Event, app_memory: rawptr) -> (handled: bool),
+        callisto_event   : #type proc (app_memory: rawptr, event: Event) -> (handled: bool),
         callisto_loop    : #type proc (app_memory: rawptr),
 }
 

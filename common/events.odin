@@ -143,7 +143,7 @@ Input_Hand :: enum {
         Right,
 }
 
-// Keyboard buttons are positional, named accordingly to a standard US QWERTY layout.
+// Keyboard buttons are positional, named according to a standard US QWERTY layout.
 // To get text input, consume `Input_Text` events instead.
 //
 // Mouse scroll buttons are for when distinct "steps" are needed, such as swapping items in an inventory.

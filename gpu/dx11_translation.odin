@@ -245,6 +245,36 @@ _texture_view_dimension_to_dx11 :: proc(dimension: _Texture_Dimension_Flag, is_m
         unreachable()
 }
 
+
+_depth_view_dimension_to_dx11 :: proc(dimension: _Texture_Dimension_Flag, is_ms, is_array: bool) -> dx.DSV_DIMENSION {
+        switch dimension {      
+        case ._1: 
+                return .TEXTURE1DARRAY if is_array else .TEXTURE1D
+
+        case ._2: 
+                if is_ms {
+                        return .TEXTURE2DMSARRAY if is_array else .TEXTURE2DMS
+                }
+
+                return .TEXTURE2DARRAY if is_array else .TEXTURE2D
+        case ._3:
+        }
+
+        unreachable()
+}
+
+
+_depth_aspect_to_dx11 :: proc(aspect: Depth_Stencil_Aspect_Flags) -> dx.CLEAR_FLAGS {
+        flags : dx.CLEAR_FLAGS
+        if .Depth in aspect {
+                flags += {.DEPTH}
+        }
+        if .Stencil in aspect {
+                flags += {.STENCIL}
+        }
+        return flags
+}
+
 _Blend_To_Dx11 := [Blend_Flag]dx.BLEND {
         .Zero                     = .ZERO,
         .One                      = .ONE,

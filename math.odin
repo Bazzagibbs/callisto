@@ -4,6 +4,12 @@ import "core:math"
 import "core:math/linalg"
 
 
+// D3D11: x-right, y-up, z-forward (left handed)
+// Callisto: x-right, z-up, y-forward, (right handed)
+// So need to swap z and y columns
+
+
+
 // Reversed-depth (1 near, 0 far) perspective projection matrix. 
 matrix4_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 {
         scale_y       := 1 / math.tan(fov_y * 0.5)
@@ -13,9 +19,9 @@ matrix4_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 {
 
         return matrix[4,4]f32 {
                 scale_x, 0,       0,       0,
-                0,       scale_y, 0,       0,
-                0,       0,       scale_z, translation_z,
-                0,       0,       1,       0
+                0,       0,       scale_y, 0,
+                0,       scale_z, 0,       translation_z,
+                0,       1,       0,       0
         }
 }
 
@@ -29,8 +35,8 @@ matrix4_orthographic :: proc(scale_y, aspect, near, far: f32) -> matrix[4,4]f32 
 
         return matrix[4,4]f32 {
                 scale_x, 0,       0,       0,
-                0,       scale_y, 0,       0,
-                0,       0,       scale_z, translation_z,
+                0,       0,       scale_y, 0,
+                0,       scale_z, 0,       translation_z,
                 0,       0,       0,       1
         }
 }

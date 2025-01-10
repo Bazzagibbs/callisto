@@ -46,8 +46,8 @@ Window :: struct {
 Window_Create_Info :: struct {
         name     : string,
         style    : Window_Style_Flags,
-        position : Maybe([2]int),
-        size     : Maybe([2]int),
+        position : [2]int,
+        size     : [2]int,
 }
 
 Window_Style_Flags :: bit_set[Window_Style_Flag]
@@ -60,4 +60,7 @@ Window_Style_Flag :: enum {
         Maximize_Button,
 }
 
+Window_Style_Flags_DEFAULT :: Window_Style_Flags {.Border, .Resize_Edges, .Menu, .Maximize_Button, .Minimize_Button}
+Window_Position_AUTO       :: [2]int{max(int), max(int)}
+Window_Size_AUTO           :: [2]int{max(int), max(int)}
 
