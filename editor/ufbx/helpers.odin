@@ -2,9 +2,96 @@ package ufbx
 
 import "core:c"
 
-// as_slice :: proc {
-//
-// }
+as_slice :: proc {
+        void_list_as_slice,
+        bool_list_as_slice,
+        uint32_list_as_slice,
+        real_list_as_slice,
+        vec2_list_as_slice,
+        vec3_list_as_slice,
+        vec4_list_as_slice,
+        string_list_as_slice,
+        dom_value_list_as_slice,
+        dom_node_list_as_slice,
+        prop_list_as_slice,
+        element_list_as_slice,
+        unknown_list_as_slice,
+        connection_list_as_slice,
+        node_list_as_slice,
+        uv_set_list_as_slice,
+        color_set_list_as_slice,
+        edge_list_as_slice,
+        face_list_as_slice,
+        mesh_part_list_as_slice,
+        face_group_list_as_slice,
+        subdivision_weight_list_as_slice,
+        mesh_list_as_slice,
+        light_list_as_slice,
+        camera_list_as_slice,
+        bone_list_as_slice,
+        empty_list_as_slice,
+        line_segment_list_as_slice,
+        line_curve_list_as_slice,
+        nurbs_curve_list_as_slice,
+        nurbs_surface_list_as_slice,
+        nurbs_trim_surface_list_as_slice,
+        nurbs_trim_boundary_list_as_slice,
+        procedural_geometry_list_as_slice,
+        stereo_camera_list_as_slice,
+        camera_switcher_list_as_slice,
+        marker_list_as_slice,
+        lod_level_list_as_slice,
+        lod_group_list_as_slice,
+        skin_vertex_list_as_slice,
+        skin_weight_list_as_slice,
+        skin_deformer_list_as_slice,
+        skin_cluster_list_as_slice,
+        blend_deformer_list_as_slice,
+        blend_keyframe_list_as_slice,
+        blend_channel_list_as_slice,
+        blend_shape_list_as_slice,
+        cache_frame_list_as_slice,
+        cache_channel_list_as_slice,
+        cache_deformer_list_as_slice,
+        cache_file_list_as_slice,
+        material_texture_list_as_slice,
+        material_list_as_slice,
+        texture_layer_list_as_slice,
+        shader_texture_input_list_as_slice,
+        texture_file_list_as_slice,
+        texture_list_as_slice,
+        video_list_as_slice,
+        shader_list_as_slice,
+        shader_prop_binding_list_as_slice,
+        shader_binding_list_as_slice,
+        prop_override_list_as_slice,
+        transform_override_list_as_slice,
+        anim_stack_list_as_slice,
+        anim_prop_list_as_slice,
+        anim_layer_list_as_slice,
+        anim_value_list_as_slice,
+        keyframe_list_as_slice,
+        anim_curve_list_as_slice,
+        display_layer_list_as_slice,
+        selection_set_list_as_slice,
+        selection_node_list_as_slice,
+        character_list_as_slice,
+        constraint_target_list_as_slice,
+        constraint_list_as_slice,
+        audio_layer_list_as_slice,
+        audio_clip_list_as_slice,
+        bone_pose_list_as_slice,
+        pose_list_as_slice,
+        metadata_object_list_as_slice,
+        name_element_list_as_slice,
+        warning_list_as_slice,
+        baked_vec3_list_as_slice,
+        baked_quat_list_as_slice,
+        baked_node_list_as_slice,
+        baked_prop_list_as_slice,
+        baked_element_list_as_slice,
+}
+
 
 void_list_as_slice :: proc(list: Void_List) -> []rawptr {
         return (transmute([^]rawptr)list.data)[:list.count]
@@ -335,7 +422,7 @@ warning_list_as_slice :: proc(list: Warning_List) -> []Warning {
         return list.data[:list.count]
 }
 
-Baked_Vec3_list_as_slice :: proc(list: Baked_Vec3_List) -> []Baked_Vec3 {
+baked_vec3_list_as_slice :: proc(list: Baked_Vec3_List) -> []Baked_Vec3 {
         return list.data[:list.count]
 }
 
