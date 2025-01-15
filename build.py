@@ -7,7 +7,7 @@ import shutil
 APP_NAME           = "callisto_app"
 COMPANY_NAME       = "callisto_default_company"
 
-ASSET_DIRECTORY    = "./resources"
+ASSET_DIRECTORY    = "./asset_lib"
 CALLISTO_DIRECTORY = "./callisto"
 OUT_DIRECTORY      = "./out"
 
@@ -95,7 +95,10 @@ if args.config != "reload":
         # TODO(RHI): only copy subdirs if built with the corresponding option, e.g. RHI="vulkan"
         shutil.copytree(libs_src_dir, libs_dest_dir)
         if os.path.exists(asset_src_dir):
+            print(f"Copying assets: {asset_src_dir} -> {asset_dest_dir}")
             shutil.copytree(asset_src_dir, asset_dest_dir)
+        else: 
+            print("No asset source directory found: " + asset_src_dir)
 
     except Exception as e:
         print(e)
