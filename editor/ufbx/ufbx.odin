@@ -44,45 +44,21 @@ Matrix :: struct {
 	cols: [4]Vec3,
 }
 
-Void_List :: struct {
-	data: rawptr,
-	count: c.size_t,
-}
+Void_List :: []rawptr
 
-Bool_List :: struct {
-	data: [^]c.bool,
-	count: c.size_t,
-}
+Bool_List :: []c.bool
 
-Uint32_List :: struct {
-	data: [^]u32,
-	count: c.size_t,
-}
+Uint32_List :: []u32
 
-Real_List :: struct {
-	data: [^]Real,
-	count: c.size_t,
-}
+Real_List :: []Real
 
-Vec2_List :: struct {
-	data: [^]Vec2,
-	count: c.size_t,
-}
+Vec2_List :: []Vec2
 
-Vec3_List :: struct {
-	data: [^]Vec3,
-	count: c.size_t,
-}
+Vec3_List :: []Vec3
 
-Vec4_List :: struct {
-	data: [^]Vec4,
-	count: c.size_t,
-}
+Vec4_List :: []Vec4
 
-String_List :: struct {
-	data: [^]String,
-	count: c.size_t,
-}
+String_List :: []String
 
 // Document Object Model
 
@@ -106,10 +82,7 @@ Dom_Value :: struct {
 	value_double: f64,    
 }
 
-Dom_Value_List :: struct {
-	data: [^]Dom_Value,
-	count: c.size_t,
-}
+Dom_Value_List :: []Dom_Value
 
 Dom_Node :: struct {
 	name: String,
@@ -117,10 +90,7 @@ Dom_Node :: struct {
 	values: Dom_Value_List,
 }
 
-Dom_Node_List :: struct {
-	data: [^]Dom_Node,
-	count: c.size_t,
-}
+Dom_Node_List :: []Dom_Node
 
 // -- Properties
 
@@ -234,10 +204,7 @@ Prop :: struct {
 	using value: Prop_Value,
 }
 
-Prop_List :: struct {
-	data: [^]Prop,
-	count: c.size_t,
-}
+Prop_List :: []Prop
 
 // List of alphabetically sorted properties with potential defaults.
 // For animated objects in as scene from `ufbx_evaluate_scene()` this list
@@ -311,10 +278,7 @@ Element :: struct {
 	scene: ^Scene,
 }
 
-Element_List :: struct {
-	data: [^]^Element,
-	count: c.size_t,
-}
+Element_List :: []^Element
 
 Unknown :: struct {
 	element: Element,
@@ -327,10 +291,7 @@ Unknown :: struct {
 	sub_type: String,
 }
 
-Unknown_List :: struct {
-	data: [^]^Unknown,
-	count: c.size_t,
-}
+Unknown_List :: []^Unknown
 
 // Connection between two elements.
 // Source and destination are somewhat arbitrary but the destination is
@@ -342,10 +303,7 @@ Connection :: struct {
 	dst_prop: String,
 }
 
-Connection_List :: struct {
-	data: [^]Connection,
-	count: c.size_t,
-}
+Connection_List :: []Connection
 
 
 // -- Nodes
@@ -533,10 +491,7 @@ Node :: struct {
 	node_depth: u32,
 }
 
-Node_List :: struct {
-	data: [^]^Node,
-	count: c.size_t,
-}
+Node_List :: []^Node
 
 
 // Vertex attribute: All attributes are stored in a consistent indexed format
@@ -629,24 +584,15 @@ Color_Set :: struct {
 	vertex_color: Vertex_Vec4, // < Per-vertex RGBA color
 }
 
-Uv_Set_List :: struct {
-	data: [^]Uv_Set,
-	count: c.size_t,
-}
+Uv_Set_List :: []Uv_Set
 
-Color_Set_List :: struct {
-	data: [^]Color_Set,
-	count: c.size_t,
-}
+Color_Set_List :: []Color_Set
 
 Edge :: struct {
 	indices: [2]u32,
 }
 
-Edge_List :: struct {
-	data: [^]Edge,
-	count: c.size_t,
-}
+Edge_List :: []Edge
 
 // Polygonal face with arbitrary number vertices, a single face contains a
 // contiguous range of mesh indices, eg. `{5,3}` would have indices 5, 6, 7
@@ -658,10 +604,7 @@ Face :: struct {
 	num_indices: u32,
 }
 
-Face_List :: struct {
-	data: [^]Face,
-	count: c.size_t,
-}
+Face_List :: []Face
 
 Mesh_Part :: struct {
 	// Index of the mesh part.
@@ -680,40 +623,28 @@ Mesh_Part :: struct {
 	face_indices: Uint32_List,      
 }
 
-Mesh_Part_List :: struct {
-	data: [^]Mesh_Part,
-	count: c.size_t,
-}
+Mesh_Part_List :: []Mesh_Part
 
 Face_Group :: struct {
 	id: i32,       // < Numerical ID for this group.
 	name: String,  // < Name for the face group.
 }
 
-Face_Group_List :: struct {
-	data: [^]Face_Group,
-	count: c.size_t,
-}
+Face_Group_List :: []Face_Group
 
 Subdivision_Weight_Range :: struct {
 	weight_begin: u32,
 	num_weights: u32,
 }
 
-Subdivision_Weight_Range_List :: struct {
-	data: [^]Subdivision_Weight_Range,
-	count: c.size_t,
-}
+Subdivision_Weight_Range_List :: []Subdivision_Weight_Range
 
 Subdivision_Weight :: struct {
 	weight: Real,
 	index: u32,
 }
 
-Subdivision_Weight_List :: struct {
-	data: [^]Subdivision_Weight,
-	count: c.size_t,
-}
+Subdivision_Weight_List :: []Subdivision_Weight
 
 Subdivision_Result :: struct {
 	result_memory_used: c.size_t,
@@ -918,10 +849,7 @@ Mesh :: struct {
 	from_tessellated_nurbs: c.bool,
 }
 
-Mesh_List :: struct {
-	data: [^]^Mesh,
-	count: c.size_t,
-}
+Mesh_List :: []^Mesh
 
 // The kind of light source
 Light_Type :: enum c.int {
@@ -978,10 +906,7 @@ Light :: struct {
 	cast_shadows: c.bool,
 }
 
-Light_List :: struct {
-	data: [^]^Light,
-	count: c.size_t,
-}
+Light_List :: []^Light
 
 Projection_Mode :: enum c.int {
 	PERSPECTIVE, // Perspective projection.
@@ -1129,10 +1054,7 @@ Camera :: struct {
 	squeeze_ratio: Real,       // < Anamoprhic stretch ratio
 }
 
-Camera_List :: struct {
-	data: [^]^Camera,
-	count: c.size_t,
-}
+Camera_List :: []^Camera
 
 // Bone attached to a `ufbx_node`, provides the logical length of the bone
 // but most interesting information is directly in `ufbx_node`.
@@ -1149,20 +1071,14 @@ Bone :: struct {
 	is_root: c.bool,
 }
 
-Bone_List :: struct {
-	data: [^]^Bone,
-	count: c.size_t,
-}
+Bone_List :: []^Bone
 
 // Empty/NULL/locator connected to a node, actual details in `ufbx_node`
 Empty :: struct {
 	element: Element,
 }
 
-Empty_List :: struct {
-	data: [^]^Empty,
-	count: c.size_t,
-}
+Empty_List :: []^Empty
 
 // -- Node attributes (curves/surfaces)
 
@@ -1172,10 +1088,7 @@ Line_Segment :: struct {
 	num_indices: u32,
 }
 
-Line_Segment_List :: struct {
-	data: [^]Line_Segment,
-	count: c.size_t,
-}
+Line_Segment_List :: []Line_Segment
 
 Line_Curve :: struct {
 	element: Element,
@@ -1191,10 +1104,7 @@ Line_Curve :: struct {
 	from_tessellated_nurbs: c.bool,
 }
 
-Line_Curve_List :: struct {
-	data: [^]^Line_Curve,
-	count: c.size_t,
-}
+Line_Curve_List :: []^Line_Curve
 
 Nurbs_Topology :: enum c.int {
 	// The endpoints are not connected.
@@ -1252,10 +1162,7 @@ Nurbs_Curve :: struct {
 	control_points: Vec4_List,
 }
 
-Nurbs_Curve_List :: struct {
-	data: [^]^Nurbs_Curve,
-	count: c.size_t,
-}
+Nurbs_Curve_List :: []^Nurbs_Curve
 
 Nurbs_Surface :: struct {
 	element: Element,
@@ -1286,28 +1193,19 @@ Nurbs_Surface :: struct {
 	material: ^Material,
 }
 
-Nurbs_Surface_List :: struct {
-	data: [^]^Nurbs_Surface,
-	count: c.size_t,
-}
+Nurbs_Surface_List :: []^Nurbs_Surface
 
 Nurbs_Trim_Surface :: struct {
 	element: Element,
 }
 
-Nurbs_Trim_Surface_List :: struct {
-	data: [^]^Nurbs_Trim_Surface,
-	count: c.size_t,
-}
+Nurbs_Trim_Surface_List :: []^Nurbs_Trim_Surface
 
 Nurbs_Trim_Boundary :: struct {
 	element: Element,
 }
 
-Nurbs_Trim_Boundary_List :: struct {
-	data: [^]^Nurbs_Trim_Boundary,
-	count: c.size_t,
-}
+Nurbs_Trim_Boundary_List :: []^Nurbs_Trim_Boundary
 
 // -- Node attributes (advanced)
 
@@ -1315,10 +1213,7 @@ Procedural_Geometry :: struct {
 	element: Element,
 }
 
-Procedural_Geometry_List :: struct {
-	data: [^]^Procedural_Geometry,
-	count: c.size_t,
-}
+Procedural_Geometry_List :: []^Procedural_Geometry
 
 Stereo_Camera :: struct {
 	element: Element,
@@ -1327,19 +1222,13 @@ Stereo_Camera :: struct {
 	right: ^Camera,
 }
 
-Stereo_Camera_List :: struct {
-	data: [^]^Stereo_Camera,
-	count: c.size_t,
-}
+Stereo_Camera_List :: []^Stereo_Camera
 
 Camera_Switcher :: struct {
 	element: Element,
 }
 
-Camera_Switcher_List :: struct {
-	data: [^]^Camera_Switcher,
-	count: c.size_t,
-}
+Camera_Switcher_List :: []^Camera_Switcher
 
 Marker_Type :: enum c.int {
 	UNKNOWN,     // < Unknown marker type
@@ -1355,10 +1244,7 @@ Marker :: struct {
 	type: Marker_Type,
 };
 
-Marker_List :: struct {
-	data: [^]^Marker,
-	count: c.size_t,
-}
+Marker_List :: []^Marker
 
 // LOD level display mode.
 Lod_Display :: enum c.int {
@@ -1381,10 +1267,7 @@ Lod_Level :: struct {
 	display: Lod_Display,
 }
 
-Lod_Level_List :: struct {
-	data: [^]Lod_Level,
-	count: c.size_t,
-}
+Lod_Level_List :: []Lod_Level
 
 // Group of LOD (Level of Detail) levels for an object.
 // The actual LOD models are defined in the parent `ufbx_node.children`.
@@ -1407,10 +1290,7 @@ Lod_Group :: struct {
 	distance_limit_max: Real,
 }
 
-Lod_Group_List :: struct {
-	data: [^]^Lod_Group,
-	count: c.size_t,
-}
+Lod_Group_List :: []^Lod_Group
 
 
 // -- Deformers
@@ -1444,10 +1324,7 @@ Skin_Vertex :: struct {
 
 }
 
-Skin_Vertex_List :: struct {
-	data: [^]Skin_Vertex,
-	count: c.size_t,
-}
+Skin_Vertex_List :: []Skin_Vertex
 
 // Single per-vertex per-cluster weight, see `ufbx_skin_vertex`
 Skin_Weight :: struct {
@@ -1455,10 +1332,7 @@ Skin_Weight :: struct {
 	weight: Real,       // < Amount this bone influence the vertex
 }
 
-Skin_Weight_List :: struct {
-	data: [^]Skin_Weight,
-	count: c.size_t,
-}
+Skin_Weight_List :: []Skin_Weight
 
 // Skin deformer specifies a binding between a logical set of bones (a skeleton)
 // and a mesh. Each bone is represented by a `ufbx_skin_cluster` that contains
@@ -1486,10 +1360,7 @@ Skin_Deformer :: struct {
 	dq_weights: Real_List,
 }
 
-Skin_Deformer_List :: struct {
-	data: [^]^Skin_Deformer,
-	count: c.size_t,
-}
+Skin_Deformer_List :: []^Skin_Deformer
 
 // Cluster of vertices bound to a single bone.
 Skin_Cluster :: struct {
@@ -1524,10 +1395,7 @@ Skin_Cluster :: struct {
 	weights: Real_List,   // < Per-vertex weight values
 }
 
-Skin_Cluster_List :: struct {
-	data: [^]^Skin_Cluster,
-	count: c.size_t,
-}
+Skin_Cluster_List :: []^Skin_Cluster
 
 // Blend shape deformer can contain multiple channels (think of sliders between morphs)
 // that may optionally have in-between keyframes.
@@ -1538,10 +1406,7 @@ Blend_Deformer :: struct {
 	channels: Blend_Channel_List,
 }
 
-Blend_Deformer_List :: struct {
-	data: [^]^Blend_Deformer,
-	count: c.size_t,
-}
+Blend_Deformer_List :: []^Blend_Deformer
 
 // Blend shape associated with a target weight in a series of morphs
 Blend_Keyframe :: struct {
@@ -1555,10 +1420,7 @@ Blend_Keyframe :: struct {
 	effective_weight: Real,
 }
 
-Blend_Keyframe_List :: struct {
-	data: [^]Blend_Keyframe,
-	count: c.size_t,
-}
+Blend_Keyframe_List :: []Blend_Keyframe
 
 // Blend channel consists of multiple morph-key targets that are interpolated.
 // In simple cases there will be only one keyframe that is the target shape.
@@ -1576,10 +1438,7 @@ Blend_Channel :: struct {
 	target_shape: ^Blend_Shape,
 };
 
-Blend_Channel_List :: struct {
-	data: [^]^Blend_Channel,
-	count: c.size_t,
-}
+Blend_Channel_List :: []^Blend_Channel
 
 // Blend shape target containing the actual vertex offsets
 Blend_Shape :: struct {
@@ -1663,10 +1522,7 @@ Cache_Frame :: struct {
 	data_total_bytes: u64,              // < Size of the whole data blob in bytes
 }
 
-Cache_Frame_List :: struct {
-	data: [^]Cache_Frame,
-	count: c.size_t,
-}
+Cache_Frame_List :: []Cache_Frame
 
 Cache_Channel :: struct {
 	// Name of the geometry cache channel.
@@ -1690,10 +1546,7 @@ Cache_Channel :: struct {
 	scale_factor: Real,
 }
 
-Cache_Channel_List :: struct {
-	data: [^]Cache_Channel,
-	count: c.size_t,
-}
+Cache_Channel_List :: []Cache_Channel
 
 Geometry_Cache :: struct {
 	root_filename: String,
@@ -1713,10 +1566,7 @@ Cache_Deformer :: struct {
 	external_channel: ^Cache_Channel,
 }
 
-Cache_Deformer_List :: struct {
-	data: [^]^Cache_Deformer,
-	count: c.size_t,
-}
+Cache_Deformer_List :: []^Cache_Deformer
 
 Cache_File :: struct {
 	element: Element,
@@ -1746,10 +1596,7 @@ Cache_File :: struct {
 	external_cache: ^Geometry_Cache,
 }
 
-Cache_File_List :: struct {
-	data: [^]^Cache_File,
-	count: c.size_t,
-}
+Cache_File_List :: []^Cache_File
 
 // -- Materials
 
@@ -1800,10 +1647,7 @@ Material_Texture :: struct {
 	texture: ^Texture,
 }
 
-Material_Texture_List :: struct {
-	data: [^]Material_Texture,
-	count : c.size_t,
-}
+Material_Texture_List :: []Material_Texture
 
 // Shading model type
 Shader_Type :: enum c.int {
@@ -2094,10 +1938,7 @@ Material :: struct {
 	textures: Material_Texture_List, // < Sorted by `material_prop`
 }
 
-Material_List :: struct {
-	data: [^]^Material,
-	count: c.size_t,
-}
+Material_List :: []^Material
 
 Texture_Type :: enum c.int {
 	// Texture associated with an image file/sequence. `texture->filename` and
@@ -2165,10 +2006,7 @@ Texture_Layer :: struct {
 	alpha: Real,            // < Blend weight of this layer
 }
 
-Texture_Layer_List :: struct {
-	data: [^]Texture_Layer,
-	count: c.size_t,
-}
+Texture_Layer_List :: []Texture_Layer
 
 Shader_Texture_Type :: enum c.int {
 	UNKNOWN,
@@ -2212,10 +2050,7 @@ Shader_Texture_Input :: struct {
 	texture_enabled_prop: ^Prop,
 }
 
-Shader_Texture_Input_List :: struct {
-	data: [^]Shader_Texture_Input,
-	count: c.size_t,
-}
+Shader_Texture_Input_List :: []Shader_Texture_Input
 
 // Texture that emulates a shader graph node.
 // 3ds Max exports some materials as node graphs serialized to textures.
@@ -2286,10 +2121,7 @@ Texture_File :: struct {
 	content: Blob,
 }
 
-Texture_File_List :: struct {
-	data: [^]Texture_File,
-	count: c.size_t,
-}
+Texture_File_List :: []Texture_File
 
 // Texture that controls material appearance
 Texture :: struct {
@@ -2358,10 +2190,7 @@ Texture :: struct {
 	uv_to_texture: Matrix,          // < UV coordinate to normalized texture coordinate matrix
 };
 
-Texture_List :: struct {
-	data: [^]^Texture,
-	count: c.size_t,
-}
+Texture_List :: []^Texture
 
 // TODO: Video textures
 Video :: struct {
@@ -2393,10 +2222,7 @@ Video :: struct {
 	content: Blob,
 }
 
-Video_List :: struct {
-	data: [^]^Video,
-	count: c.size_t,
-}
+Video_List :: []^Video
 
 // Shader specifies a shading model and contains `ufbx_shader_binding` elements
 // that define how to interpret FBX properties in the shader.
@@ -2413,10 +2239,7 @@ Shader :: struct {
 	bindings: Shader_Binding_List,
 }
 
-Shader_List :: struct {
-	data: [^]^Shader,
-	count: c.size_t,
-}
+Shader_List :: []^Shader
 
 // Binding from a material property to shader implementation
 Shader_Prop_Binding :: struct {
@@ -2424,10 +2247,7 @@ Shader_Prop_Binding :: struct {
 	material_prop: String, // < Property name inside `ufbx_material.props`
 }
 
-Shader_Prop_Binding_List :: struct {
-	data: [^]Shader_Prop_Binding,
-	count: c.size_t,
-}
+Shader_Prop_Binding_List :: []Shader_Prop_Binding
 
 // Shader binding table
 Shader_Binding :: struct {
@@ -2435,10 +2255,7 @@ Shader_Binding :: struct {
 	prop_bindings: Shader_Prop_Binding_List, // < Sorted by `shader_prop`
 }
 
-Shader_Binding_List :: struct {
-	data: [^]^Shader_Binding,
-	count: c.size_t,
-}
+Shader_Binding_List :: []^Shader_Binding
 
 
 // -- Animation
@@ -2454,20 +2271,14 @@ Prop_Override :: struct {
 	value_int: i64,
 }
 
-Prop_Override_List :: struct {
-	data: [^]Prop_Override,
-	count: c.size_t,
-}
+Prop_Override_List :: []Prop_Override
 
 Transform_Override :: struct {
 	node_id: u32,
 	transform: Transform,
 }
 
-Transform_Override_List :: struct {
-	data: [^]Transform,
-	count: c.size_t,
-}
+Transform_Override_List :: []Transform
 
 
 // Animation descriptor used for evaluating animation.
@@ -2511,10 +2322,7 @@ Anim_Stack :: struct {
 	anim: ^Anim,
 }
 
-Anim_Stack_List :: struct {
-	data: [^]^Anim_Stack,
-	count: c.size_t,
-}
+Anim_Stack_List :: []^Anim_Stack
 
 Anim_Prop :: struct {
 	element: ^Element,
@@ -2525,10 +2333,7 @@ Anim_Prop :: struct {
 	anim_value: ^Anim_Value,
 }
 
-Anim_Prop_List :: struct {
-	data: [^]Anim_Prop,
-	count: c.size_t,
-}
+Anim_Prop_List :: []Anim_Prop
 
 Anim_Layer :: struct {
 	element: Element,
@@ -2550,10 +2355,7 @@ Anim_Layer :: struct {
 	_element_id_bitmask: [4]u32,
 }
 
-Anim_Layer_List :: struct {
-	data: [^]^Anim_Layer,
-	count: c.size_t,
-}
+Anim_Layer_List :: []^Anim_Layer
 
 Anim_Value :: struct {
 	element: Element,
@@ -2561,10 +2363,7 @@ Anim_Value :: struct {
 	curves: [3]^Anim_Curve,
 }
 
-Anim_Value_List :: struct {
-	data: [^]^Anim_Value,
-	count: c.size_t,
-}
+Anim_Value_List :: []^Anim_Value
 
 // Animation curve segment interpolation mode between two keyframes
 Interpolation :: enum c.int {
@@ -2600,10 +2399,7 @@ Keyframe :: struct {
 	right: Tangent,
 }
 
-Keyframe_List :: struct {
-	data: [^]Keyframe,
-	count: c.size_t,
-}
+Keyframe_List :: []Keyframe
 
 Anim_Curve :: struct {
 	element: Element,
@@ -2613,10 +2409,7 @@ Anim_Curve :: struct {
 	max_value: Real,
 }
 
-Anim_Curve_List :: struct {
-	data: [^]^Anim_Curve,
-	count: c.size_t,
-}
+Anim_Curve_List :: []^Anim_Curve
 
 // -- Collections
 
@@ -2634,10 +2427,7 @@ Display_Layer :: struct {
 	ui_color: Vec3, // < Visual color for UI
 }
 
-Display_Layer_List :: struct {
-	data: [^]Display_Layer,
-	count: c.size_t,
-}
+Display_Layer_List :: []Display_Layer
 
 // Named set of nodes/geometry features to select.
 Selection_Set :: struct {
@@ -2647,10 +2437,7 @@ Selection_Set :: struct {
 	nodes: Selection_Node_List,
 }
 
-Selection_Set_List :: struct {
-	data: [^]^Selection_Set,
-	count: c.size_t,
-}
+Selection_Set_List :: []^Selection_Set
 
 // Selection state of a node, potentially contains vertex/edge/face selection as well.
 Selection_Node :: struct {
@@ -2669,10 +2456,7 @@ Selection_Node :: struct {
 	faces: Uint32_List,    // < Indices to `ufbx_mesh.faces`
 }
 
-Selection_Node_List :: struct {
-	data: [^]^Selection_Node,
-	count: c.size_t,
-}
+Selection_Node_List :: []^Selection_Node
 
 
 // -- Constraints
@@ -2681,10 +2465,7 @@ Character :: struct {
 	element: Element,
 }
 
-Character_List :: struct {
-	data: [^]^Character,
-	count: c.size_t,
-}
+Character_List :: []^Character
 
 // Type of property constrain eg. position or look-at
 Constraint_Type :: enum c.int {
@@ -2706,10 +2487,7 @@ Constraint_Target :: struct {
 	transform: Transform, // < Offset from the actual target
 }
 
-Constraint_Target_List :: struct {
-	data: [^]Constraint_Target,
-	count: c.size_t,
-}
+Constraint_Target_List :: []Constraint_Target
 
 // Method to determine the up vector in aim constraints
 Constraint_Aim_Up_Type :: enum c.int {
@@ -2763,10 +2541,7 @@ Constraint :: struct {
 	ik_pole_vector: Vec3,
 }
 
-Constraint_List :: struct {
-	data: [^]^Constraint,
-	count: c.size_t,
-}
+Constraint_List :: []^Constraint
 
 Audio_Layer :: struct {
 	element: Element,
@@ -2774,10 +2549,7 @@ Audio_Layer :: struct {
 	clips: Audio_Clip_List,
 }
 
-Audio_Layer_List :: struct {
-	data: [^]Audio_Layer,
-	count: c.size_t,
-}
+Audio_Layer_List :: []Audio_Layer
 
 Audio_Clip :: struct {
 	element: Element,
@@ -2806,10 +2578,7 @@ Audio_Clip :: struct {
 	content: Blob,
 }
 
-Audio_Clip_List :: struct {
-	data: [^]Audio_Clip,
-	count: c.size_t,
-}
+Audio_Clip_List :: []Audio_Clip
 
 // -- Miscellaneous
 
@@ -2826,10 +2595,7 @@ Bone_Pose :: struct {
 	bone_to_parent: Matrix,
 }
 
-Bone_Pose_List :: struct {
-	data: [^]Bone_Pose,
-	count: c.size_t,
-}
+Bone_Pose_List :: []Bone_Pose
 
 Pose :: struct {
 	element: Element,
@@ -2842,19 +2608,13 @@ Pose :: struct {
 	bone_poses: Bone_Pose_List,
 }
 
-Pose_List :: struct {
-	data: [^]^Pose,
-	count: c.size_t,
-}
+Pose_List :: []^Pose
 
 Metadata_Object :: struct {
 	element: Element,
 }
 
-Metadata_Object_List :: struct {
-	data: [^]^Metadata_Object,
-	count: c.size_t,
-}
+Metadata_Object_List :: []^Metadata_Object
 
 // -- Named elements
 
@@ -2867,10 +2627,7 @@ Name_Element :: struct {
 	element: ^Element,
 }
 
-Name_Element_List :: struct {
-	data: [^]Name_Element,
-	count: c.size_t,
-}
+Name_Element_List :: []Name_Element
 
 
 // -- Scene
@@ -2964,10 +2721,7 @@ Warning :: struct {
 	count: c.size_t,
 }
 
-Warning_List :: struct {
-	data: [^]Warning,
-	count: c.size_t,
-}
+Warning_List :: []Warning
 
 Thumbnail_Format :: enum c.int {
 	UNKNOWN, // < Unknown format
@@ -3779,10 +3533,7 @@ Baked_Vec3 :: struct {
 	flags: Baked_Key_Flags, // < Additional information about the keyframe
 }
 
-Baked_Vec3_List :: struct {
-	data: [^]Baked_Vec3,
-	count: c.size_t,
-}
+Baked_Vec3_List :: []Baked_Vec3
 
 Baked_Quat :: struct {
 	time: f64,              // < Time of the keyframe, in seconds
@@ -3790,10 +3541,7 @@ Baked_Quat :: struct {
 	flags: Baked_Key_Flags, // < Additional information about the keyframe
 }
 
-Baked_Quat_List :: struct {
-	data: [^]Baked_Quat,
-	count: c.size_t,
-}
+Baked_Quat_List :: []Baked_Quat
 
 // Baked transform animation for a single node.
 Baked_Node :: struct {
@@ -3817,10 +3565,7 @@ Baked_Node :: struct {
 	scale_keys: Baked_Vec3_List,
 }
 
-Baked_Node_List :: struct {
-	data: [^]Baked_Node,
-	count: c.size_t,
-}
+Baked_Node_List :: []Baked_Node
 
 
 // Baked property animation.
@@ -3833,10 +3578,7 @@ Baked_Prop :: struct {
 	keys: Baked_Vec3_List,
 }
 
-Baked_Prop_List :: struct {
-	data: [^]Baked_Prop,
-	count: c.size_t,
-}
+Baked_Prop_List :: []Baked_Prop
 
 // Baked property animation for a single element.
 Baked_Element :: struct {
@@ -3846,10 +3588,7 @@ Baked_Element :: struct {
 	props: Baked_Prop_List,
 }
 
-Baked_Element_List :: struct {
-	data: [^]Baked_Element,
-	count: c.size_t,
-}
+Baked_Element_List :: []Baked_Element
 
 Baked_Anim_Metadata :: struct {
 	// Memory statistics
@@ -4235,10 +3974,7 @@ Prop_Override_Desc :: struct {
 	value_int: i64,
 }
 
-Prop_Override_Desc_List :: struct {
-	data: [^]Prop_Override_Desc,
-	count: c.size_t,
-}
+Prop_Override_Desc_List :: []Prop_Override_Desc
 
 Anim_Opts :: struct {
 	_begin_zero: u32,
@@ -5000,12 +4736,12 @@ get_skin_vertex_matrix :: proc(skin: ^Skin_Deformer, vertex: c.size_t, fallback:
 }
 
 // Utility functions for reading geometry data for a single index.
-get_vertex_real :: proc(v: ^Vertex_Real, index: c.size_t) -> Real { assert(index < v.indices.count); return v.values.data[v.indices.data[index]] }
-get_vertex_vec2 :: proc(v: ^Vertex_Vec2, index: c.size_t) -> Vec2 { assert(index < v.indices.count); return v.values.data[v.indices.data[index]] } 
-get_vertex_vec3 :: proc(v: ^Vertex_Vec3, index: c.size_t) -> Vec3 { assert(index < v.indices.count); return v.values.data[v.indices.data[index]] } 
-get_vertex_vec4 :: proc(v: ^Vertex_Vec4, index: c.size_t) -> Vec4 { assert(index < v.indices.count); return v.values.data[v.indices.data[index]] } 
+get_vertex_real :: proc(v: ^Vertex_Real, index: c.size_t) -> Real { return v.values[v.indices[index]] }
+get_vertex_vec2 :: proc(v: ^Vertex_Vec2, index: c.size_t) -> Vec2 { return v.values[v.indices[index]] } 
+get_vertex_vec3 :: proc(v: ^Vertex_Vec3, index: c.size_t) -> Vec3 { return v.values[v.indices[index]] } 
+get_vertex_vec4 :: proc(v: ^Vertex_Vec4, index: c.size_t) -> Vec4 { return v.values[v.indices[index]] } 
 
-get_vertex_w_vec3 :: proc(v: ^Vertex_Vec3, index: c.size_t) -> Real  { assert(index < v.indices.count); return v.values_w.data[v.indices.data[index]] if v.values_w.count > 0 else 0 }
+get_vertex_w_vec3 :: proc(v: ^Vertex_Vec3, index: c.size_t) -> Real  { return v.values_w[v.indices[index]] if len(v.values_w) > 0 else 0 }
 
 // -- Properties
 
