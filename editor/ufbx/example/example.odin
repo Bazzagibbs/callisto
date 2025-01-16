@@ -16,14 +16,13 @@ load_mesh :: proc() -> (indices: []u32, positions: [][3]f32, normals: [][3]f32, 
 	err := fbx.Error{}
 	scene := fbx.load_file("example/suzanne.fbx", &opts, &err)
 	if scene == nil {
-		fmt.printf("%s\n", err.description.data)
+		fmt.printf("%s\n", err.description)
 		panic("Failed to load")
 	}
 
 	// Retrieve the first mesh
 	mesh: ^fbx.Mesh
-	for i in 0 ..< scene.nodes.count {
-		node := scene.nodes.data[i]
+	for node in scene.nodes {
 		if node.is_root || node.mesh == nil { continue }
 		mesh = node.mesh
 		break
@@ -33,8 +32,7 @@ load_mesh :: proc() -> (indices: []u32, positions: [][3]f32, normals: [][3]f32, 
 	index_count := 3 * mesh.num_triangles
 	indices = make([]u32, index_count)
 	off := u32(0)
-	for i in 0 ..< mesh.faces.count {
-		face := mesh.faces.data[i]
+	for face in mesh.faces {
 		tris := fbx.catch_triangulate_face(nil, &indices[off], uint(index_count), mesh, face)
 		off += 3 * tris
 	}
@@ -46,9 +44,9 @@ load_mesh :: proc() -> (indices: []u32, positions: [][3]f32, normals: [][3]f32, 
 	uvs = make([][2]f32, vertex_count)
 
 	for i in 0..< vertex_count {
-		pos := mesh.vertex_position.values.data[mesh.vertex_position.indices.data[i]]
-		norm := mesh.vertex_normal.values.data[mesh.vertex_normal.indices.data[i]]
-		uv := mesh.vertex_uv.values.data[mesh.vertex_uv.indices.data[i]]
+		pos := mesh.vertex_position.values[mesh.vertex_position.indices[i]]
+		norm := mesh.vertex_normal.values[mesh.vertex_normal.indices[i]]
+		uv := mesh.vertex_uv.values[mesh.vertex_uv.indices[i]]
 		positions[i] = {f32(pos.x), f32(pos.y), f32(pos.z)}
 		normals[i] = {f32(norm.x), f32(norm.y), f32(norm.z)}
 		uvs[i] = {f32(uv.x), f32(uv.y)}
