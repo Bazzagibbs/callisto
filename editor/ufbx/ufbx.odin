@@ -4,15 +4,9 @@ import "core:c"
 
 // Basic Types
 
-String :: struct {
-	data: cstring,
-	length: c.size_t,
-}
+String :: string
 
-Blob :: struct {
-	data: rawptr,
-	size: c.size_t,
-}
+Blob :: []u8
 
 Real :: f64
 Vec2 :: [2]Real
@@ -1452,10 +1446,7 @@ Blend_Shape :: struct {
 	normal_offsets: Vec3_List,    // < Empty if not specified
 }
 
-Blend_Shape_List :: struct {
-	data:[^]^Blend_Shape,
-	count: c.size_t,
-}
+Blend_Shape_List :: []^Blend_Shape 
 
 Cache_File_Format :: enum c.int {
 	UNKNOWN, // < Unknown cache file format
