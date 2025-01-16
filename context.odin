@@ -39,29 +39,19 @@ callisto_context_destroy :: proc "contextless" (ctx: ^runtime.Context, track: ^m
         // callisto_logger_destroy(&ctx.logger)
 }
 
-callisto_logger_options :: proc "contextless" () -> (opts: log.Options, level: log.Level) {
-        when ODIN_DEBUG {
-                opts = log.Options {
-                        .Terminal_Color,
-                        .Level,
-                        .Time,
-                        .Line,
-                        // .Procedure,
-                        .Short_File_Path,
-                }
-        } else {
-                opts = log.Options {
-                        .Terminal_Color,
-                        .Level,
-                        .Time,
-                }
-        }
 
-        when config.VERBOSE {
-                level = log.Level.Debug
-        } else {
-                level = log.Level.Info
-        }
 
-        return
+Logger_Options_DEFAULT :: log.Options {
+        .Terminal_Color,
+        .Level,
+        .Time,
+        .Line,
+        // .Procedure,
+        .Short_File_Path,
+}
+
+when config.VERBOSE {
+        Logger_Level_DEFAULT :: log.Level.Debug
+} else {
+        Logger_Level_DEFAULT :: log.Level.Info
 }

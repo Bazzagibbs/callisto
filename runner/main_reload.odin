@@ -25,8 +25,7 @@ when HOT_RELOAD {
                 
                 runner := default_runner() 
 
-                opts, level := cal.callisto_logger_options()
-                cal.callisto_logger_init(&runner, &ctx.logger, "log", level, opts)
+                cal.callisto_logger_init(&runner, &ctx.logger, "log", cal.Logger_Level_DEFAULT, cal.Logger_Options_DEFAULT)
                 defer cal.callisto_logger_destroy(&ctx.logger)
                 runner.ctx = ctx
                 context    = ctx
