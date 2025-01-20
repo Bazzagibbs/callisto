@@ -64,3 +64,12 @@ Window_Style_Flags_DEFAULT :: Window_Style_Flags {.Border, .Resize_Edges, .Menu,
 Window_Position_AUTO       :: [2]int{max(int), max(int)}
 Window_Size_AUTO           :: [2]int{max(int), max(int)}
 
+Bounds2D :: struct {
+        center      : [2]f32,
+        half_extent : [2]f32,
+}
+
+Bounds3D :: struct {
+        center      : [3]f32,
+        half_extent : [3]f32,
+}

@@ -19,7 +19,7 @@ Mesh_Flag :: enum {
 
 Mesh :: struct {
         submeshes : []Submesh,
-        extent    : Extent3D,
+        bounds    : Bounds3D,
         flags     : Mesh_Flags,
 }
 

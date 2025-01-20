@@ -48,6 +48,8 @@ Input_Hand           :: common.Input_Hand
 Input_Vector1        :: common.Input_Vector1
 Input_Vector2        :: common.Input_Vector2
 Input_Vector3        :: common.Input_Vector3
+Bounds2D             :: common.Bounds2D
+Bounds3D             :: common.Bounds3D
 
 
 check_error :: proc {
