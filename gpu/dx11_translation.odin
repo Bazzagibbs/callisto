@@ -6,6 +6,7 @@ import "vendor:directx/dxgi"
 
 // when RHI_BACKEND == "d3d11" {
 
+@(rodata)
 _Format_To_Dx11 := [Texture_Format_Flag]dxgi.FORMAT {
         .Unknown              = .UNKNOWN,
 
@@ -127,12 +128,13 @@ _Format_To_Dx11 := [Texture_Format_Flag]dxgi.FORMAT {
         .BC7_UNORM_SRGB       = .BC7_UNORM_SRGB,
 }
 
-_multisample_to_dx11 := #force_inline proc(flag: Multisample_Flag) -> u32 {
+_multisample_to_dx11 :: #force_inline proc(flag: Multisample_Flag) -> u32 {
         return 1 << u32(flag)
 }
 
 
 // use *_flags proc instead!
+@(rodata)
 _Texture_Usage_To_Dx11 := [Texture_Usage_Flag]dx.BIND_FLAG {
         .Render_Target        = .RENDER_TARGET,
         .Depth_Stencil_Target = .DEPTH_STENCIL,
@@ -158,6 +160,7 @@ _Usage_Access_Pair :: struct {
         access : dx.CPU_ACCESS_FLAGS,
 }
 
+@(rodata)
 _Resource_Access_To_Dx11 := [Resource_Access_Flag]_Usage_Access_Pair {
         .Device_General   = { .DEFAULT, {} },
         .Device_Immutable = { .IMMUTABLE, {} },
@@ -166,6 +169,7 @@ _Resource_Access_To_Dx11 := [Resource_Access_Flag]_Usage_Access_Pair {
 }
 
 // use *_flags proc instead!
+@(rodata)
 _Buffer_Usage_To_Dx11 := [Buffer_Usage_Flag]dx.BIND_FLAG {
         .Vertex           = .VERTEX_BUFFER,
         .Index            = .INDEX_BUFFER,
@@ -197,6 +201,7 @@ _sampler_filter_to_dx11 :: proc(min_filter, mag_filter, mip_filter: Sampler_Filt
 }
 
 
+@(rodata)
 _Sampler_Address_Flag_To_Dx11 := [Sampler_Address_Flag]dx.TEXTURE_ADDRESS_MODE {
         .Wrap            = .WRAP,
         .Mirror          = .MIRROR,
@@ -209,6 +214,7 @@ _sampler_aniso_to_dx11 :: proc(aniso: Sampler_Anisotropy_Flag) -> u32 {
         return 1 << u32(aniso)
 }
 
+@(rodata)
 _Sampler_Border_Color_Flag_To_Dx11 := [Sampler_Border_Color_Flag][4]f32 {
         .Black_Opaque      = {0, 0, 0, 1},
         .White_Opaque      = {1, 1, 1, 1},
@@ -275,6 +281,7 @@ _depth_aspect_to_dx11 :: proc(aspect: Depth_Stencil_Aspect_Flags) -> dx.CLEAR_FL
         return flags
 }
 
+@(rodata)
 _Blend_To_Dx11 := [Blend_Flag]dx.BLEND {
         .Zero                     = .ZERO,
         .One                      = .ONE,
@@ -295,6 +302,7 @@ _Blend_To_Dx11 := [Blend_Flag]dx.BLEND {
         .One_Minus_Src1_Alpha     = .INV_SRC1_ALPHA,
 }
 
+@(rodata)
 _Blend_Op_To_Dx11 := [Blend_Op_Flag]dx.BLEND_OP {
         .Add              = .ADD,
         .Subtract         = .SUBTRACT,
@@ -303,6 +311,7 @@ _Blend_Op_To_Dx11 := [Blend_Op_Flag]dx.BLEND_OP {
         .Max              = .MAX,
 }
 
+@(rodata)
 _Compare_Op_To_Dx11 := [Compare_Op_Flag]dx.COMPARISON_FUNC {
         .Never            = .NEVER,
         .Less             = .LESS,
@@ -314,6 +323,7 @@ _Compare_Op_To_Dx11 := [Compare_Op_Flag]dx.COMPARISON_FUNC {
         .Always           = .ALWAYS,
 }
 
+@(rodata)
 _Stencil_Op_To_Dx11 := [Stencil_Op_Flag]dx.STENCIL_OP {
         .Keep               = .KEEP,
         .Zero               = .ZERO,
