@@ -3,6 +3,9 @@
 package callisto_gpu
 
 import "core:log"
+import "../common"
+
+assert_messagebox :: common.assert_messagebox
 
 len32 :: proc {
         len32_slice,

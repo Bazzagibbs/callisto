@@ -9,6 +9,7 @@ import "core:mem"
 import dx "vendor:directx/d3d11"
 import dxgi "vendor:directx/dxgi"
 import win "core:sys/windows"
+import "../common"
 
 import "core:fmt"
 
@@ -19,7 +20,7 @@ check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string, loc: runtime
                 return .Ok
         }        
         
-        log.error(message, "-", parse_hresult(hres), location = loc)
+        log.error(message, "-", common.parse_hresult(hres), location = loc)
         
         _flush_debug_messages(d, loc = loc)
 
@@ -38,24 +39,6 @@ check_result :: proc(d: ^Device, hres: dx.HRESULT, message: string, loc: runtime
 
 
         return .Unknown_RHI_Error
-}
-
-parse_hresult :: #force_inline proc(hres: win.HRESULT, allocator := context.temp_allocator) -> string {
- buf: win.wstring
-        msg_len := win.FormatMessageW(
-                flags   =  win.FORMAT_MESSAGE_FROM_SYSTEM | win.FORMAT_MESSAGE_IGNORE_INSERTS | win.FORMAT_MESSAGE_ALLOCATE_BUFFER,
-                lpSrc   =  nil,
-                msgId   =  u32(hres),
-                langId  =  0,
-                buf     =  (win.LPWSTR)(&buf),
-                nsize   =  0,
-                args    =  nil
-        )
-
-        out_str, _ := win.utf16_to_utf8(buf[:msg_len], allocator)
-        win.LocalFree(buf)
-
-        return out_str
 }
 
 hres_succeeded :: #force_inline proc(hres: dx.HRESULT) -> bool {
@@ -132,11 +115,6 @@ _flush_debug_messages :: proc(d: ^Device, loc := #caller_location) {
                         d._impl.gi_info_queue->ClearStoredMessages(dxgi.DEBUG_ALL)
                 }
         }
-}
-
-
-_Window_Impl :: struct {
-        hwnd: win.HWND,
 }
 
 

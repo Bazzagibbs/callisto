@@ -2,29 +2,16 @@ package callisto_gpu
 
 import "base:runtime"
 import "core:log"
+import "../common"
+import "../config"
 
-RHI_BACKEND               :: #config(RHI_BACKEND, "d3d11")
-RHI_TRACK_RESOURCES       :: #config(RHI_TRACK_RESOURCES, false)
-// Can be enabled in Release mode with RHI_VALIDATION, and disabled in Debug mode with RHI_NO_VALIDATION
-RHI_VALIDATION            :: (ODIN_DEBUG || #config(RHI_VALIDATION, false)) && !#config(RHI_NO_VALIDATION, false)
+RHI_BACKEND         :: config.RHI_BACKEND
+RHI_TRACK_RESOURCES :: config.RHI_TRACK_RESOURCES
+RHI_VALIDATION      :: config.RHI_VALIDATION
 
-// This is identical to `callisto::Window` and can be transmuted. Redefined here so it can be an independent package.
-Window :: struct {
-        _impl: _Window_Impl,
-}
-
-Result :: enum {
-        Ok,
-        Unknown_RHI_Error,
-        Out_Of_Memory_GPU,
-        Out_Of_Memory_CPU,
-        File_Not_Found,
-        Memory_Map_Failed,
-        Argument_Invalid,
-        Argument_Not_Supported,
-        Synchronization_Error,
-        No_Suitable_GPU,
-}
+Result :: common.Result
+Runner :: common.Runner
+Window :: common.Window
 
 // TODO: add location := #caller_location to all create procs
 
