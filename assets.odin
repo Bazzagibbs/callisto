@@ -7,6 +7,7 @@ import "core:strings"
 import "common"
 import "gpu"
 
+// Serializable reference to an asset on disk. Once loaded, can be resolved to a `Reference(T)`.
 Reference_Info :: struct($T: typeid) {
         asset_id : Uuid,
 }
