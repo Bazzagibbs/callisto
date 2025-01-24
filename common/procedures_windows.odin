@@ -1,6 +1,7 @@
 package callisto_common
 
 import "base:intrinsics"
+import "base:runtime"
 import win "core:sys/windows"
 import "core:path/filepath"
 import "core:os/os2"
@@ -8,7 +9,7 @@ import "../config"
 import "core:fmt"
 
 // Allocates using the provided allocator
-get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string) {
+_get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string) {
         buf : [win.MAX_PATH]win.WCHAR
         len := win.GetModuleFileNameW(nil, &buf[0], win.MAX_PATH)
 
@@ -19,7 +20,7 @@ get_exe_directory :: proc(allocator := context.allocator) -> (exe_dir: string) {
 }
 
 // Allocates using the provided allocator, panics on failure.
-get_persistent_directory :: proc(create_if_not_exist := true, allocator := context.allocator) -> (data_dir: string) {
+_get_persistent_directory :: proc(create_if_not_exist := true, allocator := context.allocator) -> (data_dir: string) {
         path : ^win.WCHAR
         guid := win.FOLDERID_LocalAppData
 
@@ -72,4 +73,26 @@ parse_hresult :: #force_inline proc(hres: win.HRESULT, allocator := context.temp
         win.LocalFree(buf)
 
         return out_str
+}
+
+
+@(private)
+_copy_directory :: proc(dst_dir, src_dir: string) -> Result {
+        // These need to be double-null terminated
+        src_dir_w := win.utf8_to_wstring(fmt.tprintf("%s\x00", src_dir), context.temp_allocator)
+        dst_dir_w := win.utf8_to_wstring(fmt.tprintf("%s\x00", dst_dir), context.temp_allocator)
+
+        fileop := win.SHFILEOPSTRUCTW {
+                hwnd   = nil,
+                wFunc  = win.FO_COPY,
+                pFrom  = src_dir_w,
+                pTo    = dst_dir_w,
+                fFlags = win.FOF_NO_UI,
+        }
+        res := win.SHFileOperationW(&fileop)
+        if res != 0 {
+                return .Platform_Error
+        }
+
+        return .Ok
 }

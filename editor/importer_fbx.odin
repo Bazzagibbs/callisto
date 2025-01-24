@@ -1,70 +1,64 @@
 package callisto_editor
 
+import "core:io"
+import "core:bufio"
 import "core:os/os2"
 import "core:fmt"
 import "core:container/queue"
 import "core:log"
 import "core:math/linalg"
+import "core:bytes"
+import "core:encoding/json"
 import "base:runtime"
 
 import "ufbx"
 import cal ".."
 
 
-check_result_ufbx :: proc(u_err: ^ufbx.Error) -> Result {
-        if u_err.type == .NONE {
-                return .Ok
-        }
-
-        log.error("FBX: Load scene failed:", u_err.description)
-        switch u_err.type {
-        case .NONE, .UNKNOWN: 
-                return .File_Invalid
-        case .FILE_NOT_FOUND, .EXTERNAL_FILE_NOT_FOUND: 
-                return .File_Not_Found
-        case .EMPTY_FILE: 
-                return .File_Invalid
-        case .OUT_OF_MEMORY, .MEMORY_LIMIT, .ALLOCATION_LIMIT:
-                return .Out_Of_Memory_CPU
-        case .TRUNCATED_FILE:
-                return .File_Invalid
-        case .IO:
-                return .Platform_Error
-        case .CANCELLED:
-                return .User_Interrupt
-        case .UNRECOGNIZED_FILE_FORMAT:
-                return .File_Invalid
-        case .UNINITIALIZED_OPTIONS:
-                return .Argument_Invalid
-        case .ZERO_VERTEX_SIZE, .TRUNCATED_VERTEX_STREAM, .INVALID_UTF8:
-                return .Argument_Invalid
-        case .FEATURE_DISABLED:
-                return .Configuration_Invalid
-        case .BAD_NURBS:
-                return .Argument_Invalid
-        case .BAD_INDEX:
-                return .File_Invalid
-        case .NODE_DEPTH_LIMIT:
-                return .Configuration_Invalid
-        case .THREADED_ASCII_PARSE:
-                return .File_Invalid
-        case .UNSAFE_OPTIONS:
-                return .Configuration_Invalid
-        case .DUPLICATE_OVERRIDE:
-                return .Argument_Invalid
-        }
-
-        return .File_Invalid
-}
-
 Asset :: struct {}
 
-Fbx_Import_Metadata :: struct {
+Import_Info_Fbx :: struct {
+        // // settings
+        // // ids
+        construct_uuid: cal.Uuid,
+        // subasset_uuids: map[string]uuid.Identifier,
 }
 
-import_fbx :: proc(file: ^os2.File, meta: Fbx_Import_Metadata) -> (construct: cal.Construct, meshes: []cal.Mesh, res: Result) {
-        file_data, err := os2.read_entire_file_from_file(file, context.allocator)
-        // check_result(err) or_return
+import_info_fbx_destroy :: proc(info: ^Import_Info_Fbx) {
+        // delete(info.subasset_uuids)
+}
+
+
+write_default_import_info_fbx :: proc(w_file: ^os2.File) -> Result {
+        info := Import_Info_Fbx {
+                construct_uuid = cal.uuid_generate()
+        }
+
+        data, err := json.marshal(info, json_marshal_opts_default(), context.temp_allocator)
+        check_result(err, "Failed to marshal default Import info") or_return
+
+        _, err2 := os2.write(w_file, data)
+        check_result(err2, "Failed to write default Import info to file") or_return
+
+        return .Ok
+}
+
+
+import_fbx :: proc(file: ^os2.File, import_info_file: ^os2.File, out_filepath: string) -> (res: Result) {
+        construct : cal.Construct
+        meshes : []cal.Mesh
+
+        info_bytes, err := os2.read_entire_file(import_info_file, context.temp_allocator)
+        check_result(err, "Failed to read Import info file") or_return
+
+        // TODO: how to handle invalid import info files?
+        info : Import_Info_Fbx
+        err1 := json.unmarshal(info_bytes, &info, Json_Unmarshal_Spec, context.allocator)
+        check_result(err1, "Failed to unmarshal Import info file") or_return
+        defer import_info_fbx_destroy(&info)
+
+        file_data, err2 := os2.read_entire_file_from_file(file, context.allocator)
+        check_result(err2, "Failed to read Resource file") or_return
         defer delete(file_data)
 
         target_axes := ufbx.Coordinate_Axes {
@@ -82,12 +76,12 @@ import_fbx :: proc(file: ^os2.File, meta: Fbx_Import_Metadata) -> (construct: ca
         
         u_err: ufbx.Error
         scene := ufbx.load_memory(raw_data(file_data), len(file_data), &load_opts, &u_err)
-        check_result(&u_err) or_return
+        check_result(&u_err, "FBX: Failed to load scene") or_return
         defer ufbx.free_scene(scene)
 
 
         // NODES -> construct transforms
-        construct_build_from_fbx(scene)
+        // construct_build_from_fbx(scene)
 
         // MESHES -> construct asset ref + mesh asset
         // meshes = make([]cal.Mesh, len(scene.meshes))
@@ -97,7 +91,11 @@ import_fbx :: proc(file: ^os2.File, meta: Fbx_Import_Metadata) -> (construct: ca
         // BLEND CHANNELS -> mesh blend shapes
 
 
-        return {}, {}, .Ok
+        // Generate subasset UUIDs if required
+        // Write UUIDs to metadata file
+        // Write subassets to output files
+
+        return .Ok
 }
 
 
@@ -155,9 +153,17 @@ construct_build_from_fbx :: proc(scene: ^ufbx.Scene) -> (construct: cal.Construc
 
 
 
-        cal.construct_resolve(&construct)
+        cal.construct_recalculate_matrices(&construct)
 
         log.infof("%#v", construct)
 
         return construct, .Ok
+}
+
+@(init)
+_register_fbx :: proc() {
+        importers[".fbx"] = {
+                write_default_import_info_proc = write_default_import_info_fbx,
+                importer_proc                  = import_fbx,
+        }
 }

@@ -3,6 +3,7 @@ package callisto
 import "core:mem"
 
 import "common"
+import "gpu"
 
 Result             :: common.Result
 Exit_Code          :: common.Exit_Code
@@ -51,22 +52,90 @@ Input_Vector3        :: common.Input_Vector3
 Bounds2D             :: common.Bounds2D
 Bounds3D             :: common.Bounds3D
 
-
-check_error :: proc {
-        check_error_allocator,
+Reference :: struct($T: typeid) {
+        asset_id   : Uuid,
+        runtime_id : int,
 }
 
-check_error_allocator :: proc "contextless" (err: mem.Allocator_Error) -> Result {
-        switch err {
-        case .None, .Mode_Not_Implemented: 
-                return .Ok
-
-        case .Out_Of_Memory: 
-                return .Out_Of_Memory_CPU
-
-        case .Invalid_Pointer, .Invalid_Argument: 
-                return .Argument_Invalid
+Mesh_Flags :: bit_set[Mesh_Flag]
+Mesh_Flag :: enum {
+        // Enable_Armature,
+        // Enable_Blend_Shapes,
 }
 
-        return .Ok
+Mesh :: struct {
+        submeshes : []Submesh,
+        bounds    : Bounds3D,
+        flags     : Mesh_Flags,
 }
+
+Submesh :: struct {
+        attributes     : gpu.Vertex_Attribute_Flags,
+        vertex_buffers : [gpu.Vertex_Attribute_Flag][]u8,
+        index_buffer   : []u8,
+        armature       : Construct,
+        // blend_shapes : []Blend_Shape,
+}
+
+
+Shader_Pipeline :: struct {
+        vertex_shader   : gpu.Vertex_Shader,
+        fragment_shader : gpu.Fragment_Shader,
+}
+
+Texture_Flags :: bit_set[Texture_Flag]
+Texture_Flag :: enum {
+        Cpu_Readable,
+}
+
+Texture2D :: struct {
+        // data: ,
+        flags: Texture_Flags,
+        // Non-serialized
+        gpu_texture: gpu.Texture2D,
+}
+
+Material :: struct {
+        shader_pipeline : Reference(Shader_Pipeline),
+        textures        : []Reference(Texture2D),
+        // Non-serialized
+        constants       : gpu.Buffer,
+}
+
+Mesh_Renderer :: struct {
+        mesh            : Reference(Mesh),
+        materials       : []Reference(Material), // len == len(mesh.submeshes)
+        construct       : Reference(Construct),
+        transform_index : i32,
+}
+
+Attachment :: union {
+        Mesh_Renderer,
+        // Collider,
+        // Hardpoint, // Allows other constructs to be attached to a transform within this construct
+}
+
+
+Construct :: struct {
+        transforms     : []Transform,
+        attachments    : []Attachment, // Attachments aren't "components" - they describe another asset's reference to a transform in this construct.
+        local_matrices : []matrix[4,4]f32,
+        world_matrices : []matrix[4,4]f32,
+}
+
+Transform_Flags :: bit_set[Transform_Flag]
+Transform_Flag :: enum {
+        Dirty, // When a transform is modified, its matrix and all children are invalidated. They will be recomputed just before they are drawn.
+}
+
+Transform :: struct {
+        name           : string,
+        parent_index   : i32, // -1 when this is root node
+        child_index    : i32,
+        child_count    : i32, // 0 when this is a leaf node
+        flags          : Transform_Flags,
+        local_position : [3]f32,
+        local_rotation : quaternion128,
+        local_scale    : [3]f32,
+}
+

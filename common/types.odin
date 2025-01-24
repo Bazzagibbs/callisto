@@ -5,11 +5,14 @@ import "core:image"
 
 Result :: enum {
         Ok,
+        Unknown_Error,
         Unknown_RHI_Error,
+        User_Interrupt,
         File_Not_Found,
         File_Invalid, // File exists but is not valid
         Argument_Invalid,
         Argument_Not_Supported, // e.g. triple-buffered vsync on some devices
+        State_Invalid, // Some state is not currently configured to allow an operation
         Parse_Error,
         Permission_Denied,
         No_Suitable_GPU,
@@ -73,3 +76,5 @@ Bounds3D :: struct {
         center      : [3]f32,
         half_extent : [3]f32,
 }
+
+Uuid :: distinct u128

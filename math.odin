@@ -40,3 +40,8 @@ matrix4_orthographic :: proc(scale_y, aspect, near, far: f32) -> matrix[4,4]f32 
                 0,       0,       0,       1
         }
 }
+        
+
+matrix4_from_euler_angles_yaw_pitch :: proc(yaw: f32, pitch: f32) -> matrix[4, 4]f32 {
+        return linalg.matrix4_from_euler_angles_zx_f32(yaw, pitch)
+}

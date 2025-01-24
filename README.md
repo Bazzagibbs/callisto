@@ -164,7 +164,6 @@ This directory is in the following location:
 - Developer console + convars
 - Asset saving and loading
 - Retained 2D/UI/sprite rendering
-- Maybe ECS for scene management - gameplay will probably be managed outside of the ECS
 - HDRI skybox lighting
 - Audio
 - SHIP A GAME
