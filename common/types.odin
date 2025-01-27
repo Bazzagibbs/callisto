@@ -27,12 +27,7 @@ Result :: enum {
         Synchronization_Error,
 }
 
-
-Engine :: struct {
-        runner    : ^Runner,
-        allocator : runtime.Allocator,
-}
-
+// Engine :: struct // defined in `callisto`
 
 Engine_Create_Info :: struct {
         runner            : ^Runner, // required
@@ -40,7 +35,6 @@ Engine_Create_Info :: struct {
         icon              : ^image.Image,
         event_behaviour   : Event_Behaviour,
 }
-
 
 Window :: struct {
         _impl : _Window_Impl,

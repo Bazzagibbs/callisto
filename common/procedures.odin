@@ -1,6 +1,7 @@
 package callisto_common
 
 import "base:runtime"
+import "core:mem"
 import "core:log"
 import "core:encoding/uuid"
 import "core:os/os2"
@@ -9,7 +10,24 @@ import "core:path/filepath"
 
 
 check_result :: proc {
+        check_result_os,
         check_result_os2,
+        check_result_allocator,
+}
+
+check_result_os :: proc(errno: os.Errno) -> Result {
+        switch errno {
+        case os.ERROR_NONE:
+                return .Ok
+        case os.ERROR_NOT_FOUND, os.ERROR_FILE_NOT_FOUND:
+                return .File_Not_Found
+        case os.ERROR_INVALID_HANDLE:
+                return .File_Invalid
+        case os.Platform_Error(32):
+                return .Permission_Denied
+        }
+
+        return .Unknown_Error
 }
 
 check_result_os2 :: proc(err: os2.Error, message: string, location := #caller_location) -> Result {
@@ -34,6 +52,21 @@ check_result_os2 :: proc(err: os2.Error, message: string, location := #caller_lo
         }
 
         return .Unknown_Error
+}
+
+check_result_allocator :: proc "contextless" (err: mem.Allocator_Error) -> Result {
+        switch err {
+        case .None, .Mode_Not_Implemented: 
+                return .Ok
+
+        case .Out_Of_Memory: 
+                return .Out_Of_Memory_CPU
+
+        case .Invalid_Pointer, .Invalid_Argument: 
+                return .Argument_Invalid
+        }
+
+        return .Ok
 }
 
 uuid_generate :: proc(gen := context.random_generator) -> Uuid {

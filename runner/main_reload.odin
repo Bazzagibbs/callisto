@@ -60,7 +60,7 @@ when HOT_RELOAD {
 
                         // watch dll for changes
                         if timestamp, changed := watch_dll_changed(&runner, original_dll_path); changed {
-                                new_runner_symbols : cal.Dll_Symbol_Table
+                                new_runner_symbols : common.Dll_Symbol_Table
                                 new_runner_timestamp : os.File_Time
                                 new_runner_version := runner.version + 1
 
@@ -102,7 +102,7 @@ when HOT_RELOAD {
         }
 
 
-        app_dll_load :: proc(version_number: int, directory: string, symbols: ^cal.Dll_Symbol_Table, timestamp: ^os.File_Time) -> (res: Dll_Result) {
+        app_dll_load :: proc(version_number: int, directory: string, symbols: ^common.Dll_Symbol_Table, timestamp: ^os.File_Time) -> (res: Result) {
 
                 dll_copy_name := fmt.tprintf(DLL_COPY_FMT, directory, version_number)
                 dll_original_name := fmt.tprintf(DLL_ORIGINAL_FMT, directory)
@@ -111,16 +111,16 @@ when HOT_RELOAD {
                 err_copy := os2.copy_file(dll_copy_name, dll_original_name)
                 if err_copy != nil {
                         log.error("File copy failed:", err_copy)
-                        return .IO_Error
+                        return .Platform_Error
                 }
                 
                 last_mod_time, err0 := os.last_write_time_by_name(dll_original_name)
-                check_result_os(err0) or_return
+                check_result(err0) or_return
                 
                 timestamp^ = last_mod_time
 
                 _, ok := dynlib.initialize_symbols(symbols, dll_copy_name, handle_field_name="lib")
-                if !ok do return .Initialize_Symbols_Failed
+                if !ok do return .File_Invalid
 
                 return .Ok
         }

@@ -18,6 +18,10 @@ HOT_RELOAD :: #config(HOT_RELOAD, false)
 NO_STDOUT :: ODIN_OS == .Windows && ODIN_WINDOWS_SUBSYSTEM == "windows"
 
 
+Result :: common.Result
+check_result :: common.check_result
+
+
 default_runner :: proc (ctx := context) -> cal.Runner {
         runner := cal.Runner {
                 ctx                = ctx,
