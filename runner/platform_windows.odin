@@ -11,6 +11,7 @@ import "core:c"
 import "core:unicode/utf8"
 import "core:math"
 import "../common"
+import "../ui/imgui/imgui_impl_win32"
 
 import cal ".."
 
@@ -21,6 +22,21 @@ MAX_EVENTS_PER_FRAME :: 128
 @(private="file")
 _window_proc :: proc "stdcall" (hwnd: win.HWND, uMsg: win.UINT, wparam: win.WPARAM, lparam: win.LPARAM) -> (result: win.LRESULT)  {
         result = 0
+
+        context = runtime.default_context()
+
+        if uMsg == win.WM_KEYDOWN {
+                fmt.println("Key down")
+        }
+       
+        // IMGUI
+        imgui_result := imgui_impl_win32.WndProcHandler(hwnd, uMsg, wparam, lparam)
+        if imgui_result == 1 {
+                fmt.println("Imgui handled")
+                return 1
+        }
+        // =====
+
 
         switch uMsg {
         case win.WM_CREATE:
@@ -298,7 +314,6 @@ window_create :: proc (runner: ^cal.Runner, create_info: ^cal.Window_Create_Info
         }
 
         style := _window_style_to_win32(create_info.style)
-        test_style := win.WS_OVERLAPPEDWINDOW | win.WS_VISIBLE
 
 
         window._impl.hwnd = win.CreateWindowExW(

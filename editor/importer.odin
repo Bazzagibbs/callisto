@@ -2,6 +2,7 @@ package callisto_editor
 
 import "core:log"
 
+import "core:io"
 import "core:os"
 import "core:os/os2"
 import "core:path/filepath"
@@ -20,13 +21,19 @@ Importer :: struct {
         importer_proc                  : Importer_Proc,
 }
 
-// Callback to write the default import info to a provided file.
-Importer_Write_Default_Import_Info_Proc :: #type proc(w_file: ^os2.File) -> Result
+// A struct containing the info required to transform a single resource file into one or more asset files.
+Import_Builder :: struct {
+        source_data: io.Reader,
+        import_info: io.Read_Write_Seeker,
+        source_path_rel : string,
+        output_base: string, // used by `asset_create()`
+}
 
-// `file` is the raw asset data in its original format.
-// `import_file` is `file`'s corresponding import metadata.
-// `out_filepath` is an absolute filepath WITHOUT an extension. Any assets generated from a source file should append to this, then add the `.cal` file extension. E.g. `fmt.tprintf("%s.%s.cal", out_filepath, subasset_name)`
-Importer_Proc :: #type proc(file: ^os2.File, import_file: ^os2.File, out_filepath: string) -> Result
+// Callback to write the default import info to a provided Writer.
+Importer_Write_Default_Import_Info_Proc :: #type proc(w: io.Writer) -> Result
+
+// Call `asset_create()` from within an importer to create a writable asset file in the correct directory.
+Importer_Proc :: #type proc(import_builder: ^Import_Builder) -> Result
 
 
 json_marshal_opts_default :: proc() -> json.Marshal_Options {
@@ -120,20 +127,27 @@ import_file :: proc(res_src, res_dst, asset_path: string) -> Result {
                 return .File_Invalid
         }
 
-        import_info_file: ^os2.File
-        err: os2.Error
+        import_info_file : ^os2.File
+        err              : os2.Error
+
+        import_info      : io.Read_Write_Seeker
 
         // if import info file doesn't exist, create a default importer file.
         if os2.exists(import_info_path_abs) {
                 import_info_file, err = os2.open(import_info_path_abs, {.Read, .Write})
                 check_result(err, "Failed to open Import info file") or_return
+                import_info_stream := os2.to_stream(import_info_file)
+                import_info        = io.to_read_write_seeker(import_info_stream)
         } else {
                 import_info_file, err = os2.create(import_info_path_abs)
                 check_result(err, "Failed to create Import info file") or_return
-                importer.write_default_import_info_proc(import_info_file) or_return
-                os2.seek(import_info_file, 0, .Start)
+                import_info_stream := os2.to_stream(import_info_file)
+                import_info         = io.to_read_write_seeker(import_info_stream)
+                importer.write_default_import_info_proc(import_info) or_return
+                io.seek(import_info, 0, .Start)
         }
         defer os2.close(import_info_file)
+        
 
         asset_path_abs := filepath.join({res_src, asset_path}, context.temp_allocator)
         asset_file, err1 := os2.open(asset_path_abs)
@@ -142,8 +156,34 @@ import_file :: proc(res_src, res_dst, asset_path: string) -> Result {
 
         asset_path_no_ext := filepath.stem(asset_path)
         out_path := filepath.join({res_dst, asset_path_no_ext}, context.temp_allocator)
-        importer.importer_proc(asset_file, import_info_file, out_path)
 
-        // log.info(
+        import_builder := Import_Builder {
+                source_data = os2.to_reader(asset_file),
+                import_info = import_info,
+                output_base = out_path,
+        }
+
+        importer.importer_proc(&import_builder) or_return
+
         return .Ok
+}
+
+
+// Creates an asset file that corresponds to the currently importing source file.
+// If a source file would create multiple assets (subassets), their filename will be `<asset>.<subasset>.cal`
+// Call io.close(w) when done with the asset.
+asset_create :: proc(b: ^Import_Builder, subasset_name := "") -> (w: io.Write_Closer, res: Result) {
+        // sb: strings.Builder
+        // strings.builder_init(&sb, context.temp_allocator)
+        // filename: string
+        //
+        // if subasset_name != "" {
+        //         filename = fmt.tprintf("%s.cal", b.output_base)
+        // } else {
+        //         filename = fmt.tprintf("%s.%s.cal", b.output_base, subasset_name)
+        // }
+        //
+        // os2.open(filename)
+        // create or overwrite file at join(base, subasset_name)
+        return {}, .Unknown_Error
 }

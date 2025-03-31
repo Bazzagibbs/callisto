@@ -5,6 +5,7 @@ import "core:dynlib"
 import "core:log"
 import "../config"
 import "../common"
+import "../ui/imgui"
 
 Runner :: struct {
         ctx                      : runtime.Context,
@@ -17,6 +18,8 @@ Runner :: struct {
         should_close             : bool,
         exit_code                : Exit_Code,
         scroll_accumulator       : [2]f32,
+        
+        imgui_context               : ^imgui.Context,
 
         // Application DLL
         symbols                  : Dll_Symbol_Table,

@@ -12,12 +12,12 @@ when ODIN_OS != .Windows {
 }
 
 Result :: common.Result
+check_result :: common.check_result
 
 Engine_Create_Info :: common.Engine_Create_Info
 Engine :: struct {
         runner         : ^Runner,
         allocator      : runtime.Allocator,
-        asset_database : Asset_Database,
 }
 
 Runner :: common.Runner

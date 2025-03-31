@@ -99,6 +99,7 @@ build_runner :: proc(args: ^Args) -> (sys_time: time.Duration, res: Result) {
         log.info("[+++] Runner build complete")
 
         return state.system_time, .Ok
+        // return state.user_time, .Ok
 }
 
 build_app_dll :: proc(args: ^Args) -> (sys_time: time.Duration, res: Result) {
@@ -156,6 +157,7 @@ build_app_dll :: proc(args: ^Args) -> (sys_time: time.Duration, res: Result) {
         check_result(err3, "Failed to rename App DLL") or_return
 
         return state.system_time, .Ok
+        // return state.user_time, .Ok
 }
 
 run :: proc(args: ^Args) -> Result {

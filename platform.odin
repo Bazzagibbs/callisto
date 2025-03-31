@@ -48,6 +48,22 @@ copy_directory :: common.copy_directory
 get_exe_directory        :: common.get_exe_directory
 get_persistent_directory :: common.get_persistent_directory
 
+// On reload this will be reacquired.
+@(private) 
+_exe_dir_buffer : [4096]byte // Linux length, windows is ~256
+@(private)
+_exe_dir : string
+
+get_asset_path :: proc(filename: string, allocator := context.allocator) -> string {
+        if _exe_dir == {} {
+                sb := strings.builder_from_bytes(_exe_dir_buffer[:])
+                strings.write_string(&sb, get_exe_directory(context.temp_allocator))
+                _exe_dir = strings.to_string(sb)
+        }
+        
+        return filepath.join({_exe_dir, "data", "assets", filename}, allocator)
+}
+
 window_create :: proc(e: ^Engine, create_info: ^Window_Create_Info, location := #caller_location) -> (window: Window, res: Result) {
         return e.runner->window_create(create_info)
 }

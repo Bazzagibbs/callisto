@@ -5,16 +5,6 @@ Reference_Info :: struct($T: typeid) {
         asset_id : Uuid,
 }
 
-Construct_Create_Info :: struct {
-        transforms : []Transform,
-        attachments : []Attachment_Info,
-}
-
-Attachment_Info :: struct {
-        transform_index: int,
-        // Some other data that refers to this transform
-}
-
 Mesh_Create_Info :: struct {
         submeshes : []Submesh_Info,
 }
