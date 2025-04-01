@@ -8,9 +8,9 @@ import "core:path/filepath"
 import "core:time"
 
 import "../common"
-import cal ".."
 
 Result :: common.Result
+
 
 Args :: struct {
         command : Run_Command `args:"pos=0" usage:"Available options: 
@@ -35,7 +35,7 @@ Run_Command :: enum {
 }
 
 main :: proc() {
-        context.logger = log.create_console_logger(cal.Logger_Level_DEFAULT, cal.Logger_Options_DEFAULT)
+        context.logger = log.create_console_logger()
         defer log.destroy_console_logger(context.logger)
 
         context.random_generator = crypto.random_generator()

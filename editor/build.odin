@@ -8,8 +8,8 @@ import "core:path/filepath"
 import "core:path/slashpath"
 import "core:time"
 import "core:strings"
-
-import cal ".."
+import sdl "vendor:sdl3"
+import "../common"
 
 when ODIN_OS == .Windows {
         BIN_EXT :: ".exe"
@@ -24,16 +24,19 @@ clean :: proc(args: ^Args) -> Result {
                 check_result(err, "Failed to clean output directory") or_return
         }
 
-        // Reimport resources
-        resource_dir := filepath.join({args.project, "resources"}, context.temp_allocator)
-        imported_dir := filepath.join({args.project, "resources_imported"}, context.temp_allocator)
-        import_directory(resource_dir, imported_dir, true)
+        err := os2.make_directory_all(out_dir)
+        check_result(err, "Failed to create output directory") or_return 
+
+        // // Reimport resources
+        // resource_dir := filepath.join({args.project, "resources"}, context.temp_allocator)
+        // imported_dir := filepath.join({args.project, "resources_imported"}, context.temp_allocator)
+        // import_directory(resource_dir, imported_dir, true)
 
         out_data_dir := filepath.join({args.project, args.out, "data", "assets"}, context.temp_allocator)
         
         // Rebuild asset database
-        log.debug("Copying data from", imported_dir, "to", out_data_dir)
-        cal.copy_directory(out_data_dir, imported_dir)
+        // log.debug("Copying data from", imported_dir, "to", out_data_dir)
+        // common.copy_directory(out_data_dir, imported_dir)
         
         log.info("[+++] Output directory clean complete")
 
@@ -125,7 +128,7 @@ build_app_dll :: proc(args: ^Args) -> (sys_time: time.Duration, res: Result) {
 
 
         // e.g. odin build . -build-mode=shared -debug -out=./out/staging.dll -define:APP_NAME="callisto_app" -define:COMPANY_NAME=callisto_default_company
-        // then move staging.dll to app_name.dll
+        // then move staging.dll to app.dll
         cmd, _ := strings.join(command[:], " ", context.temp_allocator)
         log.debug(cmd)
         desc := os2.Process_Desc {
@@ -151,7 +154,7 @@ build_app_dll :: proc(args: ^Args) -> (sys_time: time.Duration, res: Result) {
 
         // Recalculated as to not change the current working directory
         staging_path_2 := fmt.tprintf("%s%s", filepath.join({args.project, args.out, "staging"}, context.temp_allocator), DLL_EXT)
-        app_path_2     := fmt.tprintf("%s%s", filepath.join({args.project, args.out, args.app_name}, context.temp_allocator), DLL_EXT)
+        app_path_2     := fmt.tprintf("%s%s", filepath.join({args.project, args.out, "app"}, context.temp_allocator), DLL_EXT)
 
         err3 := os2.rename(staging_path_2, app_path_2)
         check_result(err3, "Failed to rename App DLL") or_return

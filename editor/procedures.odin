@@ -3,62 +3,62 @@ package callisto_editor
 import "core:log"
 import "core:encoding/json"
 import "core:io"
-import "ufbx"
+// import "ufbx"
 import "../common"
 
 
 check_result :: proc {
         common.check_result_os2,
-        check_result_ufbx,
+        // check_result_ufbx,
         check_result_json_marshal,
         check_result_json_unmarshal,
 }
 
-check_result_ufbx :: proc(u_err: ^ufbx.Error, message: string, location := #caller_location) -> Result {
-        if u_err.type == .NONE {
-                return .Ok
-        }
-
-        log.error(message, ":", u_err.description, location = location)
-        switch u_err.type {
-        case .NONE, .UNKNOWN: 
-                return .File_Invalid
-        case .FILE_NOT_FOUND, .EXTERNAL_FILE_NOT_FOUND: 
-                return .File_Not_Found
-        case .EMPTY_FILE: 
-                return .File_Invalid
-        case .OUT_OF_MEMORY, .MEMORY_LIMIT, .ALLOCATION_LIMIT:
-                return .Out_Of_Memory_CPU
-        case .TRUNCATED_FILE:
-                return .File_Invalid
-        case .IO:
-                return .Platform_Error
-        case .CANCELLED:
-                return .User_Interrupt
-        case .UNRECOGNIZED_FILE_FORMAT:
-                return .File_Invalid
-        case .UNINITIALIZED_OPTIONS:
-                return .Argument_Invalid
-        case .ZERO_VERTEX_SIZE, .TRUNCATED_VERTEX_STREAM, .INVALID_UTF8:
-                return .Argument_Invalid
-        case .FEATURE_DISABLED:
-                return .State_Invalid
-        case .BAD_NURBS:
-                return .Argument_Invalid
-        case .BAD_INDEX:
-                return .File_Invalid
-        case .NODE_DEPTH_LIMIT:
-                return .State_Invalid
-        case .THREADED_ASCII_PARSE:
-                return .File_Invalid
-        case .UNSAFE_OPTIONS:
-                return .State_Invalid
-        case .DUPLICATE_OVERRIDE:
-                return .Argument_Invalid
-        }
-
-        return .File_Invalid
-}
+// check_result_ufbx :: proc(u_err: ^ufbx.Error, message: string, location := #caller_location) -> Result {
+//         if u_err.type == .NONE {
+//                 return .Ok
+//         }
+//
+//         log.error(message, ":", u_err.description, location = location)
+//         switch u_err.type {
+//         case .NONE, .UNKNOWN: 
+//                 return .File_Invalid
+//         case .FILE_NOT_FOUND, .EXTERNAL_FILE_NOT_FOUND: 
+//                 return .File_Not_Found
+//         case .EMPTY_FILE: 
+//                 return .File_Invalid
+//         case .OUT_OF_MEMORY, .MEMORY_LIMIT, .ALLOCATION_LIMIT:
+//                 return .Out_Of_Memory_CPU
+//         case .TRUNCATED_FILE:
+//                 return .File_Invalid
+//         case .IO:
+//                 return .Platform_Error
+//         case .CANCELLED:
+//                 return .User_Interrupt
+//         case .UNRECOGNIZED_FILE_FORMAT:
+//                 return .File_Invalid
+//         case .UNINITIALIZED_OPTIONS:
+//                 return .Argument_Invalid
+//         case .ZERO_VERTEX_SIZE, .TRUNCATED_VERTEX_STREAM, .INVALID_UTF8:
+//                 return .Argument_Invalid
+//         case .FEATURE_DISABLED:
+//                 return .State_Invalid
+//         case .BAD_NURBS:
+//                 return .Argument_Invalid
+//         case .BAD_INDEX:
+//                 return .File_Invalid
+//         case .NODE_DEPTH_LIMIT:
+//                 return .State_Invalid
+//         case .THREADED_ASCII_PARSE:
+//                 return .File_Invalid
+//         case .UNSAFE_OPTIONS:
+//                 return .State_Invalid
+//         case .DUPLICATE_OVERRIDE:
+//                 return .Argument_Invalid
+//         }
+//
+//         return .File_Invalid
+// }
 
 
 check_result_json_marshal :: proc(err: json.Marshal_Error, message: string, location := #caller_location) -> Result {
