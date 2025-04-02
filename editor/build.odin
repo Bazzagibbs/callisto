@@ -37,6 +37,13 @@ clean :: proc(args: ^Args) -> Result {
         // Rebuild asset database
         // log.debug("Copying data from", imported_dir, "to", out_data_dir)
         // common.copy_directory(out_data_dir, imported_dir)
+
+        // Copy SDL dll
+        when ODIN_OS == .Windows {
+                sdl_path := filepath.join({args.project, "SDL3.dll"}, context.temp_allocator)
+                sdl_path_out := filepath.join({out_dir, "SDL3.dll"}, context.temp_allocator)
+                os2.copy_file(sdl_path_out, sdl_path)
+        }
         
         log.info("[+++] Output directory clean complete")
 
