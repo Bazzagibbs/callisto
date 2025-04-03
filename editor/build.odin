@@ -14,7 +14,9 @@ import "../common"
 when ODIN_OS == .Windows {
         BIN_EXT :: ".exe"
         DLL_EXT :: ".dll"
+        SDL_DLL :: "SDL3.dll"
 }
+
 
 
 clean :: proc(args: ^Args) -> Result {
@@ -39,11 +41,9 @@ clean :: proc(args: ^Args) -> Result {
         // common.copy_directory(out_data_dir, imported_dir)
 
         // Copy SDL dll
-        when ODIN_OS == .Windows {
-                sdl_path := filepath.join({args.project, "SDL3.dll"}, context.temp_allocator)
-                sdl_path_out := filepath.join({out_dir, "SDL3.dll"}, context.temp_allocator)
-                os2.copy_file(sdl_path_out, sdl_path)
-        }
+        sdl_path := filepath.join({ODIN_ROOT, "vendor", "sdl3", SDL_DLL}, context.temp_allocator)
+        sdl_path_out := filepath.join({out_dir, SDL_DLL}, context.temp_allocator)
+        os2.copy_file(sdl_path_out, sdl_path)
         
         log.info("[+++] Output directory clean complete")
 
