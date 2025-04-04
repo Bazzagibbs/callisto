@@ -19,6 +19,8 @@ Args :: struct {
         - run
         - reload"`,
         project      : string `args:"pos=1" usage:"The root directory of the project. Default: ./"`,
+        resource     : string `args:"name=resource" usage:"The directory for source resource files, relative to the project directory. Default: ./res"`,
+        imported     : string `args:"name=imported" usage:"The directory for imported resource files, relative to the project directory. Default: ./imported"`,
         out          : string `usage:"The output directory for build/run/reload, relative to the project directory. Default: ./out/"`,
         app_name     : string `args:"name=app-name" usage:"The name of the application. Default: callisto_app"`,
         company_name : string `args:"name=company-name" usage:"The name of the company. Default: callisto_default_company"`,
@@ -66,6 +68,14 @@ program_main :: proc() -> Result {
         }
         check_out_dir(args.out) or_return
 
+        if args.resource == "" {
+                args.resource = "./res"
+        }
+
+        if args.imported == "" {
+                args.imported = "./imported"
+        }
+
         if args.app_name == "" {
                 args.app_name = "callisto app"
         }
@@ -83,11 +93,15 @@ program_main :: proc() -> Result {
         case .build:
                 runner_time := build_runner(&args) or_return
                 app_time    := build_app_dll(&args) or_return
+                // shader_time := import_shaders_all_temp()
+                import_shaders_all_temp(&args)
                 log.infof("Build times:\n\t- %5vms Runner\n\t- %5vms Application", time.duration_milliseconds(runner_time), time.duration_milliseconds(app_time))
 
         case .run:
                 runner_time := build_runner(&args) or_return
                 app_time := build_app_dll(&args) or_return
+                // shader_time := import_shaders_all_temp()
+                import_shaders_all_temp(&args)
                 log.infof("Build times:\n\t- %5vms Runner\n\t- %5vms Application", time.duration_milliseconds(runner_time), time.duration_milliseconds(app_time))
                 run(&args) or_return
 
