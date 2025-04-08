@@ -37,7 +37,12 @@ Run_Command :: enum {
 }
 
 main :: proc() {
-        context.logger = log.create_console_logger()
+        context.logger = log.create_console_logger(opt = {
+                .Level,
+                .Terminal_Color,
+                .Short_File_Path,
+                .Line,
+        })
         defer log.destroy_console_logger(context.logger)
 
         context.random_generator = crypto.random_generator()
@@ -91,17 +96,15 @@ program_main :: proc() -> Result {
                 log.info("Launching in Editor mode")
 
         case .build:
+                import_resources(&args)
                 runner_time := build_runner(&args) or_return
                 app_time    := build_app_dll(&args) or_return
-                // shader_time := import_shaders_all_temp()
-                import_shaders_all_temp(&args)
                 log.infof("Build times:\n\t- %5vms Runner\n\t- %5vms Application", time.duration_milliseconds(runner_time), time.duration_milliseconds(app_time))
 
         case .run:
+                import_resources(&args)
                 runner_time := build_runner(&args) or_return
                 app_time := build_app_dll(&args) or_return
-                // shader_time := import_shaders_all_temp()
-                import_shaders_all_temp(&args)
                 log.infof("Build times:\n\t- %5vms Runner\n\t- %5vms Application", time.duration_milliseconds(runner_time), time.duration_milliseconds(app_time))
                 run(&args) or_return
 
