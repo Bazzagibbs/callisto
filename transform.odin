@@ -65,8 +65,10 @@ scene_set_dirty :: proc(scene: ^Scene) {
 
 Transform_Flags :: bit_set[Transform_Flag]
 Transform_Flag :: enum {
-        Dirty,     // < The transform has been modified and needs to be resolved
         Tombstone, // < The transform has been destroyed
+        Dirty,     // < The transform has been modified and needs to be resolved
+        GPU_Used,  // < The transform is used on the GPU
+        GPU_Dirty, // < The transform has been modified and needs to be reuploaded to the GPU
 }
 
 Transform_Reparent_Flag :: enum {
