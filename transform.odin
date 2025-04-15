@@ -67,8 +67,7 @@ Transform_Flags :: bit_set[Transform_Flag]
 Transform_Flag :: enum {
         Tombstone, // < The transform has been destroyed
         Dirty,     // < The transform has been modified and needs to be resolved
-        GPU_Used,  // < The transform is used on the GPU
-        GPU_Dirty, // < The transform has been modified and needs to be reuploaded to the GPU
+        GPU_Dirty, // < The transform has been modified and needs to be reuploaded to the GPU. Only used if `gpu_buffer` is not nil
 }
 
 Transform_Reparent_Flag :: enum {
@@ -78,21 +77,22 @@ Transform_Reparent_Flag :: enum {
 }
 
 Transform :: distinct int
-Transform_Data :: struct {
-        name            : string,             // < When set through accessor proc, guaranteed to be null-terminated.
-        handle          : Transform,
-        parent          : Transform,          // < If parent handle is TRANSFORM_NONE, this is a root node.
-        children        : [dynamic]Transform, //
-        world_matrix    : matrix[4, 4]f32,    // < Read-only. May be invalid if "dirty" flag is set, use accessor proc.
-        local_matrix    : matrix[4, 4]f32,    // < Read-only. May be invalid if "dirty" flag is set, use accessor proc.
-        world_position  : [3]f32,             // < May be invalid if "dirty" flag is set, use accessor proc.
-        world_rotation  : quaternion128,      // < May be invalid if "dirty" flag is set, use accessor proc.
-        world_scale     : [3]f32,             // < Note: this will only be accurate if there is no skew in all ancestors. May be invalid if "dirty" flag is set, use accessor proc.
-        local_position  : [3]f32,
-        local_rotation  : quaternion128,
-        local_scale     : [3]f32,
-        flags           : Transform_Flags,
-        editor_state    : Editor_Transform_State,
+Transform_Data         : :struct {
+        name           : string,             // < When set through accessor proc, guaranteed to be null-terminated.
+        handle         : Transform,
+        parent         : Transform,          // < If parent handle is TRANSFORM_NONE, this is a root node.
+        children       : [dynamic]Transform, //
+        world_matrix   : matrix[4, 4]f32,    // < Read-only. May be invalid if "dirty" flag is set, use accessor proc.
+        local_matrix   : matrix[4, 4]f32,    // < Read-only. May be invalid if "dirty" flag is set, use accessor proc.
+        world_position : [3]f32,             // < May be invalid if "dirty" flag is set, use accessor proc.
+        world_rotation : quaternion128,      // < May be invalid if "dirty" flag is set, use accessor proc.
+        world_scale    : [3]f32,             // < Note: this will only be accurate if there is no skew in all ancestors. May be invalid if "dirty" flag is set, use accessor proc.
+        local_position : [3]f32,
+        local_rotation : quaternion128,
+        local_scale    : [3]f32,
+        flags          : Transform_Flags,
+        editor_state   : Editor_Transform_State,
+        gpu_buffer     : ^sdl.GPUBuffer,
 }
 
 TRANSFORM_NONE :: Transform(-1)
@@ -118,7 +118,7 @@ transform_data_identity :: proc(handle: Transform) -> Transform_Data {
                 local_position = {},
                 local_rotation = linalg.QUATERNIONF32_IDENTITY,
                 local_scale    = {1, 1, 1},
-                flags          = {.Dirty}
+                flags          = {.Dirty, .GPU_Dirty},
         }
 }
 
