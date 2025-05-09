@@ -5,17 +5,34 @@ import "core:os/os2"
 import "core:strings"
 import "core:log"
 
-importers : map[string]Importer_Proc
+importers : map[string]Importer
+
+Importer :: struct {
+        importer_proc : Importer_Proc,
+        init_proc     : Importer_Init_Proc,     // Optional
+        destroy_proc  : Importer_Destroy_Proc,  // Optional
+        user_data     : rawptr,
+}
 
 // src_filename : "player.png"
 // dir_rel      : "sprites\\characters\\"
 // src_fullpath : "C:\\projects\\game\\res\\sprites\\characters\\player.png"
 // dst_dir_abs  : "C:\\projects\\game\\imported\\sprites\\characters\\"
-Importer_Proc :: #type proc(args: ^Args, src_filename: string, dir_rel: string, src_fullpath: string,  dst_dir_abs: string) -> (ok: bool)
+Importer_Proc :: #type proc(args: ^Args, src_filename: string, dir_rel: string, src_fullpath: string,  dst_dir_abs: string, user_data: rawptr = nil) -> (ok: bool)
+
+Importer_Init_Proc :: #type proc(args: ^Args, user_data: ^rawptr)
+
+Importer_Destroy_Proc :: #type proc(args: ^Args, user_data: rawptr)
 
 // `file_ext` must include the leading period, e.g. ".png"
-register_importer :: proc(file_ext: string, importer: Importer_Proc) {
-        importers[file_ext] = importer
+register_importer :: proc(file_ext: string, importer: Importer_Proc, init: Importer_Init_Proc = nil, destroy: Importer_Destroy_Proc = nil) {
+        imp := Importer {
+                importer,
+                init,
+                destroy,
+                nil,
+        }
+        importers[file_ext] = imp
 }
 
 // Walk res directory
@@ -37,6 +54,12 @@ import_resources :: proc(args: ^Args) {
         imported_abs := filepath.join({project_abs, args.imported})
         defer delete(imported_abs)
 
+        for _, &importer in importers {
+                if importer.init_proc != nil {
+                        importer.init_proc(args, &importer.user_data)
+                }
+        }
+
 
         w : os2.Walker
         os2.walker_init_path(&w, res_abs)
@@ -53,7 +76,10 @@ import_resources :: proc(args: ^Args) {
                         dir_rel, _  := filepath.rel(res_abs, src_dir_abs)
                         dst_dir_abs := filepath.join({imported_abs, dir_rel})
 
-                        importer(args, fi.name, dir_rel, fi.fullpath, dst_dir_abs)
+                        ok := importer.importer_proc(args, fi.name, dir_rel, fi.fullpath, dst_dir_abs, importer.user_data)
+                        if !ok {
+                                log.error("Failed to import resource:", dir_rel, fi.name)
+                        }
 
                         delete(src_dir_abs)
                         delete(dir_rel)
@@ -64,4 +90,11 @@ import_resources :: proc(args: ^Args) {
         }
 
         os2.walker_destroy(&w)
+
+
+        for _, &importer in importers {
+                if importer.destroy_proc != nil {
+                        importer.destroy_proc(args, importer.user_data)
+                }
+        }
 }

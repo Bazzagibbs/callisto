@@ -6,13 +6,21 @@ import "core:math/linalg"
 
 
 Camera :: struct {
-        transform           : Transform,
+        // transform           : Transform,
+        position            : [3]f32,
+        rotation            : quaternion128,
         projection          : matrix[4,4]f32,
         aspect              : f32,
         perspective_fov_y   : f32,
         orthographic_height : f32,
         near                : f32,
         far                 : f32,
+}
+
+Camera_Uniform_Data :: struct {
+        view     : matrix[4,4]f32,
+        proj     : matrix[4,4]f32,
+        viewproj : matrix[4,4]f32,
 }
 
 
@@ -50,3 +58,17 @@ camera_create_perspective :: proc(fov_y, aspect, near, far: f32) -> Camera {
 
         return cam
 }
+
+camera_get_uniform_data :: proc(camera: ^Camera) -> Camera_Uniform_Data {
+        view := linalg.matrix4_translate_f32(camera.position) * linalg.matrix4_from_quaternion_f32(camera.rotation)
+
+        ud := Camera_Uniform_Data {
+                view     = view,
+                proj     = camera.projection,
+                viewproj = view * camera.projection,
+        }
+
+        return ud
+}
+
+// camera_attach_to_transform :: proc(camera: ^Camera, transform: Transform = TRANSFORM_NONE)

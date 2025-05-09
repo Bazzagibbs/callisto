@@ -569,10 +569,17 @@ ProgramLayout :: struct {
 }
 
 FunctionReflection :: struct {
+        
+}
 
+Attribute :: struct {
 }
 
 DeclReflection :: struct {
+
+}
+
+EntryPointReflection :: struct {
 
 }
 
@@ -1007,4 +1014,19 @@ foreign libslang {
 foreign libslang {
 	ReflectionType_GetKind :: proc(type: ^TypeReflection) -> TypeKind ---
 	ReflectionType_GetFieldCount :: proc(type: ^TypeReflection) -> u32 ---
+        // unfinished
+
+        ReflectionFunction_GetName :: proc(func: ^FunctionReflection) -> cstring ---
+        ReflectionFunction_GetUserAttributeCount :: proc(func: ^FunctionReflection) -> u32 ---
+        ReflectionFunction_GetUserAttribute :: proc(func: ^FunctionReflection, index: u32) -> Attribute ---
+        ReflectionFunction_FindUserAttributeByName :: proc(func: ^FunctionReflection, global_session: ^IGlobalSession, name: cstring) -> ^Attribute ---
+        // unfinished
+
+        ReflectionUserAttribute_GetName :: proc(attribute: ^Attribute) -> cstring ---
+        ReflectionUserAttribute_GetArgumentCount :: proc(attribute: ^Attribute) -> u32 ---
+        ReflectionUserAttribute_GetArgumentType :: proc(attribute: ^Attribute, index: u32) -> ^TypeReflection ---
+        ReflectionUserAttribute_GetArgumentValueInt :: proc(attribute: ^Attribute, index: u32, value: ^i32) -> Result ---
+        ReflectionUserAttribute_GetArgumentValueFloat :: proc(attribute: ^Attribute, index: u32, value: ^f32) -> Result ---
+        ReflectionUserAttribute_GetArgumentValueString :: proc(attribute: ^Attribute, index: u32, out_size: ^int) -> cstring ---
+
 }
