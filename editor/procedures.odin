@@ -2,9 +2,11 @@ package callisto_editor
 
 import "core:log"
 import "core:encoding/json"
+import "core:encoding/cbor"
 import "core:io"
 // import "ufbx"
 import "../common"
+import "core:path/filepath"
 
 
 check_result :: proc {
@@ -12,6 +14,7 @@ check_result :: proc {
         // check_result_ufbx,
         check_result_json_marshal,
         check_result_json_unmarshal,
+        check_result_cbor_marshal,
 }
 
 // check_result_ufbx :: proc(u_err: ^ufbx.Error, message: string, location := #caller_location) -> Result {
@@ -108,3 +111,34 @@ check_result_json_unmarshal :: proc(err: json.Unmarshal_Error, message: string, 
 
         return .Unknown_Error
 }
+
+
+check_result_cbor_marshal :: proc(err: cbor.Marshal_Error, message: string = "", location := #caller_location) -> Result {
+        if err == nil {
+                return .Ok
+        }
+
+        log.error(message, ":", err, location = location)
+
+        // TODO: translate error to internal type
+        return .Unknown_Error
+}
+
+
+abs_path_from_project :: proc(args: ^Args, path_rel: string, allocator := context.allocator) -> string {
+        return filepath.join({args.project, path_rel}, allocator)
+}
+
+abs_path_from_resource :: proc(args: ^Args, path_rel: string, allocator := context.allocator) -> string {
+        return filepath.join({args.project, args.resource, path_rel}, allocator)
+}
+
+abs_path_from_imported :: proc(args: ^Args, path_rel: string, allocator := context.allocator) -> string {
+        return filepath.join({args.project, args.imported, path_rel}, allocator)
+}
+
+abs_path_from_out :: proc(args: ^Args, path_rel: string, allocator := context.allocator) -> string {
+        return filepath.join({args.project, args.out, path_rel}, allocator)
+}
+
+

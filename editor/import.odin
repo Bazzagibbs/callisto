@@ -4,6 +4,7 @@ import "core:path/filepath"
 import "core:os/os2"
 import "core:strings"
 import "core:log"
+import "../common"
 
 importers : map[string]Importer
 
@@ -40,9 +41,6 @@ register_importer :: proc(file_ext: string, importer: Importer_Proc, init: Impor
 // Create a .cal file containing all resources created from a source file
 //      - Manifest contains additional URIs to subresources 
 //      - File player.cal has subresources "frame_0", "frame_1", etc. and would be referenced by `player_resource := Resource[Sprite]("res://sprites/player.cal:frame_0")`
-
-
-
 
 import_resources :: proc(args: ^Args) {
         project_abs, _ := filepath.abs(args.project)
@@ -97,4 +95,30 @@ import_resources :: proc(args: ^Args) {
                         importer.destroy_proc(args, importer.user_data)
                 }
         }
+}
+
+
+copy_imported_to_data :: proc(args: ^Args) -> (res: Result) {
+
+        data_dir := abs_path_from_out(args, "data")
+        defer delete(data_dir)
+        
+        if os2.exists(data_dir) {
+                err1 := os2.remove_all(data_dir)
+                if err1 != nil {
+                        log.error("Failed to delete occupied data directory:", err1)
+                        return .Platform_Error
+                }
+        }
+
+        imported_dir := abs_path_from_project(args, args.imported)
+        defer delete(imported_dir)
+        
+        err := common.copy_directory(data_dir, imported_dir)
+        if err != nil {
+                log.error("Failed to copy assets to data directory:", err)
+                return .Platform_Error
+        }
+
+        return .Ok
 }

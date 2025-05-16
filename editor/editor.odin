@@ -27,6 +27,8 @@ Args :: struct {
         release      : bool `usage:"Build/run the project without Hot Reload functionality."`,
         debug        : bool `usage:"Build/run/reload the project with Debug symbols."`,
         clean        : bool `usage:"Clean the output directory and reimport all resources before build/run."`,
+
+        dump_spirv   : bool `usage:"Dump raw .spirv file next to the imported asset for debugging."`
 }
 
 Run_Command :: enum {
@@ -35,6 +37,7 @@ Run_Command :: enum {
         run,
         reload,
 }
+
 
 main :: proc() {
         context.logger = log.create_console_logger(opt = {
@@ -99,6 +102,7 @@ program_main :: proc() -> Result {
                 import_resources(&args)
                 runner_time := build_runner(&args) or_return
                 app_time    := build_app_dll(&args) or_return
+                copy_imported_to_data(&args) or_return
                 log.infof("Build times:\n\t- %5vms Runner\n\t- %5vms Application", time.duration_milliseconds(runner_time), time.duration_milliseconds(app_time))
 
         case .run:
@@ -106,6 +110,7 @@ program_main :: proc() -> Result {
                 runner_time := build_runner(&args) or_return
                 app_time := build_app_dll(&args) or_return
                 log.infof("Build times:\n\t- %5vms Runner\n\t- %5vms Application", time.duration_milliseconds(runner_time), time.duration_milliseconds(app_time))
+                copy_imported_to_data(&args) or_return
                 run(&args) or_return
 
         case .reload:

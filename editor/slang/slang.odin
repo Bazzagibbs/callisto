@@ -568,20 +568,20 @@ ProgramLayout :: struct {
 
 }
 
+// EntryPointLayout :: EntryPointReflection
+
 FunctionReflection :: struct {
         
 }
 
-Attribute :: struct {
+UserAttributeReflection :: struct {
+
 }
 
 DeclReflection :: struct {
 
 }
 
-EntryPointReflection :: struct {
-
-}
 
 IComponentType :: struct #raw_union {
 	#subtype iunknown: ^IUnknown,
@@ -703,6 +703,12 @@ ReflectionGenericArgType :: enum i32 {
 	BOOL,
 }
 
+ReflectionGenericArg :: struct #raw_union {
+        typeVal : ^TypeReflection,
+        intVal  : i64,
+        boolVal : c.bool,
+}
+
 TypeKind :: enum u32 {
 	NONE,
 	STRUCT,
@@ -755,7 +761,7 @@ DeclKind :: enum u32 {
 	NAMESPACE,
 }
 
-SlangResourceShape :: enum u32 {
+ResourceShape :: enum u32 {
 	BASE_SHAPE_MASK              = 0x0F,
 	NONE                         = 0x00,
 	TEXTURE_1D                   = 0x01,
@@ -892,7 +898,7 @@ BindingType :: enum u32 {
 	EXT_MASK = 0xFF00,
 }
 
-SlangModifierID :: enum u32 {
+ModifierID :: enum u32 {
 	SHARED,
 	NO_DIFF,
 	STATIC,
@@ -906,15 +912,71 @@ SlangModifierID :: enum u32 {
 	INOUT,
 }
 
-ImageFormat :: u32 {
-	// TODO(Dragos): see slang-image-format-defs.h
+ImageFormat :: enum u32 {
+        unknown,
+        rgba32f,
+        rgba16f,
+        rg32f,
+        rg16f,
+        r11f_g11f_b10f,
+        r32f,
+        r16f,
+        rgba16,
+        rgb10_a2,
+        rgba8,
+        rg16,
+        rg8,
+        r16,
+        r8,
+        rgba16_snorm,
+        rgba8_snorm,
+        rg16_snorm,
+        rg8_snorm,
+        r16_snorm,
+        r8_snorm,
+        rgba32i,
+        rgba16i,
+        rgba8i,
+        rg32i,
+        rg16i,
+        rg8i,
+        r32i,
+        r16i,
+        r8i,
+        rgba32ui,
+        rgba16ui,
+        rgb10_a2ui,
+        rgba8ui,
+        rg32ui,
+        rg16ui,
+        rg8ui,
+        r32ui,
+        r16ui,
+        r8ui,
+        r64ui,
+        r64i,
+        bgra8,
 }
 
 UNBOUNDED_SIZE :: ~uint(0)
 
-TypeReflection :: struct {
+// Aliases
+Reflection :: ProgramLayout
+EntryPointReflection :: struct {}
 
-}
+GenericReflection :: struct {}
+
+TypeReflection :: struct {}
+
+ModifierReflection :: struct {}
+
+VariableReflection :: struct {}
+
+VariableLayoutReflection :: struct {}
+
+ParameterReflection :: struct {}
+
+TypeParameterReflection :: struct {}
 
 LayoutRules :: enum u32 {
 	DEFAULT,
@@ -1012,21 +1074,166 @@ foreign libslang {
 @(link_prefix="sp")
 @(default_calling_convention="c")
 foreign libslang {
+        ReflectionUserAttribute_GetName :: proc(attribute: ^UserAttributeReflection) -> cstring ---
+        ReflectionUserAttribute_GetArgumentCount :: proc(attribute: ^UserAttributeReflection) -> u32 ---
+        ReflectionUserAttribute_GetArgumentType :: proc(attribute: ^UserAttributeReflection, index: u32) -> ^TypeReflection ---
+        ReflectionUserAttribute_GetArgumentValueInt :: proc(attribute: ^UserAttributeReflection, index: u32, value: ^i32) -> Result ---
+        ReflectionUserAttribute_GetArgumentValueFloat :: proc(attribute: ^UserAttributeReflection, index: u32, value: ^f32) -> Result ---
+        ReflectionUserAttribute_GetArgumentValueString :: proc(attribute: ^UserAttributeReflection, index: u32, out_size: ^c.size_t) -> cstring ---
+
 	ReflectionType_GetKind :: proc(type: ^TypeReflection) -> TypeKind ---
+        ReflectionType_GetUserAttributeCount :: proc(type: ^TypeReflection) -> u32 ---
+        ReflectionType_GetUserAttribute :: proc(type: ^TypeReflection, index: u32) -> ^UserAttributeReflection ---
+        ReflectionType_FindUserAttributeByName :: proc(type: ^TypeReflection, name: cstring) -> ^UserAttributeReflection ---
+        ReflectionType_applySpecializations :: proc(type: ^TypeReflection, generic: ^GenericReflection) -> ^TypeReflection ---
 	ReflectionType_GetFieldCount :: proc(type: ^TypeReflection) -> u32 ---
-        // unfinished
+	ReflectionType_GetFieldByIndex :: proc(type: ^TypeReflection, index: u32) -> ^VariableReflection ---
+	ReflectionType_GetElementCount :: proc(type: ^TypeReflection) -> c.size_t ---
+	ReflectionType_GetElementType :: proc(type: ^TypeReflection) -> ^TypeReflection ---
+	ReflectionType_GetRowCount :: proc(type: ^TypeReflection) -> u32 ---
+	ReflectionType_GetColumnCount :: proc(type: ^TypeReflection) -> u32 ---
+	ReflectionType_GetScalarType :: proc(type: ^TypeReflection) -> ScalarType ---
+	ReflectionType_GetResourceShape :: proc(type: ^TypeReflection) -> ResourceShape ---
+	ReflectionType_GetResourceAccess :: proc(type: ^TypeReflection) -> ResourceAccess ---
+	ReflectionType_GetResourceResultType :: proc(type: ^TypeReflection) -> ^TypeReflection ---
+	ReflectionType_GetName :: proc(type: ^TypeReflection) -> cstring ---
+	ReflectionType_GetFullName :: proc(type: ^TypeReflection, outNameBlob: ^^IBlob) -> Result ---
+	ReflectionType_GetGenericContainer :: proc(type: ^TypeReflection) -> ^GenericReflection ---
+
+
+        // Substitution for c parameters -> Odin parameters
+        // :'<,'>s/\((\|, \)\(\S\+\) \(\a\+\)/\1\3: \2/g
+        //        ^^^^^^^^^^                                  start with "(" or ", ", group 1
+        //                  ^^^^^^^^^                         type name (non-whitespace+)
+        //                           ^^^^^^^                  variable name (alphabetic+)
+        //                                   ^^^^^^^^         reorganise, adding first character back in
+
+        ReflectionTypeLayout_GetType :: proc(type: ^TypeLayoutReflection) -> ^TypeReflection ---
+        ReflectionTypeLayout_getKind :: proc(type: ^TypeLayoutReflection) -> TypeKind ---
+        ReflectionTypeLayout_GetSize :: proc(type: ^TypeLayoutReflection, category: ParameterCategory) -> c.size_t ---
+        ReflectionTypeLayout_GetStride :: proc(type: ^TypeLayoutReflection, category: ParameterCategory) -> c.size_t ---
+        ReflectionTypeLayout_getAlignment :: proc(type: ^TypeLayoutReflection, category: ParameterCategory) -> i32 ---
+        ReflectionTypeLayout_GetFieldCount :: proc(type: ^TypeLayoutReflection) -> u32 ---
+        ReflectionTypeLayout_GetFieldByIndex :: proc(type: ^TypeLayoutReflection, index: u32) -> ^VariableLayoutReflection ---
+        ReflectionTypeLayout_findFieldIndexByName :: proc(typeLayout: ^TypeLayoutReflection, nameBegin: cstring, nameEnd: cstring) -> Int ---
+        ReflectionTypeLayout_GetExplicitCounter :: proc(typeLayout: ^TypeLayoutReflection) -> ^VariableLayoutReflection ---
+        ReflectionTypeLayout_GetElementStride :: proc(type: ^TypeLayoutReflection, category: ParameterCategory) -> c.size_t ---
+        ReflectionTypeLayout_GetElementTypeLayout :: proc(type: ^TypeLayoutReflection) -> ^TypeLayoutReflection ---
+        ReflectionTypeLayout_GetElementVarLayout :: proc(type: ^TypeLayoutReflection) -> ^VariableLayoutReflection ---
+        ReflectionTypeLayout_getContainerVarLayout :: proc(type: ^TypeLayoutReflection) -> ^VariableLayoutReflection ---
+        ReflectionTypeLayout_GetParameterCategory :: proc(type: ^TypeLayoutReflection) -> ParameterCategory ---
+        ReflectionTypeLayout_GetCategoryCount :: proc(type: ^TypeLayoutReflection) -> u32 ---
+        ReflectionTypeLayout_GetCategoryByIndex :: proc(type: ^TypeLayoutReflection, index: u32) -> ParameterCategory ---
+        ReflectionTypeLayout_GetMatrixLayoutMode :: proc(type: ^TypeLayoutReflection) -> MatrixLayoutMode ---
+        ReflectionTypeLayout_getGenericParamIndex :: proc(type: ^TypeLayoutReflection) -> i32 ---
+        ReflectionTypeLayout_getPendingDataTypeLayout :: proc(type: ^TypeLayoutReflection) -> ^TypeLayoutReflection ---
+        ReflectionTypeLayout_getSpecializedTypePendingDataVarLayout :: proc(type: ^TypeLayoutReflection) -> ^VariableLayoutReflection ---
+        ReflectionType_getSpecializedTypeArgCount :: proc(type: ^TypeReflection) -> Int ---
+        ReflectionType_getSpecializedTypeArgType :: proc(type: ^TypeReflection, index: Int) -> ^TypeReflection ---
+        ReflectionTypeLayout_getBindingRangeCount :: proc(typeLayout: ^TypeLayoutReflection) -> Int ---
+        ReflectionTypeLayout_getBindingRangeType :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> BindingType ---
+        ReflectionTypeLayout_isBindingRangeSpecializable :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> Int ---
+        ReflectionTypeLayout_getBindingRangeBindingCount :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> Int ---
+        ReflectionTypeLayout_getBindingRangeLeafTypeLayout :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> ^TypeLayoutReflection ---
+        ReflectionTypeLayout_getBindingRangeLeafVariable :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> ^VariableReflection ---
+        ReflectionTypeLayout_getBindingRangeImageFormat :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> ImageFormat ---
+        ReflectionTypeLayout_getFieldBindingRangeOffset :: proc(typeLayout: ^TypeLayoutReflection, fieldIndex: Int) -> Int ---
+        ReflectionTypeLayout_getExplicitCounterBindingRangeOffset :: proc(inTypeLayout: ^TypeLayoutReflection) -> Int ---
+        ReflectionTypeLayout_getBindingRangeDescriptorSetIndex :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> Int ---
+        ReflectionTypeLayout_getBindingRangeFirstDescriptorRangeIndex :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> Int ---
+        ReflectionTypeLayout_getBindingRangeDescriptorRangeCount :: proc(typeLayout: ^TypeLayoutReflection, index: Int) -> Int ---
+        ReflectionTypeLayout_getDescriptorSetCount :: proc(typeLayout: ^TypeLayoutReflection) -> Int ---
+        ReflectionTypeLayout_getDescriptorSetSpaceOffset :: proc(typeLayout: ^TypeLayoutReflection, setIndex: Int) -> Int ---
+        ReflectionTypeLayout_getDescriptorSetDescriptorRangeCount :: proc(typeLayout: ^TypeLayoutReflection, setIndex: Int) -> Int ---
+        ReflectionTypeLayout_getDescriptorSetDescriptorRangeIndexOffset :: proc(typeLayout: ^TypeLayoutReflection, setIndex: Int, rangeIndex: Int) -> Int ---
+        ReflectionTypeLayout_getDescriptorSetDescriptorRangeDescriptorCount :: proc(typeLayout: ^TypeLayoutReflection, setIndex: Int, rangeIndex: Int) -> Int ---
+        ReflectionTypeLayout_getDescriptorSetDescriptorRangeType :: proc(typeLayout: ^TypeLayoutReflection, setIndex: Int, rangeIndex: Int) -> BindingType ---
+        ReflectionTypeLayout_getDescriptorSetDescriptorRangeCategory :: proc(typeLayout: ^TypeLayoutReflection, setIndex: Int, rangeIndex: Int) -> ParameterCategory ---
+        ReflectionTypeLayout_getSubObjectRangeCount :: proc(typeLayout: ^TypeLayoutReflection) -> Int ---
+        ReflectionTypeLayout_getSubObjectRangeBindingRangeIndex :: proc(typeLayout: ^TypeLayoutReflection, subObjectRangeIndex: Int) -> Int ---
+        ReflectionTypeLayout_getSubObjectRangeSpaceOffset :: proc(typeLayout: ^TypeLayoutReflection, subObjectRangeIndex: Int) -> Int ---
+        ReflectionTypeLayout_getSubObjectRangeOffset :: proc(typeLayout: ^TypeLayoutReflection, subObjectRangeIndex: Int) -> ^VariableLayoutReflection ---
+
+        ReflectionVariable_GetName :: proc(var: ^VariableReflection) -> cstring --- 
+        ReflectionVariable_GetType :: proc(var: ^VariableReflection) -> ^TypeReflection --- 
+        ReflectionVariable_FindModifier :: proc(var: ^VariableReflection, modifierID: ModifierID) -> ^ModifierReflection --- 
+        ReflectionVariable_GetUserAttributeCount :: proc(var: ^VariableReflection) -> u32 ---
+        ReflectionVariable_GetUserAttribute :: proc(var: ^VariableReflection, index: u32) -> ^UserAttributeReflection --- 
+        ReflectionVariable_FindUserAttributeByName :: proc(var: ^VariableReflection, globalSession: ^IGlobalSession, name: cstring) -> ^UserAttributeReflection ---
+        ReflectionVariable_HasDefaultValue :: proc(var: ^VariableReflection) -> bool ---
+        ReflectionVariable_GetDefaultValueInt :: proc(var: ^VariableReflection, value: ^i64) -> Result ---
+        ReflectionVariable_GetGenericContainer :: proc(var: ^VariableReflection) -> ^GenericReflection ---
+        ReflectionVariable_applySpecializations :: proc(var: ^VariableReflection, generic: ^GenericReflection) -> ^VariableReflection --- 
+
+        ReflectionVariableLayout_GetVariable :: proc(var: ^VariableLayoutReflection) -> ^VariableReflection ---
+        ReflectionVariableLayout_GetTypeLayout :: proc(var: ^VariableLayoutReflection) -> ^TypeLayoutReflection ---
+        ReflectionVariableLayout_GetOffset :: proc(var: ^VariableLayoutReflection, category: ParameterCategory) -> c.size_t ---
+        ReflectionVariableLayout_GetSpace :: proc(var: ^VariableLayoutReflection, category: ParameterCategory) -> c.size_t ---
+        ReflectionVariableLayout_GetImageFormat :: proc(var: ^VariableLayoutReflection) -> ImageFormat ---
+        ReflectionVariableLayout_GetSemanticName :: proc(var: ^VariableLayoutReflection) -> cstring ---
+        ReflectionVariableLayout_GetSemanticIndex :: proc(var: ^VariableLayoutReflection) -> c.size_t ---
+        ReflectionVariableLayout_getStage :: proc(var: ^VariableLayoutReflection) -> Stage ---
+        ReflectionVariableLayout_getPendingDataLayout :: proc(var: ^VariableLayoutReflection) -> ^VariableLayoutReflection ---
+
 
         ReflectionFunction_GetName :: proc(func: ^FunctionReflection) -> cstring ---
         ReflectionFunction_GetUserAttributeCount :: proc(func: ^FunctionReflection) -> u32 ---
-        ReflectionFunction_GetUserAttribute :: proc(func: ^FunctionReflection, index: u32) -> Attribute ---
-        ReflectionFunction_FindUserAttributeByName :: proc(func: ^FunctionReflection, global_session: ^IGlobalSession, name: cstring) -> ^Attribute ---
-        // unfinished
+        ReflectionFunction_GetUserAttribute :: proc(func: ^FunctionReflection, index: u32) -> ^UserAttributeReflection ---
+        ReflectionFunction_FindUserAttributeByName :: proc(func: ^FunctionReflection, global_session: ^IGlobalSession, name: cstring) -> ^UserAttributeReflection ---
+        // UNFINISHED
 
-        ReflectionUserAttribute_GetName :: proc(attribute: ^Attribute) -> cstring ---
-        ReflectionUserAttribute_GetArgumentCount :: proc(attribute: ^Attribute) -> u32 ---
-        ReflectionUserAttribute_GetArgumentType :: proc(attribute: ^Attribute, index: u32) -> ^TypeReflection ---
-        ReflectionUserAttribute_GetArgumentValueInt :: proc(attribute: ^Attribute, index: u32, value: ^i32) -> Result ---
-        ReflectionUserAttribute_GetArgumentValueFloat :: proc(attribute: ^Attribute, index: u32, value: ^f32) -> Result ---
-        ReflectionUserAttribute_GetArgumentValueString :: proc(attribute: ^Attribute, index: u32, out_size: ^int) -> cstring ---
+        // ReflectionDecl_
+        // UNFINISHED
+
+        // ReflectionGeneric_
+        // UNFINISHED
+
+        ReflectionParameter_GetBindingIndex :: proc(parameter: ^ParameterReflection) -> u32 ---
+        ReflectionParameter_GetBindingSpace :: proc(parameter: ^ParameterReflection) -> u32 ---
+
+        ReflectionEntryPoint_getName :: proc(entryPoint: ^EntryPointReflection) -> cstring ---
+        ReflectionEntryPoint_getNameOverride :: proc(entryPoint: ^EntryPointReflection) -> cstring ---
+        ReflectionEntryPoint_getFunction :: proc(entryPoint: ^EntryPointReflection) -> ^FunctionReflection ---
+        ReflectionEntryPoint_getParameterCount :: proc(entryPoint: ^EntryPointReflection) -> u32 ---
+        ReflectionEntryPoint_getParameterByIndex :: proc(entryPoint: ^EntryPointReflection, index: u32) -> ^VariableLayoutReflection ---
+        ReflectionEntryPoint_getStage :: proc(entryPoint: ^EntryPointReflection) -> Stage ---
+        ReflectionEntryPoint_getComputeThreadGroupSize :: proc(entryPoint: ^EntryPointReflection, axisCount: UInt, outSizeAlongAxis: ^UInt) --- // NOTE(Bailey): is the last param supposed to be a multipointer?
+        ReflectionEntryPoint_getComputeWaveSize :: proc(entryPoint: ^EntryPointReflection, outWaveSize: ^UInt) ---
+        ReflectionEntryPoint_usesAnySampleRateInput :: proc(entryPoint: ^EntryPointReflection) -> i32 ---
+        ReflectionEntryPoint_getVarLayout :: proc(entryPoint: ^EntryPointReflection) -> ^VariableLayoutReflection ---
+        ReflectionEntryPoint_getResultVarLayout :: proc(entryPoint: ^EntryPointReflection) -> ^VariableLayoutReflection ---
+        ReflectionEntryPoint_hasDefaultConstantBuffer :: proc(entryPoint: ^EntryPointReflection) -> i32 ---
+
+        ReflectionTypeParameter_GetName :: proc(typeParam: ^TypeParameterReflection) -> cstring ---
+        ReflectionTypeParameter_GetIndex :: proc(typeParam: ^TypeParameterReflection) -> u32 ---
+        ReflectionTypeParameter_GetConstraintCount :: proc(typeParam: ^TypeParameterReflection) -> u32 ---
+        ReflectionTypeParameter_GetConstraintByIndex :: proc(typeParam: ^TypeParameterReflection, index: u32) -> ^TypeReflection ---
+
+        // These can be used with ProgramLayouts
+        // Reflection_ToJson :: proc(reflection: ^Reflection, request: ^ICompileRequest, outBlob: ^^IBlob) -> Result --- // In header but not in the binary?
+        Reflection_GetParameterCount :: proc(reflection: ^Reflection) -> u32 ---
+        Reflection_GetParameterByIndex :: proc(reflection: ^Reflection, index: u32) -> ^ParameterReflection ---
+        Reflection_GetTypeParameterCount :: proc(reflection: ^Reflection) -> u32 ---
+        Reflection_GetTypeParameterByIndex :: proc(reflection: ^Reflection, index: u32) -> ^TypeParameterReflection ---
+        Reflection_FindTypeParameter :: proc(reflection: ^Reflection, name: cstring) -> ^TypeParameterReflection ---
+        Reflection_FindTypeByName :: proc(reflection: ^Reflection, name: cstring) -> ^TypeReflection ---
+        Reflection_GetTypeLayout :: proc(reflection: ^Reflection, type: ^TypeReflection, rules: LayoutRules) -> ^TypeLayoutReflection ---
+        Reflection_FindFunctionByName :: proc(reflection: ^Reflection, name: cstring) -> ^FunctionReflection ---
+        Reflection_FindFunctionByNameInType :: proc(reflection: ^Reflection, type: ^TypeReflection, name: cstring) -> ^FunctionReflection ---
+        Reflection_FindVarByNameInType :: proc(reflection: ^Reflection, type: ^TypeReflection, name: cstring) -> ^VariableReflection ---
+        Reflection_getEntryPointCount :: proc(reflection: ^Reflection) -> UInt ---
+        Reflection_getEntryPointByIndex :: proc(reflection: ^Reflection, index: UInt) -> ^EntryPointReflection ---
+        Reflection_findEntryPointByName :: proc(reflection: ^Reflection, name: cstring) -> ^EntryPointReflection ---
+        Reflection_getGlobalConstantBufferBinding :: proc(reflection: ^Reflection) -> UInt ---
+        Reflection_getGlobalConstantBufferSize :: proc(reflection: ^Reflection) -> c.size_t ---
+        Reflection_specializeType :: proc(reflection: ^Reflection, type: ^TypeReflection, specializationArgCount: Int, specializationArgs: [^]^TypeReflection, outDiagnostics: ^^IBlob) -> ^TypeReflection ---
+        Reflection_specializeGeneric :: proc(reflection: ^Reflection, generic: ^GenericReflection, argCount: Int, argTypes: [^]ReflectionGenericArgType, args: [^]ReflectionGenericArg, outDiagnostics: ^^IBlob) -> ^TypeReflection ---
+        Reflection_isSubType :: proc(reflection: ^Reflection, subType: ^TypeReflection, superType: ^TypeReflection) -> c.bool ---
+        Reflection_getHashedStringCount :: proc(reflection: ^Reflection) -> UInt ---
+        Reflection_getHashedString :: proc(reflection: ^Reflection, index: UInt, outCount: ^c.size_t) -> cstring ---
+        Reflection_getGlobalParamsTypeLayout :: proc(reflection: ^Reflection) -> ^TypeLayoutReflection ---
+        Reflection_getGlobalParamsVarLayout :: proc(reflection: ^Reflection) -> ^VariableLayoutReflection ---
+
+        ComputeStringHash :: proc(chars: cstring, count: c.size_t) -> u32 --- // < count should NOT include terminating zero
 
 }
