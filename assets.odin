@@ -11,17 +11,11 @@ import "core:strings"
 // A path relative to the Asset library (<app_exe_dir>/data)
 Asset_Path :: distinct string
 
-_data_path: string
 
 // If ok, call `os2.close()` when done with file.
 asset_path_open :: proc(asset_path: Asset_Path, type: Asset_Type = .Any, temp_allocator := context.temp_allocator, location := #caller_location) -> (file: ^os2.File, ok: bool) {
-        if _data_path == "" {
-                base_path := string(sdl.GetBasePath())
-                
-                _data_path = filepath.join({base_path, "data"})
-        }
-
-        full_path := filepath.join({_data_path, string(asset_path)}, temp_allocator)
+        base_path := string(sdl.GetBasePath())
+        full_path := filepath.join({base_path, "data", string(asset_path)}, temp_allocator)
         defer delete(full_path, temp_allocator)
 
         f, err := os2.open(full_path)

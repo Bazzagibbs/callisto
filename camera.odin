@@ -24,6 +24,31 @@ Camera_Uniform_Data :: struct {
 }
 
 
+projection_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 { 
+        // WORLD:
+        // x-right
+        // y-up
+        // z-forward
+
+        // SCREEN
+        // x-right [-1, 1]
+        // y-down [-1, 1], (-1, -1) is top left
+        // z-forward reversed [0, 1], with 1 near 0 far
+
+        // TODO verify these axes, might need some tweaks
+        scale_y := -1 / math.tan(fov_y * 0.5)
+        scale_x := scale_y / aspect
+        scale_z := near / (near - far)
+        translation_z := -far * scale_z
+
+        return {
+                scale_x, 0,       0,       0,
+                0,       scale_y, 0,       0,
+                0,       0,       scale_z, translation_z,
+                0,       0,       1,       0
+        }
+}
+
 camera_create_perspective :: proc(fov_y, aspect, near, far: f32) -> Camera {
         cam := Camera {
                 aspect            = aspect,

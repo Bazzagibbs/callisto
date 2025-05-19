@@ -4,6 +4,7 @@ import "core:log"
 import "core:encoding/json"
 import "core:encoding/cbor"
 import "core:io"
+import "core:os/os2"
 // import "ufbx"
 import "../common"
 import "core:path/filepath"
@@ -14,7 +15,6 @@ check_result :: proc {
         // check_result_ufbx,
         check_result_json_marshal,
         check_result_json_unmarshal,
-        check_result_cbor_marshal,
 }
 
 // check_result_ufbx :: proc(u_err: ^ufbx.Error, message: string, location := #caller_location) -> Result {
@@ -113,17 +113,6 @@ check_result_json_unmarshal :: proc(err: json.Unmarshal_Error, message: string, 
 }
 
 
-check_result_cbor_marshal :: proc(err: cbor.Marshal_Error, message: string = "", location := #caller_location) -> Result {
-        if err == nil {
-                return .Ok
-        }
-
-        log.error(message, ":", err, location = location)
-
-        // TODO: translate error to internal type
-        return .Unknown_Error
-}
-
 
 abs_path_from_project :: proc(args: ^Args, path_rel: string, allocator := context.allocator) -> string {
         return filepath.join({args.project, path_rel}, allocator)
@@ -141,4 +130,54 @@ abs_path_from_out :: proc(args: ^Args, path_rel: string, allocator := context.al
         return filepath.join({args.project, args.out, path_rel}, allocator)
 }
 
+read_entire_file_cstring :: proc(path: string, allocator := context.allocator) -> (data_cstring: cstring, err: os2.Error) {
+        f := os2.open(path) or_return
+        defer os2.close(f)
 
+        // modified os2.read_entire_file_from_file
+        size: int
+	has_size := false
+	if size64, serr := os2.file_size(f); serr == nil {
+		if i64(int(size64)) == size64 {
+			has_size = true
+			size = int(size64)
+		}
+	}
+
+	if has_size && size > 0 {
+                size += 1 // for null byte
+		total: int
+		data := make([]byte, size, allocator) or_return
+		for total < len(data) - 1 {
+			n: int
+			n, err = os2.read(f, data[total:])
+			total += n
+			if err != nil {
+				if err == .EOF {
+					err = nil
+				}
+				data = data[:total]
+				break
+			}
+		}
+		return cstring(raw_data(data)), err
+	} else {
+		buffer: [1024]u8
+		out_buffer := make([dynamic]u8, 0, 0, allocator)
+		total := 0
+		for {
+			n: int
+			n, err = os2.read(f, buffer[:])
+			total += n
+			append_elems(&out_buffer, ..buffer[:n])
+			if err != nil {
+				if err == .EOF || err == .Broken_Pipe {
+					err = nil
+				}
+                                append(&out_buffer, 0)
+				data := out_buffer[:total]
+                                return cstring(raw_data(data)), err
+			}
+		}
+	}
+}
