@@ -7,6 +7,8 @@ import "core:log"
 import "config"
 import "core:encoding/cbor"
 import "core:strings"
+import "core:math"
+import "core:slice"
 
 // A path relative to the Asset library (<app_exe_dir>/data)
 Asset_Path :: distinct string
@@ -57,6 +59,7 @@ asset_path_open :: proc(asset_path: Asset_Path, type: Asset_Type = .Any, temp_al
 Asset_Type :: enum u32 {
         Any = 0,
         Shader,
+        Mesh,
 }
 
 Asset_Header :: struct {
@@ -69,7 +72,6 @@ Asset_Header :: struct {
 Asset_Unknown :: struct {
         using header : Asset_Header,
 }
-
 
 
 Asset_Shader :: struct {
@@ -93,8 +95,7 @@ Asset_Shader :: struct {
 
 
 // Delete is called on temp allocations, so regular allocators are safe to use
-asset_load_shader :: proc(device: ^sdl.GPUDevice, path: Asset_Path, temp_allocator := context.temp_allocator, location := #caller_location) -> (shader: ^sdl.GPUShader, ok: bool) {
-
+asset_load_shader :: proc(device: ^sdl.GPUDevice, path: Asset_Path, temp_allocator := context.temp_allocator, location := #caller_location) -> (shader: Shader, ok: bool) {
         f := asset_path_open(path, .Shader, location = location) or_return
         defer os2.close(f)
 
@@ -103,7 +104,7 @@ asset_load_shader :: proc(device: ^sdl.GPUDevice, path: Asset_Path, temp_allocat
         err := cbor.unmarshal_from_reader(reader, &asset, allocator = temp_allocator, temp_allocator = temp_allocator, loc = location)
         if err != nil {
                 log.error("Failed to unmarshal shader asset:", path, "-", err, location = location)
-                return nil, false
+                return {}, false
         }
 
         // Clean up buffer allocations from cbor
@@ -113,26 +114,81 @@ asset_load_shader :: proc(device: ^sdl.GPUDevice, path: Asset_Path, temp_allocat
                 // delete(asset.uniform_layout, temp_allocator)
         }
 
-        // entrypoint_c := strings.clone_to_cstring(asset.entrypoint, temp_allocator)
-        // defer delete(entrypoint_c, temp_allocator)
-        entrypoint_c : cstring = "main"
-
-
-        // Translate to SDL create info
-        create_info := sdl.GPUShaderCreateInfo {
-                code_size            = uint(len(asset.code)),
-                code                 = raw_data(asset.code),
-                entrypoint           = entrypoint_c,
-                format               = asset.format,
-                stage                = asset.stage,
-                num_samplers         = asset.num_samplers,
-                num_storage_textures = asset.num_storage_textures,
-                num_storage_buffers  = asset.num_storage_buffers,
-                num_uniform_buffers  = asset.num_uniform_buffers,
-
-                props                = asset.props,
-        }
-
-        return sdl.CreateGPUShader(device, create_info), true
+        return shader_create(device, &asset, temp_allocator)
 }
 
+
+Submesh_Flags :: bit_set[Submesh_Flag]
+Submesh_Flag :: enum {
+        U32_Indices, // Reinterpret the index buffer as a []u32 with half the length.
+        // Separate_Shadow_Indices, // The mesh has been exported with a separate index list for depth-only draws. Otherwise use the regular list.
+}
+
+
+Submesh_Info :: struct {
+        flags              : Submesh_Flags,
+        material_slot_name : string,
+        index_data         : []u16,
+        index_shadow_data  : []u16,
+        position_data      : [][3]f32,
+        normal_data        : [][3]f32, // FIXME: opt Octahedral compression
+        tangent_data       : [][3]f32, // FIXME: opt Ocathedral compression
+        tex_coord_0_data   : [][2]f32, // FIXME: opt 
+        color_0_data       : [][4]u8,
+        // skinning data
+}
+
+Asset_Mesh :: struct {
+        using header : Asset_Header,
+        submesh_infos : []Submesh_Info,
+}
+
+
+asset_load_mesh :: proc(r: ^Resource_Uploader, path: Asset_Path, allocator := context.allocator, temp_allocator := context.temp_allocator, location := #caller_location) -> (mesh: Mesh, ok: bool) {
+        f := asset_path_open(path, .Mesh, location = location) or_return
+        defer os2.close(f)
+
+        asset: Asset_Mesh
+        reader := os2.to_reader(f)
+        err := cbor.unmarshal_from_reader(reader, &asset, allocator = temp_allocator, temp_allocator = temp_allocator, loc = location)
+        if err != nil {
+                log.error("Failed to unmarshal mesh asset:", path, "-", err, location = location)
+                return {}, false
+        }
+
+        // Clean up buffer allocations from cbor
+        defer {
+                for info in asset.submesh_infos {
+                        delete(info.material_slot_name, temp_allocator)
+                        delete(info.index_data, temp_allocator)
+                        delete(info.position_data, temp_allocator)
+                        delete(info.normal_data, temp_allocator)
+                        delete(info.tangent_data, temp_allocator)
+                        delete(info.tex_coord_0_data, temp_allocator)
+                        delete(info.color_0_data, temp_allocator)
+                }
+                delete(asset.submesh_infos, temp_allocator)
+        }
+        
+        if len(asset.submesh_infos) > config.MAX_SUBMESHES {
+                log.error("Mesh asset has more submeshes than allowed by MAX_SUBMESHES - limit:", config.MAX_SUBMESHES, "asset:", len(asset.submesh_infos), location = location)
+                return {}, false
+        }
+
+        return mesh_create(r, &asset, allocator)
+        
+}
+
+
+
+// Optimised decompression of octahedral-compressed normal vectors.
+// Implement this in shader code.
+// optimisation by Rune Stubbe
+
+// https://www.shadertoy.com/view/Mtfyzl
+// oct_decode :: proc(compressed: [2]f32) -> [3]f32 {
+//         n := [3]f32{compressed.x, compressed.y, 1 - math.abs(compressed.x) - math.abs(compressed.y)}
+//         t := math.max(-n.z, 0)
+//         n.xy += n.xy >= 0.0 ? -t : t
+//         return linalg.normalize(n)
+// }

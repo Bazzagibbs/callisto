@@ -4,17 +4,19 @@ import "core:log"
 import "core:math"
 import "core:math/linalg"
 
-
+Camera_Projection_Mode :: enum {
+        Perspective,
+        Orthographic,
+}
 Camera :: struct {
-        // transform           : Transform,
-        position            : [3]f32,
-        rotation            : quaternion128,
-        projection          : matrix[4,4]f32,
-        aspect              : f32,
-        perspective_fov_y   : f32,
-        orthographic_height : f32,
-        near                : f32,
-        far                 : f32,
+        position        : [3]f32,
+        rotation        : quaternion128,
+        projection_mode : Camera_Projection_Mode,
+        aspect_ratio    : f32,
+        fov_y           : f32, // .Perspective only
+        height          : f32, // .Orthographic only
+        near_plane      : f32,
+        far_plane       : f32,
 }
 
 Camera_Uniform_Data :: struct {
@@ -26,17 +28,17 @@ Camera_Uniform_Data :: struct {
 
 projection_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 { 
         // WORLD:
-        // x-right
-        // y-up
-        // z-forward
+        //  x-right
+        //  y-up
+        // -z-forward
 
-        // SCREEN
+        // NDC
         // x-right [-1, 1]
-        // y-down [-1, 1], (-1, -1) is top left
+        // y-up [-1, 1], (-1, -1) is bottom-left
         // z-forward reversed [0, 1], with 1 near 0 far
 
         // TODO verify these axes, might need some tweaks
-        scale_y := -1 / math.tan(fov_y * 0.5)
+        scale_y := 1 / math.tan(fov_y * 0.5)
         scale_x := scale_y / aspect
         scale_z := near / (near - far)
         translation_z := -far * scale_z
@@ -49,51 +51,30 @@ projection_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 
         }
 }
 
-camera_create_perspective :: proc(fov_y, aspect, near, far: f32) -> Camera {
-        cam := Camera {
-                aspect            = aspect,
-                perspective_fov_y = fov_y,
-                near              = near,
-                far               = far,
-        }
-        
-        // WORLD:
-        // x-right
-        // y-up
-        // z-forward
+// projection_orthographic :: proc(height, aspect, near, far: f32) -> matrix[4,4]f32 {
+//         scale_y := -1 * height
+//         scale_x := 
+// }
 
-        // SCREEN
-        // x-right [-1, 1]
-        // y-down [-1, 1], (-1, -1) is top left
-        // z-forward reversed [0, 1], with 1 near 0 far
-
-        // TODO verify these axes, might need some tweaks
-
-        scale_y := 1 / math.tan(fov_y * 0.5)
-        scale_x := scale_y / aspect
-        scale_z := near / (near - far)
-        translation_z := -far * scale_z
-
-        cam.projection = {
-                scale_x, 0,       0,       0,
-                0,       0,       scale_y, 0,
-                0,       scale_z, 0,       translation_z,
-                0,       1,       0,       0
-        }
-
-        return cam
-}
 
 camera_get_uniform_data :: proc(camera: ^Camera) -> Camera_Uniform_Data {
-        view := linalg.matrix4_translate_f32(camera.position) * linalg.matrix4_from_quaternion_f32(camera.rotation)
+        cam_transform := linalg.matrix4_translate_f32(camera.position) * linalg.matrix4_from_quaternion_f32(camera.rotation)
+        view := linalg.matrix4_inverse_transpose(cam_transform)
+        proj : matrix[4,4]f32
 
-        ud := Camera_Uniform_Data {
-                view     = view,
-                proj     = camera.projection,
-                viewproj = view * camera.projection,
+        if camera.projection_mode == .Perspective {
+                proj = projection_perspective(camera.fov_y, camera.aspect_ratio, camera.near_plane, camera.far_plane)
+        } else {
+                log.error("Orthographic projection not implemented")
+                proj = projection_perspective(camera.fov_y, camera.aspect_ratio, camera.near_plane, camera.far_plane)
         }
 
-        return ud
+        data := Camera_Uniform_Data {
+                view     = view,
+                proj     = proj,
+                viewproj = view * proj,
+        }
+
+        return data
 }
 
-// camera_attach_to_transform :: proc(camera: ^Camera, transform: Transform = TRANSFORM_NONE)
