@@ -25,7 +25,7 @@ Camera_Uniform_Data :: struct {
         viewproj : matrix[4,4]f32,
 }
 
-
+// `fov_y` is in radians
 projection_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 { 
         // WORLD:
         //  x-right
@@ -59,7 +59,8 @@ projection_perspective :: proc(fov_y, aspect, near, far: f32) -> matrix[4,4]f32 
 
 camera_get_uniform_data :: proc(camera: ^Camera) -> Camera_Uniform_Data {
         cam_transform := linalg.matrix4_translate_f32(camera.position) * linalg.matrix4_from_quaternion_f32(camera.rotation)
-        view := linalg.matrix4_inverse_transpose(cam_transform)
+        // view := linalg.matrix4_inverse_transpose(cam_transform)
+        view := linalg.matrix4_inverse(cam_transform)
         proj : matrix[4,4]f32
 
         if camera.projection_mode == .Perspective {
@@ -72,8 +73,10 @@ camera_get_uniform_data :: proc(camera: ^Camera) -> Camera_Uniform_Data {
         data := Camera_Uniform_Data {
                 view     = view,
                 proj     = proj,
-                viewproj = view * proj,
+                // viewproj = view * proj,
+                viewproj = proj * view,
         }
+
 
         return data
 }

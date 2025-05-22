@@ -94,6 +94,7 @@ runner_iter :: proc "c" (runner_state: rawptr) -> sdl.AppResult {
                 new_dll, loaded := runner_load_app_dll(r.dll_original_path, r.dll_generation)
                 if loaded {
                         r.app_dll = new_dll
+                        log.info("Hot reload complete. ID:", r.dll_generation)
                 } else {
                         log.error("Failed to load app DLL generation:", r.dll_generation)
                 }
