@@ -4,6 +4,13 @@ import "core:log"
 import "core:math"
 import "core:math/linalg"
 
+FORWARD  :: [3]f32{0, 0, -1}
+BACKWARD :: [3]f32{0, 0, 1}
+LEFT     :: [3]f32{-1, 0, 0}
+RIGHT    :: [3]f32{1, 0, 0}
+UP       :: [3]f32{0, 1, 0}
+DOWN     :: [3]f32{0, -1, 0}
+
 Camera_Projection_Mode :: enum {
         Perspective,
         Orthographic,
