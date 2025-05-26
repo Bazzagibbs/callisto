@@ -9,9 +9,25 @@ import "core:encoding/cbor"
 import "core:strings"
 import "core:math"
 import "core:slice"
+import "core:encoding/uuid"
+
 
 // A path relative to the Asset library (<app_exe_dir>/data)
 Asset_Path :: distinct string
+
+
+// Asset_Database_Entry :: struct {
+//         address  : string,
+//         uuid     : uuid.Identifier,
+//         refcount : int,
+//         type     : Asset_Type,
+// }
+//
+// Asset_Database :: struct {
+//         entries    : [dynamic]Asset_Database_Entry,
+//         by_uuid    : map[uuid.Identifier]int,
+//         by_address : map[string]int,
+// }
 
 
 // If ok, call `os2.close()` when done with file.
@@ -60,9 +76,11 @@ Asset_Type :: enum u32 {
         Any = 0,
         Shader,
         Mesh,
+        Texture,
 }
 
 Asset_Header :: struct {
+        uuid    : uuid.Identifier,
         type    : Asset_Type,
         // version : u32,
         // hash? : u64,
@@ -95,7 +113,7 @@ Asset_Shader :: struct {
 
 
 // Delete is called on temp allocations, so regular allocators are safe to use
-asset_load_shader :: proc(device: ^sdl.GPUDevice, path: Asset_Path, temp_allocator := context.temp_allocator, location := #caller_location) -> (shader: Shader, ok: bool) {
+asset_load_shader :: proc(r: ^Resource_Uploader, path: Asset_Path, temp_allocator := context.temp_allocator, location := #caller_location) -> (shader: Shader, ok: bool) {
         f := asset_path_open(path, .Shader, location = location) or_return
         defer os2.close(f)
 
@@ -114,7 +132,7 @@ asset_load_shader :: proc(device: ^sdl.GPUDevice, path: Asset_Path, temp_allocat
                 // delete(asset.uniform_layout, temp_allocator)
         }
 
-        return shader_create(device, &asset, temp_allocator)
+        return shader_create(r.device, &asset, temp_allocator)
 }
 
 
@@ -131,9 +149,9 @@ Submesh_Info :: struct {
         index_data         : []u16,
         index_shadow_data  : []u16,
         position_data      : [][3]f32,
-        normal_data        : [][3]f32, // FIXME: opt Octahedral compression
-        tangent_data       : [][3]f32, // FIXME: opt Ocathedral compression
-        tex_coord_0_data   : [][2]f32, // FIXME: opt 
+        normal_data        : [][3]f32, // FIXME(opt): Octahedral compression
+        tangent_data       : [][3]f32, // FIXME(opt): Octahedral compression
+        tex_coord_0_data   : [][2]f32, // FIXME(opt): quantized?
         color_0_data       : [][4]u8,
         // skinning data
 }
@@ -178,6 +196,53 @@ asset_load_mesh :: proc(r: ^Resource_Uploader, path: Asset_Path, allocator := co
         return mesh_create(r, &asset, allocator)
         
 }
+
+
+Asset_Texture :: struct {
+        using header : Asset_Header,
+        data_usage   : Texture_Data_Usage,
+        compression  : Texture_Compression,
+        format       : sdl.GPUTextureFormat,
+        width        : u32,
+        height       : u32,
+        mip_levels   : u32, // Mips are computed offline
+
+        data         : []u8,
+}
+
+asset_load_texture :: proc(r: ^Resource_Uploader, path: Asset_Path, temp_allocator := context.temp_allocator, location := #caller_location) -> (texture: Texture, ok: bool) {
+        f := asset_path_open(path, .Texture, location = location) or_return
+        defer os2.close(f)
+
+        asset: Asset_Texture
+        reader := os2.to_reader(f)
+        err := cbor.unmarshal_from_reader(reader, &asset, allocator = temp_allocator, temp_allocator = temp_allocator, loc = location)
+        if err != nil {
+                log.error("Failed to unmarshal shader asset:", path, "-", err, location = location)
+                return {}, false
+        }
+
+        // Clean up buffer allocations from cbor
+        defer {
+                delete(asset.data, temp_allocator)
+        }
+
+        return texture_create(r, &asset, temp_allocator)
+}
+
+
+// Asset_Material :: struct {
+//         using header               : Asset_Header,
+//         vertex_input               : Vertex_Attribute_Slots,
+//         shader_vertex              : Asset_Shader,
+//         shader_fragment            : Asset_Shader,
+//         textures_vertex            : []Asset_Texture,
+//         textures_fragment          : []Asset_Texture,
+//         // property_block_vertex   : []u8,
+//         // property_block_fragment : []u8,
+// }
+
+
 
 
 

@@ -4,6 +4,7 @@ import "core:path/filepath"
 import "core:os/os2"
 import "core:strings"
 import "core:log"
+import "core:encoding/cbor"
 import "../common"
 
 importers : map[string]Importer
@@ -121,4 +122,24 @@ copy_imported_to_data :: proc(args: ^Args) -> (res: Result) {
         }
 
         return .Ok
+}
+
+
+marshal_asset_into_file :: proc(dst_path_abs: string, asset: any) -> (ok: bool) {
+        out_file, err_dst := os2.open(dst_path_abs, {.Write, .Trunc, .Create})
+        if err_dst != nil {
+                log.error("Failed to open output file:", dst_path_abs, "-", err_dst)
+                return false
+        }
+        defer os2.close(out_file)
+
+        w := os2.to_writer(out_file)
+
+        err_cbor := cbor.marshal_into_writer(w, asset, temp_allocator = context.temp_allocator)
+        if err_cbor != nil {
+                log.error("Failed to marshal shader asset:", dst_path_abs, "-", err_cbor)
+                return false
+        }
+
+        return true
 }

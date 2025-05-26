@@ -135,7 +135,7 @@ mesh_render_end :: proc(b: ^Mesh_Render_Command_Buffer) {
                         if command.material.textures_vertex.len > 0 {
                                 for tex in sa.slice(&command.material.textures_vertex) {
                                         // Only use anisotropic filtering if it would make a difference
-                                        sampler := sampler_aniso if tex.type in bit_set[Texture_Type]{.Color, .Normal} else sampler_trilinear
+                                        sampler := sampler_aniso if tex.data_usage in bit_set[Texture_Data_Usage]{.Color, .Normal} else sampler_trilinear
 
                                         binding := sdl.GPUTextureSamplerBinding {
                                                 texture = tex.gpu_texture,
@@ -154,7 +154,7 @@ mesh_render_end :: proc(b: ^Mesh_Render_Command_Buffer) {
                         if command.material.textures_fragment.len > 0 {
                                 for tex in sa.slice(&command.material.textures_fragment) {
                                         // Only use anisotropic filtering if it would make a difference
-                                        sampler := sampler_aniso if tex.type in bit_set[Texture_Type]{.Color, .Normal} else sampler_trilinear
+                                        sampler := sampler_aniso if tex.data_usage in bit_set[Texture_Data_Usage]{.Color, .Normal} else sampler_trilinear
 
                                         binding := sdl.GPUTextureSamplerBinding {
                                                 texture = tex.gpu_texture,
@@ -197,7 +197,7 @@ mesh_render_end :: proc(b: ^Mesh_Render_Command_Buffer) {
                 index_size := sdl.GPUIndexElementSize._16BIT if .U32_Indices not_in command.submesh.flags else ._32BIT
 
                 sdl.BindGPUIndexBuffer(pass,
-                        binding = index_binding,
+                        binding            = index_binding,
                         index_element_size = index_size
                 )
 
@@ -210,10 +210,10 @@ mesh_render_end :: proc(b: ^Mesh_Render_Command_Buffer) {
 
                 // Draw
                 sdl.DrawGPUIndexedPrimitives(pass,
-                        num_indices = command.submesh.index_buffer_len,
-                        num_instances = 1,
-                        first_index = 0,
-                        vertex_offset = 0,
+                        num_indices    = command.submesh.index_buffer_len,
+                        num_instances  = 1,
+                        first_index    = 0,
+                        vertex_offset  = 0,
                         first_instance = 0
                 )
         }

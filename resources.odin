@@ -7,6 +7,9 @@ import "core:log"
 import "core:strings"
 import "core:slice"
 import "core:mem"
+import "core:image"
+import "core:image/png"
+import "core:bytes"
 
 
 Resource_Uploader :: struct {
@@ -102,16 +105,104 @@ shader_destroy :: proc(device: ^sdl.GPUDevice, shader: ^Shader) {
 }
 
 
-
-Texture_Type :: enum {
+Texture_Data_Usage :: enum {
         Color,
         Normal,
         Linear_Data,
 }
 
+
+// TODO: Look at alternative GPU-compressed formats (BC1-7)
+Texture_Compression :: enum {
+        Png,
+}
+
+
 Texture :: struct {
         gpu_texture : ^sdl.GPUTexture,
-        type        : Texture_Type,
+        data_usage  : Texture_Data_Usage,
+}
+
+
+texture_create :: proc(r: ^Resource_Uploader, asset: ^Asset_Texture, temp_allocator := context.temp_allocator) -> (texture: Texture, ok: bool) {
+        img: ^image.Image
+        defer if img != nil {
+                image.destroy(img, temp_allocator)
+        }
+
+        data := asset.data
+        
+        texture.data_usage = asset.data_usage
+
+        // Transform data into bitmap for uncompressed formats
+        // If the asset data is gpu-compatible, just upload the data directly
+        switch asset.compression {
+        case .Png:
+                err: image.Error
+                img, err = image.load_from_bytes(asset.data, {.alpha_add_if_missing}, temp_allocator)
+                if err != nil {
+                        log.error("Failed to load PNG data:", err)
+                        return {}, false
+                }
+
+                data = bytes.buffer_to_bytes(&img.pixels)
+        }
+
+
+        // Create GPU texture
+        create_info := sdl.GPUTextureCreateInfo {
+                type                 = .D2,
+                format               = asset.format,
+                usage                = {.SAMPLER},
+                width                = asset.width,
+                height               = asset.height,
+                layer_count_or_depth = 1,
+                num_levels           = asset.mip_levels,
+                sample_count         = ._1,
+        }
+        texture.gpu_texture = sdl.CreateGPUTexture(r.device, create_info)
+
+        // Create transfer buffer
+        transfer_create_info := sdl.GPUTransferBufferCreateInfo {
+                usage = .UPLOAD,
+                size  = u32(len(data)),
+        }
+        transfer_buffer := sdl.CreateGPUTransferBuffer(r.device, transfer_create_info)
+
+        mapped := sdl.MapGPUTransferBuffer(r.device, transfer_buffer, false)
+        mem.copy(mapped, raw_data(data), len(data))
+        sdl.UnmapGPUTransferBuffer(r.device, transfer_buffer)
+
+        transfer_src := sdl.GPUTextureTransferInfo {
+                transfer_buffer = transfer_buffer,
+                offset          = 0,
+                pixels_per_row  = create_info.width,
+                rows_per_layer  = create_info.height,
+        }
+        
+        transfer_dst := sdl.GPUTextureRegion {
+                texture   = texture.gpu_texture,
+                mip_level = 0,
+                layer     = 0,
+                x         = 0,
+                y         = 0,
+                z         = 0,
+                w         = create_info.width,
+                h         = create_info.height,
+                d         = 1,
+        }
+
+        // TODO: might need several commands to upload all mips?
+        sdl.UploadToGPUTexture(r.copy_pass, transfer_src, transfer_dst, false)
+        
+        sdl.ReleaseGPUTransferBuffer(r.device, transfer_buffer)
+
+        ok = true
+        return
+}
+
+texture_destroy :: proc(device: ^sdl.GPUDevice, texture: ^Texture) {
+
 }
 
 
@@ -314,4 +405,6 @@ Material :: struct {
         property_block_fragment : ^sdl.GPUBuffer,
 }
 
-
+// material_create :: proc(r: ^Resource_Uploader, asset: ^Asset_Material) -> (material: Material, ok: bool) {
+//
+// }
