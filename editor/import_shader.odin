@@ -89,7 +89,7 @@ import_hlsl :: proc(args: ^Args, src_filename: string, dir_rel: string, src_full
                 include_dir  = nil, // TODO
                 defines      = nil,
                 shader_stage = stage,
-                enable_debug = args.debug,
+                // enable_debug = args.debug, // Needs vk 1.3 or VK_KHR_shader_non_semantic_info in runtime
                 name         = src_filename_cstr,
                 
                 props        = 0,
