@@ -1,0 +1,83 @@
+inputs = [
+        "."
+]
+
+package_name = "compressonator"
+output_folder = ".."
+imports_file = "imports.txt"
+
+remove_type_prefix = "CMP_"
+remove_function_prefix = "CMP_"
+remove_macro_prefix = "CMP_"
+force_ada_case_types = true
+
+rename_types = {
+        "Mipprogressparam" = "Mip_Progress_Parameters"
+        "Mipfeedback_Proc" = "Mip_Feedback_Proc"
+        "Vec8" = "Std_Vector_U8"
+        "Dword" = "DWord"
+        "Dword_Ptr" = "DWord_Ptr"
+        "Sbyte" = "SByte"
+        "Uint" = "UInt"
+        "Halfshort" = "HalfShort"
+        "Gpudecode" = "GPU_Decode"
+        "Cfilter_Params" = "CFilter_Parameters"
+        "Cvision_Process_Options" = "CVision_Process_Options"
+        "Cvision_Process_Results" = "CVision_Process_Results"
+        
+        "Brlg_Extra_Info" = "BRLG_Extra_Info" 
+        "Brlg_File_Header" = "BRLG_File_Header" 
+        "Brlg_Block_Header" = "BRLG_Block_Header" 
+
+        "Bc_Component" = "BC_Component"
+        "Bc_Error" = "BC_Error"
+        "Bc7block_Encoder" = "BC7_Block_Encoder"
+        "Bc6hblock_Encoder" = "BC6H_Block_Encoder"
+        "Bc6h_Block_Parameters" = "BC6H_Block_Parameters"
+}
+
+type_overrides = {
+        "Bool" = "bool"
+        "DWord_Ptr" = "uintptr"
+        "HalfShort" = "u16"
+
+        "MS_FLAG_Default" = "0"
+        "MS_FLAG_AlphaPremult" = "0x0001"
+        "MS_FLAG_DisableMipMapping" = "0x0002"
+
+        "Print_Info_Str" = "#type proc \"c\" (infoStr: cstring)" 
+        "Feedback_Proc" = "#type proc \"c\" (fProgress: f32, pUser1: DWord_Ptr, pUser2: DWord_Ptr) -> (abort: bool)"
+        "Mip_Feedback_Proc" = "#type proc \"c\" (mipProgress: Mip_Progress_Parameters) -> (abort: bool)"
+        "Codec_Feedback_Proc" = "#type proc \"c\" (fProgress: f32, pUser1: DWord_Ptr, pUser2: DWord_Ptr) -> (abort: bool)"
+
+        "Mip_Level_Table" = "[^]^Mip_Level"
+}
+
+struct_field_overrides = {
+        "Mip_Level.m_psbData" = "[^]"
+        "Mip_Level.m_pbData" = "[^]"
+        "Mip_Level.m_pwData" = "[^]"
+        "Mip_Level.m_pcData" = "[^]"
+        "Mip_Level.m_pfData" = "[^]"
+        "Mip_Level.m_phfsData" = "[^]"
+        "Mip_Level.m_pdwData" = "[^]"
+        "Mip_Level.m_pvec8Data" = "[^]"
+
+        "Mip_Set.pData" = "[^]"
+        "Mip_Set.m_pMipLevelTable" = "Mip_Level_Table"
+        
+        "Texture.pData" = "[^]"
+}
+
+
+procedure_type_overrides = {
+        "EncodeBC7Block._in" = "^[16][4]f64"
+        "EncodeBC7Block.out" = "[^]"
+        "EncodeBC6HBlock._in" = "^[16][4]Float"
+        "EncodeBC6HBlock.out" = "[^]"
+        "DecodeBC7Block._in" = "[^]"
+        "DecodeBC7Block.out" = "^[16][4]f64"
+        "DecodeBC6HBlock._in" = "[^]"
+        "DecodeBC6HBlock.out" = "^[16][4]Float"
+}
+

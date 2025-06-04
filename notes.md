@@ -1,5 +1,8 @@
 # Callisto
 
-## Coordinates
+## Vendored libraries that require cross-platform builds (Currently supported in brackets)
 
-- Right handed coordinate system, X-right, Y-forward, Z-up
+- Compressonator (Windows)
+- Shadercross (Windows)
+- UFBX (Windows)
+

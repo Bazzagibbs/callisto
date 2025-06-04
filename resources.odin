@@ -1,15 +1,20 @@
 package callisto
 
+import "base:runtime"
 import "config"
 import sa "core:container/small_array"
 import sdl "vendor:sdl3"
+import "core:math"
 import "core:log"
 import "core:strings"
 import "core:slice"
 import "core:mem"
 import "core:image"
-import "core:image/png"
+import "core:image/qoi"
 import "core:bytes"
+import "core:encoding/uuid"
+import "core:fmt"
+
 
 
 Resource_Uploader :: struct {
@@ -112,9 +117,10 @@ Texture_Data_Usage :: enum {
 }
 
 
-// TODO: Look at alternative GPU-compressed formats (BC1-7)
 Texture_Compression :: enum {
-        Png,
+        QOI, // Lossless
+        BC6H, // HDRI
+        BC7, // High quality
 }
 
 
@@ -125,28 +131,67 @@ Texture :: struct {
 
 
 texture_create :: proc(r: ^Resource_Uploader, asset: ^Asset_Texture, temp_allocator := context.temp_allocator) -> (texture: Texture, ok: bool) {
-        img: ^image.Image
-        defer if img != nil {
-                image.destroy(img, temp_allocator)
-        }
+        runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
+        context.allocator = temp_allocator
 
-        data := asset.data
-        
+        assert(len(asset.data_mips) <= 16)
+
         texture.data_usage = asset.data_usage
 
-        // Transform data into bitmap for uncompressed formats
-        // If the asset data is gpu-compatible, just upload the data directly
-        switch asset.compression {
-        case .Png:
-                err: image.Error
-                img, err = image.load_from_bytes(asset.data, {.alpha_add_if_missing}, temp_allocator)
-                if err != nil {
-                        log.error("Failed to load PNG data:", err)
-                        return {}, false
+        data: [][]u8
+        data_backing: [16][]u8
+        temp_images: [16]^image.Image
+        level_infos: [16]Level_Info
+
+        if asset.compression == .QOI {
+                data = data_backing[:len(asset.data_mips)]
+
+                // Decompress QOI data into rgba8 pixels
+                for qoi_level, i in asset.data_mips {
+                        err: image.Error
+                        temp_images[i], err = image.load(qoi_level)
+                        if err != nil {
+                                log.error("Failed to load mip level", i, ":", err)
+                                ok = false
+                                return
+                        }
+
+                        data[i] = bytes.buffer_to_bytes(&temp_images[i].pixels)
+                }
+        } else {
+                data = asset.data_mips
+        }
+        defer if asset.compression == .QOI {
+                for i in 0..<len(asset.data_mips) {
+                        image.destroy(temp_images[i])
+                }
+        }
+
+
+        Level_Info :: struct {
+                buffer_offset : u32,
+                width         : u32,
+                height        : u32,
+        }
+
+        // Mip 0 may be non power-of-2. Get the next highest power of 2, then fix this after the loop
+        total_size: u32
+        next_width := u32(math.pow2_f32(math.floor(math.log2(f32(asset.width)))))
+        next_height := u32(math.pow2_f32(math.floor(math.log2(f32(asset.height)))))
+        for level, i in data {
+                level_infos[i] = {
+                        buffer_offset = total_size,
+                        width         = next_width,
+                        height        = next_height,
                 }
 
-                data = bytes.buffer_to_bytes(&img.pixels)
+                total_size += u32(slice.size(level))
+                next_width  = max(next_width / 2, 1)
+                next_height = max(next_height / 2, 1)
         }
+
+        level_infos[0].width = asset.width
+        level_infos[0].height = asset.height
 
 
         // Create GPU texture
@@ -157,43 +202,52 @@ texture_create :: proc(r: ^Resource_Uploader, asset: ^Asset_Texture, temp_alloca
                 width                = asset.width,
                 height               = asset.height,
                 layer_count_or_depth = 1,
-                num_levels           = asset.mip_levels,
+                num_levels           = u32(len(asset.data_mips)),
                 sample_count         = ._1,
         }
         texture.gpu_texture = sdl.CreateGPUTexture(r.device, create_info)
 
+
         // Create transfer buffer
         transfer_create_info := sdl.GPUTransferBufferCreateInfo {
                 usage = .UPLOAD,
-                size  = u32(len(data)),
+                size  = total_size,
         }
         transfer_buffer := sdl.CreateGPUTransferBuffer(r.device, transfer_create_info)
 
-        mapped := sdl.MapGPUTransferBuffer(r.device, transfer_buffer, false)
-        mem.copy(mapped, raw_data(data), len(data))
+
+        // Copy all mips into one buffer
+        mapped := uintptr(sdl.MapGPUTransferBuffer(r.device, transfer_buffer, false))
+        for i in 0..<len(asset.data_mips) {
+                level_info := level_infos[i]
+                ptr := rawptr(mapped + uintptr(level_info.buffer_offset))
+                mem.copy(ptr, raw_data(data[i]), len(data[i]))
+        }
         sdl.UnmapGPUTransferBuffer(r.device, transfer_buffer)
 
-        transfer_src := sdl.GPUTextureTransferInfo {
-                transfer_buffer = transfer_buffer,
-                offset          = 0,
-                pixels_per_row  = create_info.width,
-                rows_per_layer  = create_info.height,
-        }
-        
-        transfer_dst := sdl.GPUTextureRegion {
-                texture   = texture.gpu_texture,
-                mip_level = 0,
-                layer     = 0,
-                x         = 0,
-                y         = 0,
-                z         = 0,
-                w         = create_info.width,
-                h         = create_info.height,
-                d         = 1,
-        }
+        // Upload each mip individually
+        for i in 0..<len(asset.data_mips) {
+                level_info := level_infos[i]
 
-        // TODO: might need several commands to upload all mips?
-        sdl.UploadToGPUTexture(r.copy_pass, transfer_src, transfer_dst, false)
+                transfer_src := sdl.GPUTextureTransferInfo {
+                        transfer_buffer = transfer_buffer,
+                        offset          = level_info.buffer_offset,
+                        pixels_per_row  = level_info.width,
+                        rows_per_layer  = level_info.height,
+                }
+                transfer_dst := sdl.GPUTextureRegion {
+                        texture   = texture.gpu_texture,
+                        mip_level = u32(i),
+                        layer     = 0,
+                        x         = 0,
+                        y         = 0,
+                        z         = 0,
+                        w         = level_info.width,
+                        h         = level_info.height,
+                        d         = 1,
+                }
+                sdl.UploadToGPUTexture(r.copy_pass, transfer_src, transfer_dst, false)
+        }
         
         sdl.ReleaseGPUTransferBuffer(r.device, transfer_buffer)
 
@@ -201,8 +255,9 @@ texture_create :: proc(r: ^Resource_Uploader, asset: ^Asset_Texture, temp_alloca
         return
 }
 
-texture_destroy :: proc(device: ^sdl.GPUDevice, texture: ^Texture) {
 
+texture_destroy :: proc(device: ^sdl.GPUDevice, texture: ^Texture) {
+        sdl.ReleaseGPUTexture(device, texture.gpu_texture)
 }
 
 

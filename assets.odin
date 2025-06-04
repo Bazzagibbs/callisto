@@ -205,9 +205,7 @@ Asset_Texture :: struct {
         format       : sdl.GPUTextureFormat,
         width        : u32,
         height       : u32,
-        mip_levels   : u32, // Mips are computed offline
-
-        data         : []u8,
+        data_mips    : [][]u8, // []u8 per mip level
 }
 
 asset_load_texture :: proc(r: ^Resource_Uploader, path: Asset_Path, temp_allocator := context.temp_allocator, location := #caller_location) -> (texture: Texture, ok: bool) {
@@ -224,7 +222,10 @@ asset_load_texture :: proc(r: ^Resource_Uploader, path: Asset_Path, temp_allocat
 
         // Clean up buffer allocations from cbor
         defer {
-                delete(asset.data, temp_allocator)
+                for mip in asset.data_mips {
+                        delete(mip, temp_allocator)
+                }
+                delete(asset.data_mips, temp_allocator)
         }
 
         return texture_create(r, &asset, temp_allocator)

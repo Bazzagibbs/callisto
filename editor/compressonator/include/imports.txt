@@ -1,0 +1,4 @@
+foreign import lib {
+        "lib/Compressonator_MT.lib",
+        "system:ole32.lib",
+}
