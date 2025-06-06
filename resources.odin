@@ -15,7 +15,10 @@ import "core:bytes"
 import "core:encoding/uuid"
 import "core:fmt"
 
-
+// Required to draw the editor
+Entity_Base :: struct {
+        name: string,
+}
 
 Resource_Uploader :: struct {
         device         : ^sdl.GPUDevice,
