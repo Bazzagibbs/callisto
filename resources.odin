@@ -264,9 +264,11 @@ texture_destroy :: proc(device: ^sdl.GPUDevice, texture: ^Texture) {
 }
 
 
+Material_List :: sa.Small_Array(config.MAX_SUBMESHES, ^Material)
+
 Mesh_Renderer :: struct {
-        mesh : Mesh,
-        materials : sa.Small_Array(config.MAX_SUBMESHES, ^Material),
+        mesh      : Mesh,
+        materials : Material_List `cal_edit:"no_resize"`,
 }
 
 
@@ -466,3 +468,8 @@ Material :: struct {
 // material_create :: proc(r: ^Resource_Uploader, asset: ^Asset_Material) -> (material: Material, ok: bool) {
 //
 // }
+
+
+// A model stores an immutable transform hierarchy and a collection of meshes, colliders etc. that are associated with a transform node.
+Model :: struct {
+}

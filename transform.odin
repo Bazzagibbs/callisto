@@ -13,6 +13,16 @@ import "core:fmt"
 import "core:strings"
 
 
+Rotation :: struct {
+        quaternion             : quaternion128,
+        _degrees_editor        : [3]f32, // Do not access manually - only used to store user input in the editor before calculating quaternion.
+}
+
+ROTATION_IDENTITY :: Rotation {
+        quaternion      = linalg.QUATERNIONF32_IDENTITY,
+        _degrees_editor = {0, 0, 0},
+}
+
 Scene :: struct {
         // Maybe bind a scene to a global variable at the start of a frame
         // Might be worth changing Transform_Data to an arena allocator

@@ -111,8 +111,6 @@ import_png :: proc(args: ^Args, src_filename: string, dir_rel: string, src_fullp
                 data_mips   = mip_data,
         }
 
-        log.info(texture.format)
-
         return marshal_asset_into_file(dst_path_abs, texture)
 }
 
